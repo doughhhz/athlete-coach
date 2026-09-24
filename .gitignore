@@ -1,0 +1,45 @@
+# Dependencies and package-manager state
+node_modules/
+.pnp.*
+
+# Expo / React Native
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Native build output (when prebuild is adopted)
+android/
+ios/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# Tests and tooling
+coverage/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
