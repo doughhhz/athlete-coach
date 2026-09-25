@@ -53,6 +53,10 @@ Na fundação Supabase, a publishable key é deliberadamente pública e sua segu
 
 Seeds e testes usam somente identidades artificiais. Dados futuros de saúde/fitness exigem minimização, least privilege e mensagens de erro sem informações pessoais desnecessárias. A stack local não deve ser exposta à internet para conectar um aparelho físico.
 
+Na Phase 3, nome preferido, nascimento, altura, timezone, objetivo, rotina, experiência, disponibilidade, constraints, preferências e histórico de peso tornam-se dados pessoais persistidos. Sua finalidade é explícita no perfil e na futura personalização do Training Engine. RLS isola cada atleta; não há analytics, Gemini, outro provider de IA ou envio de texto livre a terceiros. Campos livres nunca entram em logs. Limites de peso/altura detectam provável erro de digitação e não classificam saúde, corpo ou risco clínico.
+
+Não existe ainda uma alegação de conformidade jurídica completa. Antes de produção, o produto precisa definir retenção, exportação portátil, exclusão acessível, resposta a incidentes e revisão dos cascades. Consentimento/transparência específicos serão decididos antes de qualquer processamento por IA; não há checkbox jurídico vazio nesta fase.
+
 ## Governança
 
 Qualquer nova capacidade de IA ou health data requer threat modeling, revisão de safety, testes adversariais, avaliação de privacidade e plano de observabilidade. Incidentes devem gerar registro, contenção, análise e alteração versionada; jamais apagar o histórico para esconder o problema.

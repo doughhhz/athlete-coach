@@ -23,6 +23,25 @@ export function createMobileSupabaseClient(): AthleteCoachSupabaseClient {
   });
 }
 
+let sharedClient: AthleteCoachSupabaseClient | undefined;
+
+export type MobileBackendConfiguration =
+  | Readonly<{ client: AthleteCoachSupabaseClient; status: "configured" }>
+  | Readonly<{ message: string; status: "configuration_error" }>;
+
+export function getMobileBackendConfiguration(): MobileBackendConfiguration {
+  try {
+    sharedClient ??= createMobileSupabaseClient();
+    return { client: sharedClient, status: "configured" };
+  } catch {
+    return {
+      message:
+        "Defina EXPO_PUBLIC_SUPABASE_URL e EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY para usar autenticação e persistência. Consulte o README.md.",
+      status: "configuration_error",
+    };
+  }
+}
+
 export function registerSupabaseAuthLifecycle(
   client: AthleteCoachSupabaseClient,
 ): () => void {

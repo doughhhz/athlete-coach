@@ -1,8 +1,8 @@
 # Modelo conceitual de dados
 
-Status: **canônico; baseline físico mínimo definido na Phase 2**
+Status: **canônico; perfil físico do atleta definido na Phase 3**
 
-Este documento define conceitos e relações. Somente a identidade mínima do atleta possui schema físico nesta fase; os demais agregados continuam conceituais.
+Este documento define conceitos e relações. A identidade, o perfil e os dados necessários ao onboarding possuem schema físico; os demais agregados continuam conceituais.
 
 ## Separação obrigatória
 
@@ -97,10 +97,22 @@ Uma `DecisionRecord` suporta ID, datas, contexto, decisão, motivo, evidências,
 
 Entidades principais usam UUID salvo decisão posterior documentada. Futuras relações de negócio devem apontar para `athletes.id`, não tratar detalhes de `auth.users` como modelo de domínio.
 
+## Perfil físico da Phase 3
+
+- `athletes.onboarding_completed_at timestamptz nullable` registra conclusão explícita somente após a transação válida.
+- `athlete_profiles` é 1:1 com atleta e armazena `preferred_name`, `birth_date date`, `height_cm numeric(5,1)` e timezone IANA. `age` é sempre derivada.
+- `athlete_goals` preserva histórico por vigência/status. Um índice parcial único permite no máximo um objetivo `active`; troca estrutural encerra o anterior e cria outro, enquanto correções futuras do mesmo objetivo não precisam criar histórico artificial.
+- `athlete_training_contexts` é 1:1 e contém meses objetivos de treino resistido, consistência recente declarada, duração, ambiente, rotina, constraints/preferências e sono opcional. Preferência informa aderência; não é prescrição científica.
+- `athlete_training_availability` contém somente dias disponíveis, com `1 = Monday` até `7 = Sunday`; a duração padrão permanece no contexto.
+- `body_weight_entries` é Raw Data append-only para o cliente, com `measured_at`, `weight_kg`, origem manual e criação. Peso mais recente é consulta por `measured_at` e não campo duplicado.
+
+Todas as relações apontam para `athletes.id`, usam `ON DELETE CASCADE`, RLS e ownership derivado da sessão. Campos livres têm limites, não são logados nem enviados a terceiros. Sexo/gênero não é coletado sem finalidade concreta. Exportação portátil e exclusão de conta por fluxo de produto permanecem requisitos anteriores à produção; os cascades atuais são verificados em testes.
+
 ## Convenções físicas
 
 - instantes absolutos usam `timestamptz`; o banco os trata semanticamente em UTC e a apresentação converte o timezone;
 - uma data civil sem horário poderá usar `date` quando o domínio a introduzir;
+- nascimento usa `date`; instantes de pesagem e vigência usam `timestamptz`;
 - cada grandeza terá unidade canônica explícita no nome/contrato: massa e carga em kg quando aplicável, comprimento em cm, energia em kcal e duração computacional em segundos;
 - conversões de unidade acontecem na boundary apropriada e nunca apagam a unidade da origem;
 - valores quantitativos importantes usam `numeric`, integer escalado ou tipo específico conforme precisão e operações do domínio; `float` não é padrão automático;

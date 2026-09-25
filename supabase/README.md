@@ -1,6 +1,6 @@
 # Supabase local
 
-Infraestrutura local oficial da Phase 2. `config.toml` define a stack, `migrations/` é a fonte versionada do schema, `tests/` contém pgTAP e `seed.sql` permanece sem dados pessoais. Não existe projeto remoto vinculado.
+Infraestrutura local oficial. `config.toml` define a stack, `migrations/` é a fonte versionada do schema, `tests/` contém pgTAP e `seed.sql` permanece sem dados pessoais. A Phase 3 acrescenta perfil, objetivo, contexto, disponibilidade, histórico de peso e RPCs transacionais. Não existe projeto remoto vinculado.
 
 Da raiz do repositório:
 

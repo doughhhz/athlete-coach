@@ -21,10 +21,46 @@ test("presentation does not access Supabase directly", async () => {
       );
       assert.doesNotMatch(
         source,
+        /@athlete-coach\/data-access/,
+        `${file} imports data access directly`,
+      );
+      assert.doesNotMatch(
+        source,
         /\.from\s*\(/,
         `${file} performs a direct data query`,
       );
     }
+  }
+
+  for (const file of await listSourceFiles(presentationRoots[1])) {
+    const source = await readFile(file, "utf8");
+    assert.doesNotMatch(
+      source,
+      /@\/infrastructure/,
+      `${file} imports concrete infrastructure`,
+    );
+  }
+});
+
+test("domain and application dependencies continue pointing inward", async () => {
+  const domainFiles = await listSourceFiles(
+    resolve(repositoryRoot, "packages/domain/src"),
+  );
+  const applicationFiles = await listSourceFiles(
+    resolve(repositoryRoot, "packages/application/src"),
+  );
+
+  for (const file of domainFiles) {
+    const source = await readFile(file, "utf8");
+    assert.doesNotMatch(
+      source,
+      /(?:from|import)\s*[({]?\s*["'](?:react|expo|@supabase\/|@athlete-coach\/)/i,
+    );
+  }
+
+  for (const file of applicationFiles) {
+    const source = await readFile(file, "utf8");
+    assert.doesNotMatch(source, /@supabase\/|@athlete-coach\/data-access/);
   }
 });
 

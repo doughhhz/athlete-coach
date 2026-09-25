@@ -1,7 +1,7 @@
 # Especificação do produto
 
 Status: **canônico, nível conceitual**
-Fase implementada mais recente: 1 — Mobile Shell
+Fase implementada mais recente: 3 — Athlete Profile & Onboarding
 
 ## Visão
 
@@ -59,13 +59,19 @@ A conversa não é a única interface nem a fonte oficial dos dados. A IA recebe
 
 Metas numéricas ainda não foram definidas e não devem ser inventadas antes de pesquisa/uso real.
 
-## Fora do escopo da fundação
+## Fora do escopo atual
 
-Aplicação executável, UI final, autenticação, schema físico, catálogo, prescrição automática, integração Gemini, aconselhamento clínico, HealthKit e monetização.
+UI final, catálogo, prescrição automática, programa de treino, integração Gemini, aconselhamento clínico, HealthKit, analytics, nutrição detalhada e monetização.
 
 ## Estado após a Phase 1
 
 Existe um shell mobile executável e navegável, sem capacidades de domínio. As cinco áreas provisórias são Hoje, Treino, Nutrição, Progresso e Personal. Cada tela declara explicitamente seu estado de placeholder; isso não implica que treino, nutrição, analytics ou IA estejam implementados.
+
+## Estado após a Phase 3
+
+O usuário pode criar conta e entrar por e-mail/senha, concluir onboarding, restaurar a sessão, editar dados fundamentais e acrescentar pesagens sem destruir o histórico. O app persiste nome preferido, nascimento, altura, timezone IANA, objetivo, experiência, rotina, duração, ambiente, disponibilidade, observações e preferências. Cada campo tem uso futuro identificado para personalização ou Training Engine; sexo, nutrição e informações de localização exata não são coletados.
+
+Hoje apresenta somente saudação, objetivo e peso mais recente efetivamente persistidos. As demais áreas continuam declarando ausência de implementação; nenhum resultado fictício é tratado como real.
 
 ## Questões abertas
 

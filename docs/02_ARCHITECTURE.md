@@ -41,7 +41,7 @@ Entidades, value objects, políticas e funções determinísticas. Não depende 
 
 Implementações de repositórios, mappers, cache e consultas. Converte tipos externos para contratos internos. Nenhuma linha retornada pelo banco deve atravessar sem validação/mapeamento.
 
-A Phase 2 introduz somente a fundação: uma factory tipada de `SupabaseClient<Database>` em `packages/data-access` e um adapter mobile de configuração/storage em `apps/mobile/src/infrastructure`. Repositories serão adicionados por capacidade quando existirem casos de uso; não há repository genérico. Presentation não importa `@supabase/*` nem executa `.from(...)` diretamente, boundary verificada por teste arquitetural.
+A Phase 3 adiciona repositories Supabase específicos para Auth, atleta, perfil, objetivo, contexto/disponibilidade, peso e onboarding. A composição concreta vive em `apps/mobile/src/infrastructure`; Presentation consome casos de uso via contexto, não importa Data Access ou `@supabase/*` e não executa `.from(...)`. Não há repository genérico. Respostas externas são validadas/mapeadas na boundary antes de virarem tipos de domínio.
 
 ### AI (`packages/ai` e backend)
 
@@ -91,6 +91,9 @@ Não duplicar a mesma entidade persistentemente em Query e Zustand. A estratégi
 - O mobile recebe somente URL e publishable key públicas; service role e secret key nunca vão para o cliente.
 - Migrations versionam schema, constraints, índices, funções e políticas.
 - Grants limitam operações antes da avaliação de RLS: `anon` não acessa `athletes`; `authenticated` recebe CRUD sujeito às políticas de ownership; `service_role` fica reservado ao backend confiável.
+- O mobile usa um único cliente persistido em AsyncStorage, um único listener de ciclo de vida e os estados estruturais `BOOTING`, `CONFIGURATION_ERROR`, `SIGNED_OUT`, `SIGNED_IN_ONBOARDING_REQUIRED` e `SIGNED_IN_READY`.
+- Rotas protegidas do Expo Router estruturam a navegação, mas não substituem RLS. Após sessão válida, `ensureCurrentAthlete` garante explicitamente a identidade de domínio.
+- A conclusão do onboarding é uma RPC `SECURITY INVOKER`, atômica e serializada por atleta; o timestamp de conclusão só é escrito ao final.
 
 RLS, autenticação e threat model devem existir antes de qualquer dado real.
 
@@ -114,7 +117,7 @@ RLS, autenticação e threat model devem existir antes de qualquer dado real.
 
 ## Estrutura de repositório
 
-Monorepo com `apps`, `packages`, `supabase`, `tests` e `docs`. A Phase 1 adotou npm workspaces e um lockfile único na raiz, conforme ADR-0009. `apps/mobile` e `packages/data-access` são os workspaces ativos; os demais pacotes conceituais não recebem manifests até serem usados.
+Monorepo com `apps`, `packages`, `supabase`, `tests` e `docs`. A Phase 1 adotou npm workspaces e um lockfile único na raiz, conforme ADR-0009. `apps/mobile`, `packages/application`, `packages/domain` e `packages/data-access` são workspaces ativos na Phase 3; pacotes conceituais não recebem manifests até serem usados.
 
 O shell mobile usa Expo SDK 57, React 19.2.3, React Native 0.86.3 e Expo Router 57. A matriz veio do template oficial estável `default@sdk-57` e deve continuar sendo validada pelo CLI do Expo em upgrades.
 

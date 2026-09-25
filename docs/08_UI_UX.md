@@ -36,6 +36,10 @@ Para o shell da Phase 1, foram adotadas cinco tabs: Hoje, Treino, Nutrição, Pr
 
 O tema possui tokens centrais para light/dark e segue a preferência do sistema. Cores e nome do produto continuam provisórios, sem constituir identidade visual aprovada.
 
+Na Phase 3, a raiz separa configuração, boot, Auth, onboarding obrigatório e app pronto. O onboarding usa oito telas de conteúdo mais a ação de conclusão na revisão: boas-vindas, dados pessoais/peso, objetivo, experiência, rotina, disponibilidade, observações e revisão. Rascunho é local e só é persistido pela confirmação atômica; fechar antes disso pode reiniciar o fluxo. Perfil é acessado por Hoje, sem sexta tab.
+
+Campos mantêm labels, teclado coerente, mensagens não julgadoras e progresso visível. Estado vazio ou erro é textual, nunca uma tela branca ou dado simulado. O date input textual `AAAA-MM-DD` é uma limitação consciente desta versão e deve ser reavaliado com testes reais de acessibilidade/entrada no iPhone.
+
 ## Conteúdo e tom
 
 Linguagem breve, específica e não julgadora. Evitar culpa por baixa aderência, jargão desnecessário e antropomorfização que sugira consciência ou autoridade clínica. Datas, unidades e comparações precisam de contexto.

@@ -1,9 +1,84 @@
-import { DarkTheme, DefaultTheme, Slot, ThemeProvider } from "expo-router";
-import { useColorScheme } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
+import { AppSessionProvider } from "@/infrastructure/application/app-session-provider";
+import { useAppSession } from "@/presentation/auth/app-session";
+import {
+  PrimaryButton,
+  SecondaryButton,
+} from "@/presentation/components/form-controls";
+import { getRouteAccess } from "@/presentation/auth/route-access";
 import { navigationColors } from "@/presentation/theme/theme";
+import { useAppTheme } from "@/presentation/theme/use-app-theme";
+
+function RootNavigator() {
+  const session = useAppSession();
+  const { accessState, configurationMessage, error } = session;
+  const theme = useAppTheme();
+  const routes = getRouteAccess(accessState);
+
+  if (accessState === "booting" || accessState === "configuration_error") {
+    return (
+      <SafeAreaView
+        style={[styles.status, { backgroundColor: theme.colors.background }]}
+      >
+        {accessState === "booting" && !error ? (
+          <ActivityIndicator color={theme.colors.accent} size="large" />
+        ) : null}
+        <Text
+          accessibilityRole="header"
+          style={[styles.statusTitle, { color: theme.colors.text }]}
+        >
+          {accessState === "booting"
+            ? error
+              ? "Não foi possível carregar"
+              : "Preparando seu perfil"
+            : "Backend não configurado"}
+        </Text>
+        <Text style={[styles.statusText, { color: theme.colors.textMuted }]}>
+          {accessState === "booting"
+            ? (error ?? "Restaurando sua sessão com segurança.")
+            : configurationMessage}
+        </Text>
+        {accessState === "booting" && error ? (
+          <View style={styles.statusActions}>
+            <PrimaryButton
+              label="Tentar novamente"
+              onPress={() => void session.retryInitialization()}
+            />
+            <SecondaryButton
+              label="Sair da conta"
+              onPress={() => void session.signOut()}
+            />
+          </View>
+        ) : null}
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <Stack screenOptions={{ headerBackTitle: "Voltar" }}>
+      <Stack.Protected guard={routes.auth}>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={routes.onboarding}>
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      </Stack.Protected>
+      <Stack.Protected guard={routes.ready}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="profile" options={{ title: "Perfil" }} />
+      </Stack.Protected>
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -17,8 +92,33 @@ export default function RootLayout() {
         value={{ ...baseTheme, colors: { ...baseTheme.colors, ...colors } }}
       >
         <StatusBar style={isDark ? "light" : "dark"} />
-        <Slot />
+        <AppSessionProvider>
+          <RootNavigator />
+        </AppSessionProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  status: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 28,
+  },
+  statusTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    marginTop: 20,
+    textAlign: "center",
+  },
+  statusText: {
+    fontSize: 16,
+    lineHeight: 23,
+    marginTop: 10,
+    maxWidth: 420,
+    textAlign: "center",
+  },
+  statusActions: { gap: 10, marginTop: 20, width: "100%" },
+});

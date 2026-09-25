@@ -5,6 +5,8 @@
   "packageManager": "npm@11.17.0",
   "workspaces": [
     "apps/mobile",
+    "packages/application",
+    "packages/domain",
     "packages/data-access"
   ],
   "scripts": {
@@ -13,8 +15,8 @@
     "lint": "npm --workspaces --if-present run lint",
     "typecheck": "npm --workspaces --if-present run typecheck",
     "test": "npm --workspaces --if-present run test && node --test tests/architecture/*.test.mjs",
-    "format": "prettier --write \"apps/mobile/**/*.{js,json,md,mjs,ts,tsx}\" \"packages/data-access/**/*.{js,json,md,mjs,ts,tsx}\" \"scripts/**/*.{js,mjs}\" \"tests/**/*.{js,md,mjs,ts}\" \"*.json\"",
-    "format:check": "prettier --check \"apps/mobile/**/*.{js,json,md,mjs,ts,tsx}\" \"packages/data-access/**/*.{js,json,md,mjs,ts,tsx}\" \"scripts/**/*.{js,mjs}\" \"tests/**/*.{js,md,mjs,ts}\" \"*.json\"",
+    "format": "prettier --write \"apps/mobile/**/*.{js,json,md,mjs,ts,tsx}\" \"packages/{application,data-access,domain}/**/*.{js,json,md,mjs,ts,tsx}\" \"scripts/**/*.{js,mjs}\" \"tests/**/*.{js,md,mjs,ts}\" \"*.json\"",
+    "format:check": "prettier --check \"apps/mobile/**/*.{js,json,md,mjs,ts,tsx}\" \"packages/{application,data-access,domain}/**/*.{js,json,md,mjs,ts,tsx}\" \"scripts/**/*.{js,mjs}\" \"tests/**/*.{js,md,mjs,ts}\" \"*.json\"",
     "validate": "npm run lint && npm run typecheck && npm run test && npm run format:check",
     "supabase:start": "node scripts/run-supabase.mjs start",
     "supabase:stop": "node scripts/run-supabase.mjs stop",
@@ -22,7 +24,8 @@
     "db:reset": "node scripts/run-supabase.mjs db reset",
     "db:test": "node scripts/run-supabase.mjs test db",
     "db:types": "node scripts/generate-database-types.mjs",
-    "db:verify": "npm run db:reset && npm run db:test && npm run db:types && npm run typecheck"
+    "db:verify": "npm run db:reset && npm run db:test && npm run db:types && npm run typecheck",
+    "test:integration:local": "node scripts/verify-phase3-local.mjs"
   },
   "devDependencies": {
     "prettier": "3.9.9",

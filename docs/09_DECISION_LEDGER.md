@@ -154,6 +154,39 @@ Mudanças editoriais que não alteram significado não precisam de entrada. Dúv
 - Motivo/evidência: evitar timestamps ambíguos, números sem unidade, floating point indiscriminado e abstrações prematuras.
 - Impacto: migrations e modelos futuros, boundaries de entrada/apresentação e documentação canônica.
 
+### ADR-0014 — Modelo físico do perfil e histórico mutável do atleta
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: a Phase 3 introduz os primeiros dados pessoais reais e precisa separar atributos estáveis de observações/objetivos mutáveis.
+- Regra anterior: `public.athletes` continha apenas identidade; perfil, objetivo, disponibilidade e Body eram conceituais.
+- Decisão: `athlete_profiles` guarda nascimento/altura/nome/timezone 1:1; `athlete_training_contexts` guarda contexto atual; disponibilidade usa linhas por weekday ISO explícito; peso é Raw Data append-only em `body_weight_entries`; objetivos possuem vigência e no máximo um ativo por índice parcial. Sexo/gênero não é coletado sem finalidade concreta.
+- Motivo/evidência: minimização, integridade histórica e necessidades explícitas do futuro Training Engine. Idade é derivada e peso mais recente é consultado, evitando duplicação destrutiva.
+- Compatibilidade/validação: constraints técnicas detectam erro de entrada sem avaliação clínica; FKs/cascades, cardinalidade, histórico e RLS são cobertos por pgTAP.
+- Impacto: migration Phase 3, domain, application, data-access, UI, privacidade e modelo de dados.
+
+### ADR-0015 — Auth estrutural e conclusão atômica do onboarding
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: sessão, criação de identidade e múltiplos registros do onboarding não podem produzir acesso incorreto nem estado parcial.
+- Regra anterior: o cliente Supabase existia sem telas Auth, repositories ou lifecycle de onboarding.
+- Decisão: usar exclusivamente Supabase Auth por e-mail/senha e um cliente mobile; representar `BOOTING`, `CONFIGURATION_ERROR`, `SIGNED_OUT`, `SIGNED_IN_ONBOARDING_REQUIRED` e `SIGNED_IN_READY`; proteger grupos com a API disponível no Expo Router 57; criar atleta explicitamente por RPC idempotente; concluir onboarding em RPC `SECURITY INVOKER`, transacional, serializada por atleta e marcar `onboarding_completed_at` somente ao final.
+- Motivo/evidência: sessão restaurável, navegação previsível, concorrência segura e ausência de persistência parcial. RLS permanece a autorização real.
+- Compatibilidade/validação: testes de rotas e casos de uso, pgTAP positivo/negativo, rollback de payload inválido e retry sem duplicação.
+- Impacto: root layout, Auth/onboarding/Profile, application, data-access, migration e testes.
+
+### ADR-0016 — Validação compartilhada e repositories específicos na Phase 3
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: o primeiro I/O real exige contratos reutilizáveis e mapeamento seguro sem levar Supabase à apresentação.
+- Regra anterior: Zod estava planejado e Data Access continha somente factory/tipos; repositories aguardavam casos de uso reais.
+- Decisão: adotar Zod 4.6.5 para credenciais, perfil, objetivo, contexto, disponibilidade, peso, onboarding e validação de respostas externas; ativar `domain` e `application` como workspaces; implementar portas/casos de uso e repositories específicos, sem `BaseRepository<T>`, ORM, Zustand ou TanStack Query.
+- Motivo/evidência: validação igual entre formulário/aplicação, defesa em runtime na boundary e responsabilidades rastreáveis. Estado React local basta para o draft e contexto de sessão desta fase.
+- Compatibilidade/validação: unitários de schemas/domínio/aplicação, contrato de mapper e teste arquitetural de dependências.
+- Impacto: manifests/lockfile, packages `domain`, `application`, `data-access`, composição mobile e documentação.
+
 ## Hipóteses registradas (não decisões de produto)
 
 - `athlete-coach` é apenas nome técnico do diretório.

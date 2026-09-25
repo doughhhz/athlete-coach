@@ -4,7 +4,7 @@ Status: **canônico em sequência; datas não definidas**
 
 Cada fase termina com validação e revisão humana. Concluir uma fase não autoriza iniciar automaticamente a seguinte.
 
-Estado de execução em 2026-09-24: Phases 0 e 1 concluídas; Phase 2 implementada e aguardando revisão humana; Phase 3 não iniciada.
+Estado de execução em 2026-09-25: Phases 0 a 2 concluídas; Phase 3 implementada e aguardando revisão humana; Phase 4 não iniciada.
 
 ## Phase 0 — Foundation
 
@@ -25,6 +25,8 @@ Implementação desta fase: infraestrutura local Supabase reproduzível, identid
 ## Phase 3 — Athlete Profile
 
 Perfil, objetivos com histórico, disponibilidade, preferências, constraints e consentimentos. Depende de 2.
+
+Implementação: Auth por e-mail/senha, identidade idempotente, onboarding atômico, perfil editável, objetivo ativo/histórico preservável, contexto/disponibilidade e histórico manual de peso. Consentimento para IA não foi antecipado porque nenhum dado é enviado a provider. Offline sync, exportação e exclusão por UI permanecem gates futuros documentados.
 
 ## Phase 4 — Exercise Catalog
 

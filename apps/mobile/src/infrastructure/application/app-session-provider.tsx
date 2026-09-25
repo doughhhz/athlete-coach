@@ -1,0 +1,206 @@
+import type {
+  AuthCredentials,
+  AvailabilityInput,
+  BodyWeightInput,
+  CompleteOnboardingInput,
+  ProfileInput,
+  TrainingContextInput,
+} from "@athlete-coach/application";
+import type { AthleteSnapshot } from "@athlete-coach/domain";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from "react";
+
+import {
+  createMobileApplication,
+  type MobileApplication,
+} from "@/infrastructure/application/create-mobile-application";
+import {
+  getMobileBackendConfiguration,
+  registerSupabaseAuthLifecycle,
+} from "@/infrastructure/supabase/mobile-supabase-client";
+import {
+  AppSessionContext,
+  type AppAccessState,
+  type AppSessionValue,
+} from "@/presentation/auth/app-session";
+
+function messageFrom(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "Ocorreu um erro. Tente novamente.";
+}
+
+export function AppSessionProvider({ children }: PropsWithChildren) {
+  const backend = useMemo(() => getMobileBackendConfiguration(), []);
+  const application = useMemo(
+    () =>
+      backend.status === "configured"
+        ? createMobileApplication(backend.client)
+        : null,
+    [backend],
+  );
+  const [accessState, setAccessState] = useState<AppAccessState>(
+    backend.status === "configured" ? "booting" : "configuration_error",
+  );
+  const [snapshot, setSnapshot] = useState<AthleteSnapshot | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const operation = useRef(0);
+
+  async function loadAuthenticatedState(app: MobileApplication): Promise<void> {
+    const currentOperation = ++operation.current;
+    try {
+      const athlete = await app.ensureAthlete.execute();
+      if (currentOperation !== operation.current) return;
+      if (!athlete.onboardingCompletedAt) {
+        setSnapshot(null);
+        setAccessState("signed_in_onboarding_required");
+        return;
+      }
+      const nextSnapshot = await app.loadProfile.execute();
+      if (currentOperation !== operation.current) return;
+      setSnapshot(nextSnapshot);
+      setAccessState("signed_in_ready");
+    } catch (caught) {
+      if (currentOperation === operation.current) {
+        setError(messageFrom(caught));
+        setAccessState("booting");
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!application || backend.status !== "configured") return;
+    let active = true;
+    const stopRefresh = registerSupabaseAuthLifecycle(backend.client);
+    const unsubscribe = application.authRepository.onSessionChange(
+      (session) => {
+        if (!active) return;
+        if (!session) {
+          operation.current += 1;
+          setSnapshot(null);
+          setAccessState("signed_out");
+        } else {
+          void loadAuthenticatedState(application);
+        }
+      },
+    );
+    void application.restoreSession
+      .execute()
+      .then((session) => {
+        if (!active) return;
+        if (session) void loadAuthenticatedState(application);
+        else setAccessState("signed_out");
+      })
+      .catch((caught) => {
+        if (active) {
+          setError(messageFrom(caught));
+          setAccessState("booting");
+        }
+      });
+    return () => {
+      active = false;
+      unsubscribe();
+      stopRefresh();
+    };
+  }, [application, backend]);
+
+  async function run(action: () => Promise<void>): Promise<void> {
+    setError(null);
+    try {
+      await action();
+    } catch (caught) {
+      setError(messageFrom(caught));
+      throw caught;
+    }
+  }
+
+  async function refresh(): Promise<void> {
+    if (!application) return;
+    const next = await application.loadProfile.execute();
+    setSnapshot(next);
+    setAccessState("signed_in_ready");
+  }
+
+  const value: AppSessionValue = {
+    accessState,
+    configurationMessage:
+      backend.status === "configuration_error" ? backend.message : null,
+    error,
+    notice,
+    snapshot,
+    clearMessages: () => {
+      setError(null);
+      setNotice(null);
+    },
+    completeOnboarding: async (input: CompleteOnboardingInput) =>
+      run(async () => {
+        if (!application) return;
+        await application.completeOnboarding.execute(input);
+        await refresh();
+      }),
+    recordWeight: async (input: BodyWeightInput) =>
+      run(async () => {
+        if (application) {
+          await application.recordWeight.execute(input);
+          await refresh();
+        }
+      }),
+    refresh: () => run(refresh),
+    retryInitialization: () =>
+      run(async () => {
+        if (!application) return;
+        setAccessState("booting");
+        const session = await application.restoreSession.execute();
+        if (session) await loadAuthenticatedState(application);
+        else setAccessState("signed_out");
+      }),
+    setAvailability: async (input: AvailabilityInput) =>
+      run(async () => {
+        if (application) {
+          await application.setAvailability.execute(input);
+          await refresh();
+        }
+      }),
+    signIn: async (credentials: AuthCredentials) =>
+      run(async () => {
+        if (application) await application.signIn.execute(credentials);
+      }),
+    signOut: async () =>
+      run(async () => {
+        if (application) await application.signOut.execute();
+      }),
+    signUp: async (credentials: AuthCredentials) =>
+      run(async () => {
+        if (!application) return;
+        const result = await application.signUp.execute(credentials);
+        if (result.requiresEmailConfirmation)
+          setNotice("Conta criada. Confirme seu e-mail antes de entrar.");
+      }),
+    updateProfile: async (input: ProfileInput) =>
+      run(async () => {
+        if (application) {
+          await application.updateProfile.execute(input);
+          await refresh();
+        }
+      }),
+    updateTrainingContext: async (input: TrainingContextInput) =>
+      run(async () => {
+        if (application) {
+          await application.updateTrainingContext.execute(input);
+          await refresh();
+        }
+      }),
+  };
+
+  return (
+    <AppSessionContext.Provider value={value}>
+      {children}
+    </AppSessionContext.Provider>
+  );
+}

@@ -6,9 +6,9 @@ Fundação arquitetural de um aplicativo mobile pessoal de treinamento, nutriç�
 
 ## Estado atual
 
-A **Phase 2 — Data Architecture** está implementada e aguarda revisão humana. Além do shell Expo da Phase 1, o repositório contém uma stack Supabase local reproduzível, a identidade mínima `public.athletes`, RLS por ownership, testes pgTAP e um cliente TypeScript tipado.
+A **Phase 3 — Athlete Profile & Onboarding** está implementada e aguarda revisão humana. O aplicativo possui autenticação real por e-mail/senha, sessão persistida, onboarding atômico em etapas, edição de perfil e histórico de peso sobre a fundação Supabase local.
 
-As telas continuam placeholders explícitos. Não existem onboarding, autenticação visual, perfil completo, integração com LLM, lógica de treino ou dados pessoais de exemplo.
+Hoje usa somente dados persistidos do atleta. Treino, Nutrição, Progresso e Personal continuam sem capacidades de domínio; não há integração com LLM, analytics, programa de treino nem dados pessoais de exemplo.
 
 ## Stack do shell
 
@@ -24,12 +24,12 @@ As telas continuam placeholders explícitos. Não existem onboarding, autentica�
 - `@supabase/supabase-js` 2.117.1;
 - AsyncStorage 2.2.0 e URL polyfill 4.0.0 para a infraestrutura React Native;
 - migrations SQL, tipos gerados e testes pgTAP versionados.
+- Zod 4.6.5 nas fronteiras de formulário, aplicação e respostas externas.
 
 Dependências planejadas para fases futuras, ainda não instaladas:
 
 - Zustand para estado local de interface/sessão;
 - TanStack Query para estado remoto e cache;
-- Zod nas fronteiras de entrada e saída;
 - um AI Gateway no backend, inicialmente com adapter para Gemini.
 
 A inclusão de qualquer dependência deve ocorrer somente na fase que realmente a utilizar.
@@ -91,8 +91,11 @@ npm run supabase:status
 npm run db:reset
 npm run db:test
 npm run db:types
+npm run test:integration:local
 npm run validate
 ```
+
+O teste integrado cria somente uma conta artificial local e percorre Auth, onboarding, reload, edição, pesagem, logout e novo login. Execute `npm run db:reset` depois dele para remover os dados de teste.
 
 Os scripts confinam arquivos temporários da CLI a `.cache/`, dentro do repositório e ignorada pelo Git. Para encerrar a stack:
 
@@ -100,7 +103,20 @@ Os scripts confinam arquivos temporários da CLI a `.cache/`, dentro do reposit�
 npm run supabase:stop
 ```
 
-Copie `.env.example` para `.env` somente quando um fluxo mobile precisar inicializar o cliente. Use a URL e a **publishable key** do ambiente desejado; nunca use `service_role` ou secret key no mobile. O iPhone físico e o banco local são validados separadamente nesta fase, sem exposição pública da stack.
+Copie `apps/mobile/.env.example` para `apps/mobile/.env.local` quando o app precisar inicializar o cliente. Use a URL e a **publishable key** do ambiente desejado; nunca use `service_role` ou secret key no mobile. O iPhone físico e o banco local são validados separadamente nesta fase, sem exposição pública da stack.
+
+### Auth e onboarding no app
+
+Para executar o fluxo funcional, crie `apps/mobile/.env.local` a partir de `apps/mobile/.env.example` e preencha somente:
+
+```text
+EXPO_PUBLIC_SUPABASE_URL=...
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+```
+
+Depois reinicie o Metro sem reutilizar um processo anterior. Sem essas variáveis o app mostra `Backend não configurado`; não há fallback ou login simulado. O fluxo é conta -> sessão -> identidade do atleta -> onboarding -> Hoje/Perfil. Rascunhos ainda não enviados permanecem apenas na memória e podem ser perdidos ao fechar o app.
+
+O Supabase local atende aos testes automatizados no computador. Não altere firewall nem exponha a stack local para conectar o iPhone. Para um teste futuro no aparelho físico, crie manualmente um projeto Supabase, revise as migrations, autorize explicitamente `supabase link`/`db push`, configure a URL e a publishable key desse projeto em `apps/mobile/.env.local`, e execute o Expo Go. Nenhum projeto remoto foi criado ou vinculado nesta fase.
 
 ### Workflow de mudança do banco
 
@@ -113,4 +129,4 @@ Copie `.env.example` para `.env` somente quando um fluxo mobile precisar inicial
 
 ## Próximo passo recomendado
 
-Revisar humanamente a Phase 2. Não iniciar a Phase 3 antes da aprovação explícita.
+Revisar humanamente a Phase 3. Não iniciar a Phase 4 antes da aprovação explícita.
