@@ -41,6 +41,8 @@ Entidades, value objects, políticas e funções determinísticas. Não depende 
 
 Implementações de repositórios, mappers, cache e consultas. Converte tipos externos para contratos internos. Nenhuma linha retornada pelo banco deve atravessar sem validação/mapeamento.
 
+A Phase 2 introduz somente a fundação: uma factory tipada de `SupabaseClient<Database>` em `packages/data-access` e um adapter mobile de configuração/storage em `apps/mobile/src/infrastructure`. Repositories serão adicionados por capacidade quando existirem casos de uso; não há repository genérico. Presentation não importa `@supabase/*` nem executa `.from(...)` diretamente, boundary verificada por teste arquitetural.
+
 ### AI (`packages/ai` e backend)
 
 - **AI Gateway:** único ponto autenticado de entrada para solicitações de IA, com limites, observabilidade e idempotência.
@@ -83,10 +85,12 @@ Não duplicar a mesma entidade persistentemente em Query e Zustand. A estratégi
 ## Supabase e segurança
 
 - Auth identifica o usuário; Row Level Security aplica isolamento no banco.
+- `auth.users` é identidade de autenticação da infraestrutura; `public.athletes` é identidade do domínio e usa UUID próprio.
 - Storage usa buckets e políticas específicas, não URLs públicas por padrão.
 - Edge Functions guardam secrets e executam integrações privilegiadas.
-- Service role nunca vai para o cliente.
+- O mobile recebe somente URL e publishable key públicas; service role e secret key nunca vão para o cliente.
 - Migrations versionam schema, constraints, índices, funções e políticas.
+- Grants limitam operações antes da avaliação de RLS: `anon` não acessa `athletes`; `authenticated` recebe CRUD sujeito às políticas de ownership; `service_role` fica reservado ao backend confiável.
 
 RLS, autenticação e threat model devem existir antes de qualquer dado real.
 
@@ -110,6 +114,8 @@ RLS, autenticação e threat model devem existir antes de qualquer dado real.
 
 ## Estrutura de repositório
 
-Monorepo com `apps`, `packages`, `supabase`, `tests` e `docs`. A Phase 1 adotou npm workspaces e um lockfile único na raiz, conforme ADR-0009. Apenas `apps/mobile` é um workspace executável neste momento; pacotes conceituais não recebem manifests até serem usados.
+Monorepo com `apps`, `packages`, `supabase`, `tests` e `docs`. A Phase 1 adotou npm workspaces e um lockfile único na raiz, conforme ADR-0009. `apps/mobile` e `packages/data-access` são os workspaces ativos; os demais pacotes conceituais não recebem manifests até serem usados.
 
 O shell mobile usa Expo SDK 57, React 19.2.3, React Native 0.86.3 e Expo Router 57. A matriz veio do template oficial estável `default@sdk-57` e deve continuar sendo validada pelo CLI do Expo em upgrades.
+
+A infraestrutura local usa Supabase CLI 2.117.0 versionada na raiz. `supabase/migrations` é a fonte do schema, `supabase/tests` contém testes pgTAP e `packages/data-access/src/generated/database.types.ts` é regenerado do banco local. Nenhum estado criado manualmente no Studio faz parte da arquitetura reproduzível.

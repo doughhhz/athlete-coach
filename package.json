@@ -4,20 +4,29 @@
   "private": true,
   "packageManager": "npm@11.17.0",
   "workspaces": [
-    "apps/mobile"
+    "apps/mobile",
+    "packages/data-access"
   ],
   "scripts": {
     "start": "npm --workspace @athlete-coach/mobile run start",
     "start:tunnel": "npm --workspace @athlete-coach/mobile run start -- --tunnel",
-    "lint": "npm --workspace @athlete-coach/mobile run lint",
-    "typecheck": "npm --workspace @athlete-coach/mobile run typecheck",
-    "test": "npm --workspace @athlete-coach/mobile run test",
-    "format": "prettier --write \"apps/mobile/**/*.{js,json,md,mjs,ts,tsx}\" \"package.json\"",
-    "format:check": "prettier --check \"apps/mobile/**/*.{js,json,md,mjs,ts,tsx}\" \"package.json\"",
-    "validate": "npm run lint && npm run typecheck && npm run test && npm run format:check"
+    "lint": "npm --workspaces --if-present run lint",
+    "typecheck": "npm --workspaces --if-present run typecheck",
+    "test": "npm --workspaces --if-present run test && node --test tests/architecture/*.test.mjs",
+    "format": "prettier --write \"apps/mobile/**/*.{js,json,md,mjs,ts,tsx}\" \"packages/data-access/**/*.{js,json,md,mjs,ts,tsx}\" \"scripts/**/*.{js,mjs}\" \"tests/**/*.{js,md,mjs,ts}\" \"*.json\"",
+    "format:check": "prettier --check \"apps/mobile/**/*.{js,json,md,mjs,ts,tsx}\" \"packages/data-access/**/*.{js,json,md,mjs,ts,tsx}\" \"scripts/**/*.{js,mjs}\" \"tests/**/*.{js,md,mjs,ts}\" \"*.json\"",
+    "validate": "npm run lint && npm run typecheck && npm run test && npm run format:check",
+    "supabase:start": "node scripts/run-supabase.mjs start",
+    "supabase:stop": "node scripts/run-supabase.mjs stop",
+    "supabase:status": "node scripts/run-supabase.mjs status",
+    "db:reset": "node scripts/run-supabase.mjs db reset",
+    "db:test": "node scripts/run-supabase.mjs test db",
+    "db:types": "node scripts/generate-database-types.mjs",
+    "db:verify": "npm run db:reset && npm run db:test && npm run db:types && npm run typecheck"
   },
   "devDependencies": {
-    "prettier": "3.9.9"
+    "prettier": "3.9.9",
+    "supabase": "2.117.0"
   },
   "overrides": {
     "react": "19.2.3",

@@ -4,7 +4,7 @@ Status: **canônico em sequência; datas não definidas**
 
 Cada fase termina com validação e revisão humana. Concluir uma fase não autoriza iniciar automaticamente a seguinte.
 
-Estado de execução em 2026-09-24: Phase 0 concluída; Phase 1 implementada e aguardando revisão humana; Phase 2 não iniciada.
+Estado de execução em 2026-09-24: Phases 0 e 1 concluídas; Phase 2 implementada e aguardando revisão humana; Phase 3 não iniciada.
 
 ## Phase 0 — Foundation
 
@@ -19,6 +19,8 @@ Implementação: concluída em um shell sem dados ou lógica de domínio, confor
 ## Phase 2 — Data Architecture
 
 Projetar schema físico, migrations, Auth, RLS, contratos Zod, repositories e estratégia offline/sync. Definir privacidade, retenção e exportação antes de dados reais. Depende de 1 e do modelo conceitual aprovado.
+
+Implementação desta fase: infraestrutura local Supabase reproduzível, identidade mínima `athletes`, grants/RLS, testes pgTAP, tipos gerados e factory tipada concluídos. Contratos Zod, repositories, offline/sync, retenção e exportação permanecem deliberadamente para as capacidades que introduzirem I/O e dados reais; não houve antecipação de um perfil ou modelo completo.
 
 ## Phase 3 — Athlete Profile
 

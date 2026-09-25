@@ -49,6 +49,10 @@ Ser direto, calmo e não alarmista; não afirmar diagnóstico; distinguir urgên
 - exportação, correção e exclusão definidas antes de produção;
 - resposta a incidentes e política de vulnerabilidades antes de lançamento.
 
+Na fundação Supabase, a publishable key é deliberadamente pública e sua segurança depende de Auth, grants mínimos e RLS. Apenas `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` podem chegar ao bundle mobile. Secret key, `service_role`, JWT secret e credenciais administrativas pertencem exclusivamente ao backend/ambiente seguro e não aparecem em exemplos, logs ou código cliente.
+
+Seeds e testes usam somente identidades artificiais. Dados futuros de saúde/fitness exigem minimização, least privilege e mensagens de erro sem informações pessoais desnecessárias. A stack local não deve ser exposta à internet para conectar um aparelho físico.
+
 ## Governança
 
 Qualquer nova capacidade de IA ou health data requer threat modeling, revisão de safety, testes adversariais, avaliação de privacidade e plano de observabilidade. Incidentes devem gerar registro, contenção, análise e alteração versionada; jamais apagar o histórico para esconder o problema.

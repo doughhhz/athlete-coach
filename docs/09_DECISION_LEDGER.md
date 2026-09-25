@@ -123,9 +123,40 @@ Mudanças editoriais que não alteram significado não precisam de entrada. Dúv
 - Hipótese: nomes, cores e identidade visual permanecem provisórios até pesquisa e decisão posterior.
 - Impacto: `apps/mobile/app`, `apps/mobile/src/presentation`, UI/UX e testes do shell.
 
+### ADR-0011 — Supabase local, migrations e boundary de acesso a dados
+
+- Data: 2026-09-24
+- Status: accepted
+- Contexto: a Phase 2 precisa tornar a persistência reproduzível sem criar um projeto remoto nem acoplar a UI ao banco.
+- Regra anterior: Supabase estava apenas planejado; `packages/data-access` e `supabase/` eram placeholders.
+- Decisão: adotar Supabase CLI 2.117.0 local e versionada, migrations SQL como fonte do schema, pgTAP para integração, tipos gerados pelo CLI e `@supabase/supabase-js` 2.117.1 encapsulado em `packages/data-access`. Presentation não importa SDK Supabase nem consulta tabelas diretamente. Não adotar ORM ou repository genérico.
+- Motivo/evidência: reset local, 27 testes de banco e geração de tipos executados contra a stack real; o teste arquitetural impede o atalho `UI -> supabase.from`.
+- Compatibilidade/validação: qualquer alteração segue migration -> reset -> testes de banco -> tipos -> typecheck/testes gerais. A CLI usa temporários confinados a `.cache/` para evitar a falha observada no temp global do Windows.
+- Impacto: raiz do workspace, `supabase/`, `packages/data-access`, infraestrutura mobile, testes e documentação.
+
+### ADR-0012 — Identidade mínima do atleta e autorização no banco
+
+- Data: 2026-09-24
+- Status: accepted
+- Contexto: o produto precisa de uma identidade de domínio distinta da autenticação antes de modelar perfil ou outros agregados.
+- Regra anterior: `Athlete` era somente agregado conceitual e as cardinalidades físicas estavam abertas.
+- Decisão: `auth.users` permanece identidade técnica; `public.athletes` usa UUID próprio, `user_id` único com foreign key e `ON DELETE CASCADE`, timestamps e nenhuma informação de perfil. `anon` não recebe grants; `authenticated` recebe CRUD sujeito a quatro policies explícitas de ownership; `service_role` é reservado ao backend.
+- Motivo/evidência: menor schema capaz de sustentar identidade, isolamento e evolução por domínio; testes positivos e negativos verificam grants, constraints e RLS.
+- Impacto: migration inicial, testes pgTAP, tipos gerados, arquitetura e modelo de dados.
+
+### ADR-0013 — Convenções físicas iniciais de dados
+
+- Data: 2026-09-24
+- Status: accepted
+- Contexto: IDs, timestamps, unidades, precisão e deleção precisam de defaults antes da entrada de dados quantitativos.
+- Regra anterior: IDs e schema físico seriam decididos na Phase 2; unidades/timezone eram parte do significado sem representação padrão.
+- Decisão: usar UUID em entidades principais; `timestamptz` para instantes absolutos semanticamente UTC; unidade canônica explícita por campo/contrato; `numeric`, integer escalado ou tipo específico conforme precisão; nenhuma política global de soft delete. `athletes` usa deleção física e cascade consciente. Não criar schemas físicos `raw`, `derived` e `coach` antecipadamente.
+- Motivo/evidência: evitar timestamps ambíguos, números sem unidade, floating point indiscriminado e abstrações prematuras.
+- Impacto: migrations e modelos futuros, boundaries de entrada/apresentação e documentação canônica.
+
 ## Hipóteses registradas (não decisões de produto)
 
 - `athlete-coach` é apenas nome técnico do diretório.
 - inglês em nomes de domínio/código e português na documentação inicial; convenção definitiva pode mudar.
-- monorepo é adequado à separação proposta; ferramenta continua aberta.
+- monorepo é adequado à separação proposta; npm workspaces resolveu a ferramenta conforme ADR-0009.
 - o primeiro usuário é individual, mas isolamento por usuário será obrigatório.

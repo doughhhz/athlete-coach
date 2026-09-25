@@ -1,3 +1,4 @@
 apps/mobile/.expo/
 apps/mobile/expo-env.d.ts
 node_modules/
+packages/data-access/src/generated/database.types.ts

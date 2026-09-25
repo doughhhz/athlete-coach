@@ -1,8 +1,8 @@
 # Modelo conceitual de dados
 
-Status: **canônico, pré-schema**
+Status: **canônico; baseline físico mínimo definido na Phase 2**
 
-Este documento define conceitos e relações; não fixa tabelas, colunas ou migrations.
+Este documento define conceitos e relações. Somente a identidade mínima do atleta possui schema físico nesta fase; os demais agregados continuam conceituais.
 
 ## Separação obrigatória
 
@@ -89,4 +89,22 @@ Uma `DecisionRecord` suporta ID, datas, contexto, decisão, motivo, evidências,
 - valores financeiros ou clínicos não estão previstos;
 - unidades e timezone são parte do significado;
 - conteúdo gerado por IA não substitui dado observado;
-- schema físico, cardinalidades finais e estratégia de IDs ficam para a Phase 2.
+- schema físico dos domínios futuros e suas cardinalidades serão decididos incrementalmente.
+
+## Baseline físico da Phase 2
+
+`auth.users` representa autenticação e identidade técnica no Supabase. `public.athletes` representa a identidade do atleta no domínio e não é um perfil completo. Ela possui `id uuid` gerado pelo PostgreSQL, `user_id uuid` único referenciando `auth.users(id)`, `created_at timestamptz` e `updated_at timestamptz`. A exclusão de um usuário remove fisicamente sua identidade de atleta por `ON DELETE CASCADE`; não há `deleted_at` preventivo.
+
+Entidades principais usam UUID salvo decisão posterior documentada. Futuras relações de negócio devem apontar para `athletes.id`, não tratar detalhes de `auth.users` como modelo de domínio.
+
+## Convenções físicas
+
+- instantes absolutos usam `timestamptz`; o banco os trata semanticamente em UTC e a apresentação converte o timezone;
+- uma data civil sem horário poderá usar `date` quando o domínio a introduzir;
+- cada grandeza terá unidade canônica explícita no nome/contrato: massa e carga em kg quando aplicável, comprimento em cm, energia em kcal e duração computacional em segundos;
+- conversões de unidade acontecem na boundary apropriada e nunca apagam a unidade da origem;
+- valores quantitativos importantes usam `numeric`, integer escalado ou tipo específico conforme precisão e operações do domínio; `float` não é padrão automático;
+- soft delete não é política global e será decidido por entidade conforme privacidade, auditoria e retenção;
+- audit logging de banco e o futuro Decision Ledger do Coach são conceitos distintos.
+
+Raw Data continua significando observação, Derived Data cálculo determinístico reproduzível e Coach Intelligence interpretação. Essa separação permanece obrigatória nos contratos, mas não justifica criar antecipadamente schemas SQL `raw`, `derived` e `coach`.

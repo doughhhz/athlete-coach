@@ -6,9 +6,9 @@ Fundação arquitetural de um aplicativo mobile pessoal de treinamento, nutriç�
 
 ## Estado atual
 
-A **Phase 1 — Mobile Shell** está implementada. O repositório contém uma aplicação Expo executável com TypeScript estrito, Expo Router, cinco tabs acessíveis, Safe Area e tema claro/escuro centralizado.
+A **Phase 2 — Data Architecture** está implementada e aguarda revisão humana. Além do shell Expo da Phase 1, o repositório contém uma stack Supabase local reproduzível, a identidade mínima `public.athletes`, RLS por ownership, testes pgTAP e um cliente TypeScript tipado.
 
-As telas são placeholders explícitos. Ainda não existem banco, autenticação, Supabase, integração com LLM, lógica de treino ou dados de domínio.
+As telas continuam placeholders explícitos. Não existem onboarding, autenticação visual, perfil completo, integração com LLM, lógica de treino ou dados pessoais de exemplo.
 
 ## Stack do shell
 
@@ -17,12 +17,19 @@ As telas são placeholders explícitos. Ainda não existem banco, autenticação
 - Expo Router 57;
 - ESLint e Prettier;
 
+## Stack de dados
+
+- Supabase CLI 2.117.0 como dependência local;
+- PostgreSQL/Supabase local gerenciado pelo Docker Desktop;
+- `@supabase/supabase-js` 2.117.1;
+- AsyncStorage 2.2.0 e URL polyfill 4.0.0 para a infraestrutura React Native;
+- migrations SQL, tipos gerados e testes pgTAP versionados.
+
 Dependências planejadas para fases futuras, ainda não instaladas:
 
 - Zustand para estado local de interface/sessão;
 - TanStack Query para estado remoto e cache;
 - Zod nas fronteiras de entrada e saída;
-- Supabase (PostgreSQL, Auth, Storage e Edge Functions);
 - um AI Gateway no backend, inicialmente com adapter para Gemini.
 
 A inclusão de qualquer dependência deve ocorrer somente na fase que realmente a utilizar.
@@ -74,6 +81,36 @@ Validação local completa:
 npm run validate
 ```
 
+## Supabase local no Windows
+
+Pré-requisitos: Docker Desktop com engine Linux em execução, Node.js 22.13 ou superior e dependências instaladas com `npm install` ou `npm ci`.
+
+```powershell
+npm run supabase:start
+npm run supabase:status
+npm run db:reset
+npm run db:test
+npm run db:types
+npm run validate
+```
+
+Os scripts confinam arquivos temporários da CLI a `.cache/`, dentro do repositório e ignorada pelo Git. Para encerrar a stack:
+
+```powershell
+npm run supabase:stop
+```
+
+Copie `.env.example` para `.env` somente quando um fluxo mobile precisar inicializar o cliente. Use a URL e a **publishable key** do ambiente desejado; nunca use `service_role` ou secret key no mobile. O iPhone físico e o banco local são validados separadamente nesta fase, sem exposição pública da stack.
+
+### Workflow de mudança do banco
+
+1. Criar uma migration com `npx supabase migration new <nome>`.
+2. Executar `npm run db:reset`.
+3. Executar `npm run db:test`.
+4. Executar `npm run db:types`; nunca editar `database.types.ts` manualmente.
+5. Executar `npm run typecheck` e `npm test`.
+6. Revisar o diff e então criar o commit.
+
 ## Próximo passo recomendado
 
-Revisar humanamente a Phase 1. Não iniciar a Phase 2 antes da aprovação explícita.
+Revisar humanamente a Phase 2. Não iniciar a Phase 3 antes da aprovação explícita.

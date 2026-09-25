@@ -1,0 +1,2 @@
+-- Intentionally empty in Phase 2.
+-- Never add personal, health, or production data to the local seed.

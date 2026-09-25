@@ -1,3 +1,3 @@
-# Future data-access source
+# Data-access source
 
-Organizar adapters por contrato/serviço externo. Tipos gerados pelo Supabase não devem se tornar tipos de domínio automaticamente; usar mapeamento e validação nas fronteiras.
+`generated/` é saída do Supabase CLI e não deve ser editada manualmente. `supabase/` contém a factory do SDK, não queries de UI. Organizar adapters futuros por contrato/capacidade; tipos gerados não se tornam tipos de domínio automaticamente e devem ser mapeados/validados nas fronteiras.
