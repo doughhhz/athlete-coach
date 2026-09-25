@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Athlete Coach",
+    "slug": "athlete-coach",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "athletecoach",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

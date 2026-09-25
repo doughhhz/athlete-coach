@@ -110,4 +110,6 @@ RLS, autenticação e threat model devem existir antes de qualquer dado real.
 
 ## Estrutura de repositório
 
-Monorepo conceitual com `apps`, `packages`, `supabase`, `tests` e `docs`. O gerenciador de pacotes e ferramenta de monorepo serão escolhidos na Phase 1; nenhum foi assumido na fundação.
+Monorepo com `apps`, `packages`, `supabase`, `tests` e `docs`. A Phase 1 adotou npm workspaces e um lockfile único na raiz, conforme ADR-0009. Apenas `apps/mobile` é um workspace executável neste momento; pacotes conceituais não recebem manifests até serem usados.
+
+O shell mobile usa Expo SDK 57, React 19.2.3, React Native 0.86.3 e Expo Router 57. A matriz veio do template oficial estável `default@sdk-57` e deve continuar sendo validada pelo CLI do Expo em upgrades.

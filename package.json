@@ -1,0 +1,30 @@
+{
+  "name": "athlete-coach",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.17.0",
+  "workspaces": [
+    "apps/mobile"
+  ],
+  "scripts": {
+    "start": "npm --workspace @athlete-coach/mobile run start",
+    "start:tunnel": "npm --workspace @athlete-coach/mobile run start -- --tunnel",
+    "lint": "npm --workspace @athlete-coach/mobile run lint",
+    "typecheck": "npm --workspace @athlete-coach/mobile run typecheck",
+    "test": "npm --workspace @athlete-coach/mobile run test",
+    "format": "prettier --write \"apps/mobile/**/*.{js,json,md,mjs,ts,tsx}\" \"package.json\"",
+    "format:check": "prettier --check \"apps/mobile/**/*.{js,json,md,mjs,ts,tsx}\" \"package.json\"",
+    "validate": "npm run lint && npm run typecheck && npm run test && npm run format:check"
+  },
+  "devDependencies": {
+    "prettier": "3.9.9"
+  },
+  "overrides": {
+    "react": "19.2.3",
+    "react-native-reanimated": "4.5.1",
+    "react-native-worklets": "0.10.1"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

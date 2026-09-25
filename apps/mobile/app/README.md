@@ -1,3 +1,3 @@
-# Expo Router placeholder
+# Expo Router
 
-Este diretório receberá rotas e layouts na Phase 1. Arquivos de rota devem compor telas e delegar regras de negócio; não devem calcular métricas, acessar Supabase diretamente ou chamar provedores de IA.
+Rotas do shell mobile da Phase 1. Os arquivos compõem navegação e telas de apresentação; não calculam métricas, acessam Supabase ou chamam provedores de IA.

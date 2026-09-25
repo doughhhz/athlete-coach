@@ -30,7 +30,11 @@ Componentes e telas futuras consideram: inicial, carregando, vazio, offline, ras
 
 ## Navegação conceitual
 
-Áreas prováveis: Hoje, Treino, Progresso, Coach e Perfil. Isto é hipótese de arquitetura de informação, não definição de tabs nem UI final. A validação ocorrerá na Phase 1.
+Na fundação, as áreas prováveis eram Hoje, Treino, Progresso, Coach e Perfil, ainda como hipótese.
+
+Para o shell da Phase 1, foram adotadas cinco tabs: Hoje, Treino, Nutrição, Progresso e Personal, conforme ADR-0010. Essa decisão valida somente a navegação estrutural da fase; não define a arquitetura de informação final nem afirma que as capacidades estejam implementadas.
+
+O tema possui tokens centrais para light/dark e segue a preferência do sistema. Cores e nome do produto continuam provisórios, sem constituir identidade visual aprovada.
 
 ## Conteúdo e tom
 

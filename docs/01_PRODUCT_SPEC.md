@@ -1,7 +1,7 @@
 # Especificação do produto
 
 Status: **canônico, nível conceitual**
-Fase atual: 0 — Foundation
+Fase implementada mais recente: 1 — Mobile Shell
 
 ## Visão
 
@@ -62,6 +62,10 @@ Metas numéricas ainda não foram definidas e não devem ser inventadas antes de
 ## Fora do escopo da fundação
 
 Aplicação executável, UI final, autenticação, schema físico, catálogo, prescrição automática, integração Gemini, aconselhamento clínico, HealthKit e monetização.
+
+## Estado após a Phase 1
+
+Existe um shell mobile executável e navegável, sem capacidades de domínio. As cinco áreas provisórias são Hoje, Treino, Nutrição, Progresso e Personal. Cada tela declara explicitamente seu estado de placeholder; isso não implica que treino, nutrição, analytics ou IA estejam implementados.
 
 ## Questões abertas
 

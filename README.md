@@ -6,12 +6,19 @@ Fundação arquitetural de um aplicativo mobile pessoal de treinamento, nutriç�
 
 ## Estado atual
 
-Este repositório está na **Phase 0 — Foundation**. Ele contém decisões canônicas, boundaries e diretórios para evolução futura. Ainda não contém aplicação executável, telas, banco, autenticação ou integração com LLM.
+A **Phase 1 — Mobile Shell** está implementada. O repositório contém uma aplicação Expo executável com TypeScript estrito, Expo Router, cinco tabs acessíveis, Safe Area e tema claro/escuro centralizado.
 
-## Stack planejada
+As telas são placeholders explícitos. Ainda não existem banco, autenticação, Supabase, integração com LLM, lógica de treino ou dados de domínio.
 
-- React Native, Expo e TypeScript;
-- Expo Router;
+## Stack do shell
+
+- npm workspaces e lockfile na raiz;
+- Expo SDK 57, React 19.2.3, React Native 0.86.3 e TypeScript 6.0.3;
+- Expo Router 57;
+- ESLint e Prettier;
+
+Dependências planejadas para fases futuras, ainda não instaladas:
+
 - Zustand para estado local de interface/sessão;
 - TanStack Query para estado remoto e cache;
 - Zod nas fronteiras de entrada e saída;
@@ -23,7 +30,7 @@ A inclusão de qualquer dependência deve ocorrer somente na fase que realmente 
 ## Mapa do repositório
 
 ```text
-apps/mobile/            futura aplicação Expo e camada de apresentação
+apps/mobile/            aplicação Expo e camada de apresentação
 packages/domain/        regras e tipos de domínio, sem dependências de UI/infra
 packages/application/   casos de uso e portas
 packages/data-access/   adapters de persistência e consultas
@@ -42,6 +49,31 @@ docs/                   documentação canônica
 4. Faça a menor mudança coerente, acompanhada por validações proporcionais ao risco.
 5. Entregue um relatório final com mudanças, decisões, hipóteses, riscos, testes e estado do Git.
 
+## Executar no Windows com Expo Go
+
+Pré-requisitos: Node.js 22.13 ou mais recente, npm e Expo Go atualizado no iPhone 11. O computador e o iPhone devem estar na mesma rede local.
+
+No PowerShell, a partir da raiz do repositório:
+
+```powershell
+npm install
+npx expo login
+npx expo whoami
+npm run start
+```
+
+Informe suas credenciais somente no prompt local do Expo CLI. No iPhone, entre no Expo Go com a mesma conta e então leia o QR code exibido pelo terminal. Se a rede local bloquear a conexão, encerre o servidor com `Ctrl+C` e use:
+
+```powershell
+npm run start:tunnel
+```
+
+Validação local completa:
+
+```powershell
+npm run validate
+```
+
 ## Próximo passo recomendado
 
-Revisar e aprovar esta constituição; depois iniciar **Phase 1 — Mobile Shell**, criando o projeto Expo mínimo e navegável sem implementar os domínios.
+Revisar humanamente a Phase 1. Não iniciar a Phase 2 antes da aprovação explícita.

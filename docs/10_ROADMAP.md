@@ -4,6 +4,8 @@ Status: **canônico em sequência; datas não definidas**
 
 Cada fase termina com validação e revisão humana. Concluir uma fase não autoriza iniciar automaticamente a seguinte.
 
+Estado de execução em 2026-09-24: Phase 0 concluída; Phase 1 implementada e aguardando revisão humana; Phase 2 não iniciada.
+
 ## Phase 0 — Foundation
 
 Constituição, especificação, arquitetura, modelo conceitual, safety, UX, ledger, roadmap, estrutura e Git. Saída: decisões revisáveis, sem app executável.
@@ -11,6 +13,8 @@ Constituição, especificação, arquitetura, modelo conceitual, safety, UX, led
 ## Phase 1 — Mobile Shell
 
 Criar Expo + TypeScript estrito, Expo Router, lint/format/testes mínimos, tema e navegação placeholder acessível. Escolher package manager/workspace. Depende da aprovação da Phase 0.
+
+Implementação: concluída em um shell sem dados ou lógica de domínio, conforme ADR-0009 e ADR-0010. A passagem para a Phase 2 depende de revisão humana.
 
 ## Phase 2 — Data Architecture
 

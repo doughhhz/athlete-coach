@@ -101,6 +101,28 @@ Mudanças editoriais que não alteram significado não precisam de entrada. Dúv
 - Motivo/evidência: domínio sensível de saúde e requisito de Safety Gate.
 - Impacto: AI, application, UI, testes e observabilidade.
 
+### ADR-0009 — npm workspaces e matriz Expo da Phase 1
+
+- Data: 2026-09-24
+- Status: accepted
+- Contexto: ADR-0007 deixou a ferramenta de monorepo pendente para a Phase 1; o shell precisa ser reproduzível e compatível com Expo Go.
+- Regra anterior: monorepo conceitual sem package manager ou ferramenta escolhidos; stack Expo planejada sem versão instalada.
+- Decisão: usar npm workspaces com lockfile único na raiz. O shell adota o template oficial estável `default@sdk-57`, efetivamente resolvido como Expo 57.0.25, React 19.2.3, React Native 0.86.3, Expo Router 57.0.23 e TypeScript 6.0.3. SDK 58 beta/`next` não foi adotado.
+- Motivo/evidência: npm já integra o ambiente Node e atende ao único workspace executável; `create-expo-app@latest` e a documentação oficial indicavam SDK 57 como `latest` em 2026-09-24.
+- Compatibilidade/validação: Node mínimo 22.13; `expo install --check`, lint, typecheck, testes, Metro e bundle iOS devem passar. Upgrades exigem nova verificação da matriz oficial.
+- Impacto: `package.json`, `package-lock.json`, `apps/mobile`, README, arquitetura e fluxo de desenvolvimento.
+
+### ADR-0010 — Navegação e tema estruturais do shell mobile
+
+- Data: 2026-09-24
+- Status: accepted
+- Contexto: a navegação da fundação era hipótese; a Phase 1 exige cinco destinos explícitos sem implementar capacidades futuras.
+- Regra anterior: áreas prováveis Hoje, Treino, Progresso, Coach e Perfil, sem definição de tabs.
+- Decisão: o shell usa tabs Hoje, Treino, Nutrição, Progresso e Personal. Telas são placeholders explícitos, com Safe Area, rótulos acessíveis e tokens centralizados para light/dark automático.
+- Motivo/evidência: critério explícito da Phase 1 e necessidade de validar a estrutura de navegação no iPhone.
+- Hipótese: nomes, cores e identidade visual permanecem provisórios até pesquisa e decisão posterior.
+- Impacto: `apps/mobile/app`, `apps/mobile/src/presentation`, UI/UX e testes do shell.
+
 ## Hipóteses registradas (não decisões de produto)
 
 - `athlete-coach` é apenas nome técnico do diretório.
