@@ -87,3 +87,7 @@ Fixtures sintéticas e dados anonimizados devem anteceder testes com dados reais
 ## Questões abertas
 
 Modelo Gemini inicial, estratégia de custos, retenção pelo provider, regiões, streaming, embeddings/RAG, policy de consentimento, ciclos de memória e requisitos jurídicos. Nenhuma dessas escolhas está aprovada nesta fase.
+
+## Dossier boundary before AI
+
+Phase 8 não integra LLM. O futuro Personal AI recebe `AthleteTrainingDossier` versionado e futuramente drill-down específico de evidência; acesso irrestrito ao banco não é sua interface primária. Recomendações futuras exigem schema, validação determinística e aprovação humana/policy.

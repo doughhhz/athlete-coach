@@ -347,3 +347,22 @@ Mudanças editoriais que não alteram significado não precisam de entrada. Dúv
 - inglês em nomes de domínio/código e português na documentação inicial; convenção definitiva pode mudar.
 - monorepo é adequado à separação proposta; npm workspaces resolveu a ferramenta conforme ADR-0009.
 - o primeiro usuário é individual, mas isolamento por usuário será obrigatório.
+
+### ADR-0034 — Athlete Training Dossier Contract
+
+- **Anterior:** Phase 8 iniciaria AI Coach e o dossiê estava em fase posterior.
+- **Nova:** `athlete-training-dossier-v1` precede IA e organiza contexto, histórico, sinais, cobertura e evidência.
+- **Motivo:** contrato auditável sem acesso irrestrito do futuro Coach ao banco.
+- **Status:** accepted; sequência anterior superseded.
+
+### ADR-0035 — Civil longitudinal windows
+
+Janelas usam data civil IANA, início inclusivo/fim exclusivo, últimos 7/28 dias incluindo hoje e períodos anteriores adjacentes. Delta relativo é null sem denominador válido.
+
+### ADR-0036 — Bounded evidence
+
+Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidências são tipadas e exposições trazem até três sessões ordenadas. Sem cache ou graph database.
+
+### ADR-0037 — Signals are not conclusions
+
+“The dossier organizes evidence; it does not interpret it.” “A longitudinal signal is a factual comparison, not a coaching conclusion.” O contrato proíbe recommendation, interpretation, score, fatigue/readiness e sugestões.

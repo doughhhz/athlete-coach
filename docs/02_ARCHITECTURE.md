@@ -131,3 +131,7 @@ Monorepo com `apps`, `packages`, `supabase`, `tests` e `docs`. A Phase 1 adotou 
 O shell mobile usa Expo SDK 57, React 19.2.3, React Native 0.86.3 e Expo Router 57. A matriz veio do template oficial estável `default@sdk-57` e deve continuar sendo validada pelo CLI do Expo em upgrades.
 
 A infraestrutura local usa Supabase CLI 2.117.0 versionada na raiz. `supabase/migrations` é a fonte do schema, `supabase/tests` contém testes pgTAP e `packages/data-access/src/generated/database.types.ts` é regenerado do banco local. Nenhum estado criado manualmente no Studio faz parte da arquitetura reproduzível.
+
+## Phase 8 projection boundary
+
+`BuildAthleteTrainingDossier` compõe perfil, programa, workouts e performance existentes; funções puras constroem sinais e RLS preserva ownership. O contrato é reconstruído, versionado e não persistido. Futuro, não implementado: `Dossier → Personal AI → Structured Coach Proposal → Deterministic Validator → Human Approval/Policy → Program Revision → runtime Coach Decision Ledger`.

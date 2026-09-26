@@ -12,3 +12,4 @@ export * from "./workout/schemas.ts";
 export * from "./workout/use-cases.ts";
 export * from "./performance/ports.ts";
 export * from "./performance/use-cases.ts";
+export * from "./dossier/use-cases.ts";

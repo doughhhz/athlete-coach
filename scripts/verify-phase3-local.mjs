@@ -30,6 +30,7 @@ import {
   GetPerformanceOverview,
   GetExercisePerformanceHistory,
   GetExercisePersonalBests,
+  BuildAthleteTrainingDossier,
 } from "../packages/application/src/index.ts";
 import { createAthleteCoachSupabaseClient } from "../packages/data-access/src/supabase/create-athlete-coach-supabase-client.ts";
 import {
@@ -99,6 +100,13 @@ function compose(client) {
   const programs = new SupabaseTrainingProgramRepository(client);
   const workouts = new SupabaseWorkoutSessionRepository(client);
   const performance = new SupabasePerformanceReadRepository(client);
+  const load = new LoadCurrentAthleteProfile(
+    athlete,
+    profile,
+    goal,
+    training,
+    weight,
+  );
   return {
     auth,
     complete: new CompleteAthleteOnboarding(
@@ -106,13 +114,7 @@ function compose(client) {
     ),
     ensure: new EnsureCurrentAthlete(athlete),
     latest: new GetLatestBodyWeight(weight),
-    load: new LoadCurrentAthleteProfile(
-      athlete,
-      profile,
-      goal,
-      training,
-      weight,
-    ),
+    load,
     record: new RecordBodyWeight(weight),
     restore: new RestoreSession(auth),
     signIn: new SignInWithEmail(auth),
@@ -135,6 +137,12 @@ function compose(client) {
     performanceOverview: new GetPerformanceOverview(performance),
     performanceHistory: new GetExercisePerformanceHistory(performance),
     personalBests: new GetExercisePersonalBests(performance),
+    dossier: new BuildAthleteTrainingDossier(
+      load,
+      programs,
+      workouts,
+      performance,
+    ),
   };
 }
 
@@ -380,15 +388,28 @@ assert.equal(performanceHistory.at(-1)?.isNewMaxLoggedLoad, true);
 assert.equal(performanceHistory.at(-1)?.isNewEstimatedOneRepMax, true);
 assert.equal((await reloaded.personalBests.execute())[0].maxLoggedLoadKg, 35);
 const overviewBeforeReload = await reloaded.performanceOverview.execute();
+const dossierBeforeReload = await reloaded.dossier.execute();
+assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v1");
+assert.equal(dossierBeforeReload.activeProgram?.id, revision.id);
+assert.equal(dossierBeforeReload.windows.at(-1)?.sessionsStarted, 3);
+assert.equal(dossierBeforeReload.exerciseSignals.length, 1);
+assert.ok(
+  dossierBeforeReload.evidence.some((item) => item.kind === "training_program"),
+);
 await reloaded.signOut.execute();
 await reloaded.signIn.execute(credentials);
 assert.deepEqual(
   await reloaded.performanceOverview.execute(),
   overviewBeforeReload,
 );
+const dossierAfterReload = await reloaded.dossier.execute();
+assert.deepEqual(
+  { ...dossierAfterReload, generatedAt: dossierBeforeReload.generatedAt },
+  dossierBeforeReload,
+);
 
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/derived-performance flow passed.",
+  "Local Auth/onboarding/training/workout/derived-performance/dossier flow passed.",
 );

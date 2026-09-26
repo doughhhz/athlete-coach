@@ -90,3 +90,7 @@ Mudanças potencialmente estratégicas entram como recomendação e exigem aceit
 ## Testes futuros essenciais
 
 Fórmulas, conversões de unidade, arredondamento, sessões incompletas, duplicação por retry, correção histórica, fusos horários, séries sem carga externa e regressões após mudança de algoritmo.
+
+## Longitudinal signals v1
+
+Últimos 28 dias civis são comparados aos 28 anteriores. `absoluteDelta = current - previous`; `relativeDelta = (current - previous) / abs(previous)` só com denominador não-zero. Frequência é sessões distintas com série concluída. Carga/e1RM seguem exercise-specific/Epley v1. Não há tendência qualitativa, causalidade, tonelagem ou recomendação.

@@ -99,3 +99,7 @@ Progresso apresenta fatos históricos recalculados a partir de Raw Performance: 
 - regras clínicas e locais de escalonamento;
 - fontes e licenças para catálogo e mídia de exercícios/alimentos;
 - métricas prioritárias e critérios de sucesso por fase.
+
+## Phase 8 — dossiê longitudinal
+
+Projeção versionada sob demanda com contexto mínimo, programa ativo, fatos de 7/28 dias e períodos anteriores, exposição por exercício, deltas, cobertura carga/RIR/descanso, peso mais recente e evidências limitadas. Reps, segundos e metros permanecem separados. O dossiê organiza evidência; não interpreta nem recomenda.

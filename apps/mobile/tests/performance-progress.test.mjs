@@ -45,3 +45,11 @@ test("workout summary includes factual derived metrics", () => {
   assert.match(summary, /dentro do alvo/);
   assert.match(summary, /1RM estimado/);
 });
+test("Progress renders longitudinal facts without qualitative interpretation", () => {
+  assert.match(progress, /Últimos 28 dias/);
+  assert.match(progress, /período anterior/);
+  assert.match(progress, /Comparação factual/);
+  assert.match(progress, /amostras/);
+  assert.match(progress, /Dados registrados/);
+  assert.doesNotMatch(progress, /melhorou|piorou|excelente|precisa progredir/i);
+});

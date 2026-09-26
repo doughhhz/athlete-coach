@@ -36,6 +36,8 @@ import {
   GetExercisePerformanceHistory,
   GetExercisePersonalBests,
   GetWorkoutDerivedSummary,
+  BuildAthleteTrainingDossier,
+  GetLongitudinalTrainingSignals,
 } from "@athlete-coach/application";
 import {
   SupabaseAthleteGoalRepository,
@@ -67,19 +69,26 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
   const workouts = new SupabaseWorkoutSessionRepository(client);
   const performance = new SupabasePerformanceReadRepository(client);
 
+  const loadProfile = new LoadCurrentAthleteProfile(
+    athleteRepository,
+    profileRepository,
+    goalRepository,
+    trainingRepository,
+    weightRepository,
+  );
+  const buildTrainingDossier = new BuildAthleteTrainingDossier(
+    loadProfile,
+    programs,
+    workouts,
+    performance,
+  );
   return {
     authRepository,
     changeActiveGoal: new ChangeActiveGoal(goalRepository),
     completeOnboarding: new CompleteAthleteOnboarding(onboardingRepository),
     ensureAthlete: new EnsureCurrentAthlete(athleteRepository),
     getLatestWeight: new GetLatestBodyWeight(weightRepository),
-    loadProfile: new LoadCurrentAthleteProfile(
-      athleteRepository,
-      profileRepository,
-      goalRepository,
-      trainingRepository,
-      weightRepository,
-    ),
+    loadProfile,
     recordWeight: new RecordBodyWeight(weightRepository),
     restoreSession: new RestoreSession(authRepository),
     setAvailability: new SetTrainingAvailability(trainingRepository),
@@ -114,6 +123,10 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     ),
     getExercisePersonalBests: new GetExercisePersonalBests(performance),
     getWorkoutDerivedSummary: new GetWorkoutDerivedSummary(performance),
+    buildTrainingDossier,
+    getLongitudinalTrainingSignals: new GetLongitudinalTrainingSignals(
+      buildTrainingDossier,
+    ),
   } as const;
 }
 

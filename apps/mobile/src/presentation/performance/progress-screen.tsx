@@ -2,6 +2,7 @@ import type {
   ExercisePerformancePoint,
   ExercisePersonalBest,
   PerformanceOverview,
+  AthleteTrainingDossier,
 } from "@athlete-coach/domain";
 import { useEffect, useState } from "react";
 import {
@@ -23,6 +24,7 @@ export function ProgressScreen() {
   const [overview, setOverview] = useState<PerformanceOverview | null>(null),
     [bests, setBests] = useState<readonly ExercisePersonalBest[]>([]),
     [history, setHistory] = useState<readonly ExercisePerformancePoint[]>([]),
+    [dossier, setDossier] = useState<AthleteTrainingDossier | null>(null),
     [selected, setSelected] = useState<string | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState<string | null>(null);
@@ -33,11 +35,13 @@ export function ProgressScreen() {
       app.getPerformanceOverview(),
       app.getExercisePersonalBests(),
       app.getExercisePerformanceHistory(),
+      app.buildTrainingDossier(),
     ])
-      .then(([o, b, h]) => {
+      .then(([o, b, h, d]) => {
         setOverview(o);
         setBests(b);
         setHistory(h);
+        setDossier(d);
         setSelected((current) => current ?? b[0]?.exerciseId ?? null);
       })
       .catch((caught) =>
@@ -55,12 +59,14 @@ export function ProgressScreen() {
       app.getPerformanceOverview(),
       app.getExercisePersonalBests(),
       app.getExercisePerformanceHistory(),
+      app.buildTrainingDossier(),
     ])
-      .then(([o, b, h]) => {
+      .then(([o, b, h, d]) => {
         if (!active) return;
         setOverview(o);
         setBests(b);
         setHistory(h);
+        setDossier(d);
         setSelected(b[0]?.exerciseId ?? null);
       })
       .catch((caught) => {
@@ -92,7 +98,14 @@ export function ProgressScreen() {
       </View>
     );
   const selectedBest = bests.find((item) => item.exerciseId === selected),
-    points = history.filter((point) => point.exerciseId === selected);
+    points = history.filter((point) => point.exerciseId === selected),
+    last28 = dossier?.windows.find((window) => window.key === "last_28_days"),
+    previous28 = dossier?.windows.find(
+      (window) => window.key === "previous_28_days",
+    ),
+    selectedSignal = dossier?.exerciseSignals.find(
+      (signal) => signal.exerciseId === selected,
+    );
   return (
     <ScrollView contentContainerStyle={s.page}>
       <Text
@@ -129,6 +142,34 @@ export function ProgressScreen() {
           histórico.
         </Text>
       )}
+      {last28 && previous28 ? (
+        <View style={[s.card, { borderColor: theme.colors.border }]}>
+          <Text style={[s.heading, { color: theme.colors.text }]}>
+            Últimos 28 dias
+          </Text>
+          <Text style={{ color: theme.colors.text }}>
+            Treinos concluídos: {last28.sessionsCompleted} (período anterior:{" "}
+            {previous28.sessionsCompleted})
+          </Text>
+          <Text style={{ color: theme.colors.text }}>
+            Séries realizadas: {last28.completedSets} (período anterior:{" "}
+            {previous28.completedSets})
+          </Text>
+          <Text style={{ color: theme.colors.text }}>
+            Reps registradas: {last28.totalReps} (período anterior:{" "}
+            {previous28.totalReps})
+          </Text>
+          <Text style={{ color: theme.colors.textMuted }}>
+            Dados registrados · carga{" "}
+            {dossier?.dataCoverageLast28Days.loadRecordedCount}/
+            {dossier?.dataCoverageLast28Days.completedSetsCount} séries · RIR{" "}
+            {dossier?.dataCoverageLast28Days.rirRecordedCount}/
+            {dossier?.dataCoverageLast28Days.rirEligibleCount} elegíveis ·
+            descanso {dossier?.dataCoverageLast28Days.restMeasuredCount}/
+            {dossier?.dataCoverageLast28Days.restEligibleCount} elegíveis
+          </Text>
+        </View>
+      ) : null}
       <Text style={[s.heading, { color: theme.colors.text }]}>
         Melhores marcas
       </Text>
@@ -178,6 +219,29 @@ export function ProgressScreen() {
             Carga é o valor registrado para este mesmo exercício. 1RM estimado
             usa Epley v1; não é uma medição de 1RM.
           </Text>
+          {selectedSignal ? (
+            <View style={[s.card, { borderColor: theme.colors.border }]}>
+              <Text style={{ color: theme.colors.text }}>
+                Comparação factual · 28 dias
+              </Text>
+              <Text style={{ color: theme.colors.textMuted }}>
+                Sessões: {selectedSignal.sessionAppearances.currentValue ?? 0}{" "}
+                vs {selectedSignal.sessionAppearances.previousValue ?? 0} ·
+                delta{" "}
+                {selectedSignal.sessionAppearances.absoluteDelta ??
+                  "não disponível"}
+              </Text>
+              <Text style={{ color: theme.colors.textMuted }}>
+                Melhor 1RM estimado:{" "}
+                {selectedSignal.bestEstimatedOneRepMaxKg.currentValue === null
+                  ? "não elegível"
+                  : `${number(selectedSignal.bestEstimatedOneRepMaxKg.currentValue)} kg`}{" "}
+                · amostras{" "}
+                {selectedSignal.bestEstimatedOneRepMaxKg.recentSampleCount}/
+                {selectedSignal.bestEstimatedOneRepMaxKg.previousSampleCount}
+              </Text>
+            </View>
+          ) : null}
           {points.map((point) => (
             <View
               key={point.workoutSetId}

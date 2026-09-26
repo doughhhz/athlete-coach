@@ -137,3 +137,7 @@ Todas as relações apontam para `athletes.id`, usam `ON DELETE CASCADE`, RLS e 
 - audit logging de banco e o futuro Decision Ledger do Coach são conceitos distintos.
 
 Raw Data continua significando observação, Derived Data cálculo determinístico reproduzível e Coach Intelligence interpretação. Essa separação permanece obrigatória nos contratos, mas não justifica criar antecipadamente schemas SQL `raw`, `derived` e `coach`.
+
+## AthleteTrainingDossier v1
+
+Read model, não tabela. Contém contexto, programa/revisão/lineage ativos, cinco janelas, exposição/comparação por `exercise_id`, cobertura, até 12 sessões com metadata de truncamento e referências tipadas. Janelas usam dias civis no timezone IANA, início inclusivo/fim exclusivo. Peso inclui só a última observação.

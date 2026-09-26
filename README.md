@@ -129,4 +129,8 @@ O Supabase local atende aos testes automatizados no computador. Não altere fire
 
 ## Próximo passo recomendado
 
-Revisar humanamente a Phase 7. A Phase 8 — AI Coach — não deve começar sem aprovação explícita e revisão formal de safety/privacidade.
+Revisar humanamente a Phase 8. AI Coach permanece Phase 9+ e não deve começar sem aprovação explícita e revisão formal de safety/privacidade.
+
+## Phase 8 — Athlete Training Dossier & Longitudinal Signals
+
+Implementada como projeção on-demand `athlete-training-dossier-v1`: contexto, programa ativo, janelas civis 7/28 dias, comparações por exercício, cobertura e evidências limitadas. Nenhum dossier/signal é persistido. The dossier organizes evidence; it does not interpret it. A longitudinal signal is a factual comparison, not a coaching conclusion.

@@ -103,3 +103,7 @@ validated foundation -------------------------------> 16
 ## Gates transversais
 
 Nenhuma fase que manipule dados reais avança sem segurança de acesso e recuperação. Nenhuma fase de IA avança sem schemas, evals, safety, consentimento e observabilidade. Nenhuma fórmula entra sem definição, versão e testes. Nenhuma integração de terceiros entra sem revisar termos, privacidade, disponibilidade e custo.
+
+## Phase 8 — Athlete Training Dossier & Longitudinal Signals — complete
+
+Contrato v1 on-demand, janelas 7/28/lifetime, exposição, comparação, cobertura, evidência limitada e UI factual estão implementados. “Phase 8 — AI Coach” foi superseded pela ADR-0034. AI/Coach permanece Phase 9+; nenhum código de IA foi implementado.

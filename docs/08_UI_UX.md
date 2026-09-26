@@ -59,3 +59,7 @@ Acessibilidade é critério de aceite, não melhoria posterior. Strings devem se
 ## Validação futura
 
 Testar registro de série sob tempo, retomada após interrupção, uso offline, correção de erro, compreensão de recomendações, legibilidade, VoiceOver e Dynamic Type. Não produzir UI final antes de protótipos e critérios de fluxo.
+
+## Progress longitudinal facts
+
+Progresso mostra últimos 28 dias, período anterior, deltas numéricos, amostras e cobertura como numerador/denominador. Usa “comparação factual”, “carga registrada” e “1RM estimado”; não mostra score, julgamento, causalidade ou recomendação.

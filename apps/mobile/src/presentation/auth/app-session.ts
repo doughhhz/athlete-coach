@@ -23,6 +23,7 @@ import type {
   ExercisePerformancePoint,
   ExercisePersonalBest,
   SessionDerivedMetrics,
+  AthleteTrainingDossier,
 } from "@athlete-coach/domain";
 import { createContext, useContext } from "react";
 
@@ -88,6 +89,7 @@ export type AppSessionValue = Readonly<{
     metrics: SessionDerivedMetrics;
     personalRecordEvents: readonly ExercisePerformancePoint[];
   }> | null>;
+  buildTrainingDossier(): Promise<AthleteTrainingDossier>;
 }>;
 
 export const AppSessionContext = createContext<AppSessionValue | null>(null);
