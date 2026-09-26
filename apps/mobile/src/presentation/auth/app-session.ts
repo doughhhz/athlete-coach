@@ -5,6 +5,8 @@ import type {
   CompleteOnboardingInput,
   ProfileInput,
   TrainingContextInput,
+  CreateProgramDraftInput,
+  ProgramStructureInput,
 } from "@athlete-coach/application";
 import type {
   AthleteSnapshot,
@@ -12,6 +14,8 @@ import type {
   ExerciseCatalogFilters,
   ExerciseDetails,
   ExerciseSummary,
+  TrainingProgram,
+  TrainingProgramSummary,
 } from "@athlete-coach/domain";
 import { createContext, useContext } from "react";
 
@@ -44,6 +48,18 @@ export type AppSessionValue = Readonly<{
   ): Promise<readonly ExerciseSummary[]>;
   getExerciseDetails(slug: string): Promise<ExerciseDetails | null>;
   listExerciseFacets(): Promise<ExerciseCatalogFacets>;
+  listPrograms(): Promise<readonly TrainingProgramSummary[]>;
+  getProgram(id: string): Promise<TrainingProgram | null>;
+  getActiveProgram(): Promise<TrainingProgram | null>;
+  createProgramDraft(input: CreateProgramDraftInput): Promise<TrainingProgram>;
+  saveProgramStructure(
+    id: string,
+    input: ProgramStructureInput,
+  ): Promise<TrainingProgram>;
+  activateProgram(id: string): Promise<TrainingProgram>;
+  cloneProgram(id: string): Promise<TrainingProgram>;
+  completeProgram(id: string): Promise<TrainingProgram>;
+  archiveProgram(id: string): Promise<TrainingProgram>;
 }>;
 
 export const AppSessionContext = createContext<AppSessionValue | null>(null);

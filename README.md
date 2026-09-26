@@ -6,9 +6,9 @@ Fundação arquitetural de um aplicativo mobile pessoal de treinamento, nutriç�
 
 ## Estado atual
 
-A **Phase 4 — Exercise & Anatomy Knowledge Core** está implementada e aguarda revisão humana. Além de autenticação, onboarding, perfil e peso, o aplicativo possui uma biblioteca canônica somente leitura de anatomia e exercícios, com busca, filtros e detalhes factuais.
+A **Phase 5 — Training Program Engine** está implementada e aguarda revisão humana. Além de autenticação, perfil e catálogo canônico, o aplicativo permite criar, revisar, ativar, concluir, arquivar e versionar programas determinísticos com blocos, semanas, dias, exercícios e alvos por série.
 
-O catálogo não é uma prescrição. Programa, Workout Runner, Nutrição, Progresso e Personal continuam sem capacidades de domínio; não há LLM, provider externo, mídia externa, analytics, programa de treino nem dados pessoais de exemplo.
+Prescrição continua separada de execução: não há Workout Runner, dados realizados, progressão automática, LLM, provider externo, mídia externa, analytics nem programas fictícios de produção.
 
 ## Stack do shell
 
@@ -95,7 +95,7 @@ npm run test:integration:local
 npm run validate
 ```
 
-O teste integrado cria somente uma conta artificial local e percorre Auth, onboarding, reload, edição, pesagem, logout e novo login. Execute `npm run db:reset` depois dele para remover os dados de teste.
+O teste integrado cria somente uma conta artificial local e percorre Auth, onboarding, perfil, pesagem, criação/ativação/persistência e revisão de programa, logout e novo login. Execute `npm run db:reset` depois dele para remover os dados de teste.
 
 Os scripts confinam arquivos temporários da CLI a `.cache/`, dentro do repositório e ignorada pelo Git. Para encerrar a stack:
 
@@ -129,4 +129,4 @@ O Supabase local atende aos testes automatizados no computador. Não altere fire
 
 ## Próximo passo recomendado
 
-Revisar humanamente a Phase 4. Não iniciar a Phase 5 antes da aprovação explícita.
+Revisar humanamente a Phase 5. Não iniciar a Phase 6 antes da aprovação explícita.

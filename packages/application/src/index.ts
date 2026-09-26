@@ -4,3 +4,6 @@ export * from "./athlete/use-cases.ts";
 export * from "./auth/auth.ts";
 export * from "./exercise/ports.ts";
 export * from "./exercise/use-cases.ts";
+export * from "./training/ports.ts";
+export * from "./training/schemas.ts";
+export * from "./training/use-cases.ts";

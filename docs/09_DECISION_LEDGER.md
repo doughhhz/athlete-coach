@@ -227,6 +227,47 @@ Mudanças editoriais que não alteram significado não precisam de entrada. Dúv
 - Motivo/evidência: impedir mídia sem proveniência e evitar infraestrutura vazia antes de uma fonte licenciada.
 - Impacto: migration e testes Phase 4; futuros storage/provider adapters.
 
+### ADR-0021 — Agregado físico de programa de treinamento
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: a Phase 5 precisa representar planejamento explícito e ordenado sem antecipar execução.
+- Regra anterior: `TrainingProgram`, blocos, semanas, dias e prescrições eram somente conceituais.
+- Decisão: adotar `TrainingProgram -> TrainingBlock -> TrainingWeek -> TrainingDay -> ExercisePrescription -> PrescriptionSet`, com UUIDs, sequências positivas únicas por pai e exercícios referenciados pelo catálogo canônico.
+- Motivo/evidência: alvos por série permitem prescrições heterogêneas sem duplicar identidade/anatomia do exercício.
+- Impacto: domain, application, data-access, migration, RLS, mobile e testes.
+
+### ADR-0022 — Lifecycle, ativação imutável e revisão
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: programas utilizados não podem ser reescritos silenciosamente e a troca de ativo precisa ser atômica.
+- Regra anterior: mudanças seriam versionadas, sem lifecycle físico definido.
+- Decisão: usar `draft`, `active`, `completed`, `archived`; somente draft é estruturalmente mutável. Um índice limita um ativo por atleta. Ativação conclui o ativo anterior na mesma transação. Revisão clona todo o agregado com novos UUIDs e `supersedes_program_id` único.
+- Motivo/evidência: preserva a intenção histórica e cria uma boundary simples para sessões futuras.
+- Compatibilidade/validação: triggers protegem filhos, RPCs serializam operações e pgTAP cobre ativação, imutabilidade e clone.
+- Impacto: schema, repositories, builder, detalhes e futura Phase 6.
+
+### ADR-0023 — Alvo tipado por série
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: nem todo movimento é prescrito por reps e séries do mesmo exercício podem divergir.
+- Regra anterior: a prescrição conceitual admitia séries/faixas sem representação fechada.
+- Decisão: cada `PrescriptionSet` possui métrica `reps`, `seconds` ou `meters`, faixa positiva, RIR opcional 0–10, descanso opcional em segundos, tempo opcional de quatro fases e carga `unprescribed`, `athlete_selected` ou absoluta em kg. Não há %1RM nem progressão.
+- Motivo/evidência: representação compacta, unitária e validável no domínio, aplicação e banco.
+- Impacto: domínio Training, UI de builder/detalhes e constraints SQL.
+
+### ADR-0024 — Prescription versus Performance
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: alvos planejados não são observações de uma sessão executada.
+- Regra anterior: prescrição e execução já eram entidades conceitualmente distintas.
+- Decisão: tornar explícito que **Prescription representa intenção planejada; Performance representa execução observada**. A Phase 5 não persiste reps, carga, RIR, descanso ou duração realizados.
+- Motivo/evidência: evita transformar plano em fato e preserva a separação entre planejamento e Raw Data futuro.
+- Impacto: modelo, linguagem da UI, schema e escopo das Phases 5 e 6.
+
 ## Hipóteses registradas (não decisões de produto)
 
 - `athlete-coach` é apenas nome técnico do diretório.

@@ -211,6 +211,34 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
       if (!application) return { muscleGroups: [], muscles: [], equipment: [] };
       return application.listExerciseFacets.execute();
     },
+    listPrograms: async () => application?.listPrograms.execute() ?? [],
+    getProgram: async (id) => application?.getProgram.execute(id) ?? null,
+    getActiveProgram: async () =>
+      application?.getActiveProgram.execute() ?? null,
+    createProgramDraft: async (input) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.createProgramDraft.execute(input);
+    },
+    saveProgramStructure: async (id, input) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.saveProgramStructure.execute(id, input);
+    },
+    activateProgram: async (id) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.activateProgram.execute(id);
+    },
+    cloneProgram: async (id) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.cloneProgram.execute(id);
+    },
+    completeProgram: async (id) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.completeProgram.execute(id);
+    },
+    archiveProgram: async (id) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.archiveProgram.execute(id);
+    },
   };
 
   return (

@@ -498,6 +498,54 @@ export type Database = {
           },
         ]
       }
+      exercise_prescriptions: {
+        Row: {
+          athlete_cues: string | null
+          created_at: string
+          exercise_id: string
+          id: string
+          instructions: string | null
+          sequence: number
+          training_day_id: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_cues?: string | null
+          created_at?: string
+          exercise_id: string
+          id?: string
+          instructions?: string | null
+          sequence: number
+          training_day_id: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_cues?: string | null
+          created_at?: string
+          exercise_id?: string
+          id?: string
+          instructions?: string | null
+          sequence?: number
+          training_day_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_prescriptions_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_prescriptions_training_day_id_fkey"
+            columns: ["training_day_id"]
+            isOneToOne: false
+            referencedRelation: "training_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercise_relations: {
         Row: {
           note_pt: string | null
@@ -652,11 +700,284 @@ export type Database = {
           },
         ]
       }
+      prescription_sets: {
+        Row: {
+          created_at: string
+          exercise_prescription_id: string
+          id: string
+          load_kg: number | null
+          load_kind: string
+          rest_max_seconds: number | null
+          rest_min_seconds: number | null
+          rir_max: number | null
+          rir_min: number | null
+          sequence: number
+          target_max: number
+          target_metric: string
+          target_min: number
+          tempo: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          exercise_prescription_id: string
+          id?: string
+          load_kg?: number | null
+          load_kind?: string
+          rest_max_seconds?: number | null
+          rest_min_seconds?: number | null
+          rir_max?: number | null
+          rir_min?: number | null
+          sequence: number
+          target_max: number
+          target_metric: string
+          target_min: number
+          tempo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          exercise_prescription_id?: string
+          id?: string
+          load_kg?: number | null
+          load_kind?: string
+          rest_max_seconds?: number | null
+          rest_min_seconds?: number | null
+          rir_max?: number | null
+          rir_min?: number | null
+          sequence?: number
+          target_max?: number
+          target_metric?: string
+          target_min?: number
+          tempo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prescription_sets_exercise_prescription_id_fkey"
+            columns: ["exercise_prescription_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_prescriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_blocks: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          sequence: number
+          training_program_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          sequence: number
+          training_program_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          sequence?: number
+          training_program_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_blocks_training_program_id_fkey"
+            columns: ["training_program_id"]
+            isOneToOne: false
+            referencedRelation: "training_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_days: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          preferred_weekday: number | null
+          sequence: number
+          training_week_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          preferred_weekday?: number | null
+          sequence: number
+          training_week_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          preferred_weekday?: number | null
+          sequence?: number
+          training_week_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_days_training_week_id_fkey"
+            columns: ["training_week_id"]
+            isOneToOne: false
+            referencedRelation: "training_weeks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_programs: {
+        Row: {
+          activated_at: string | null
+          archived_at: string | null
+          athlete_goal_id: string | null
+          athlete_id: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          revision: number
+          status: string
+          supersedes_program_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          archived_at?: string | null
+          athlete_goal_id?: string | null
+          athlete_id: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          revision?: number
+          status?: string
+          supersedes_program_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          archived_at?: string | null
+          athlete_goal_id?: string | null
+          athlete_id?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          revision?: number
+          status?: string
+          supersedes_program_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_program_goal_owner_fk"
+            columns: ["athlete_goal_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "athlete_goals"
+            referencedColumns: ["id", "athlete_id"]
+          },
+          {
+            foreignKeyName: "training_programs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_programs_supersedes_program_id_fkey"
+            columns: ["supersedes_program_id"]
+            isOneToOne: true
+            referencedRelation: "training_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_weeks: {
+        Row: {
+          created_at: string
+          id: string
+          name: string | null
+          notes: string | null
+          sequence: number
+          training_block_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string | null
+          notes?: string | null
+          sequence: number
+          training_block_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string | null
+          notes?: string | null
+          sequence?: number
+          training_block_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_weeks_training_block_id_fkey"
+            columns: ["training_block_id"]
+            isOneToOne: false
+            referencedRelation: "training_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      activate_training_program: {
+        Args: { p_program_id: string }
+        Returns: {
+          activated_at: string | null
+          archived_at: string | null
+          athlete_goal_id: string | null
+          athlete_id: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          revision: number
+          status: string
+          supersedes_program_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "training_programs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       catalog_search_text: { Args: { value: string }; Returns: string }
       change_current_athlete_goal: {
         Args: {
@@ -679,6 +1000,30 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "athlete_goals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      clone_training_program_as_draft: {
+        Args: { p_program_id: string }
+        Returns: {
+          activated_at: string | null
+          archived_at: string | null
+          athlete_goal_id: string | null
+          athlete_id: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          revision: number
+          status: string
+          supersedes_program_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "training_programs"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -735,6 +1080,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      replace_training_program_structure: {
+        Args: { p_program_id: string; p_structure: Json }
+        Returns: undefined
+      }
       search_exercise_catalog: {
         Args: {
           p_equipment_slug?: string
@@ -761,6 +1110,30 @@ export type Database = {
       set_current_training_availability: {
         Args: { p_available_weekdays: number[] }
         Returns: undefined
+      }
+      transition_training_program: {
+        Args: { p_program_id: string; p_status: string }
+        Returns: {
+          activated_at: string | null
+          archived_at: string | null
+          athlete_goal_id: string | null
+          athlete_id: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          revision: number
+          status: string
+          supersedes_program_id: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "training_programs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

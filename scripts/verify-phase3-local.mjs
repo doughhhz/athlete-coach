@@ -14,6 +14,11 @@ import {
   SignOutCurrentSession,
   SignUpWithEmail,
   UpdateAthleteProfile,
+  CreateTrainingProgramDraft,
+  SaveTrainingProgramStructure,
+  ActivateTrainingProgram,
+  GetActiveTrainingProgram,
+  CloneTrainingProgramAsDraft,
 } from "../packages/application/src/index.ts";
 import { createAthleteCoachSupabaseClient } from "../packages/data-access/src/supabase/create-athlete-coach-supabase-client.ts";
 import {
@@ -25,6 +30,7 @@ import {
   SupabaseOnboardingRepository,
   SupabaseTrainingContextRepository,
 } from "../packages/data-access/src/supabase/supabase-repositories.ts";
+import { SupabaseTrainingProgramRepository } from "../packages/data-access/src/supabase/training-program-repository.ts";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const temporaryDirectory = resolve(repositoryRoot, ".cache/supabase-cli-temp");
@@ -77,6 +83,7 @@ function compose(client) {
   const goal = new SupabaseAthleteGoalRepository(client);
   const training = new SupabaseTrainingContextRepository(client);
   const weight = new SupabaseBodyWeightRepository(client);
+  const programs = new SupabaseTrainingProgramRepository(client);
   return {
     auth,
     complete: new CompleteAthleteOnboarding(
@@ -97,6 +104,11 @@ function compose(client) {
     signOut: new SignOutCurrentSession(auth),
     signUp: new SignUpWithEmail(auth),
     updateProfile: new UpdateAthleteProfile(profile),
+    createProgram: new CreateTrainingProgramDraft(programs),
+    saveProgram: new SaveTrainingProgramStructure(programs),
+    activateProgram: new ActivateTrainingProgram(programs),
+    activeProgram: new GetActiveTrainingProgram(programs),
+    cloneProgram: new CloneTrainingProgramAsDraft(programs),
   };
 }
 
@@ -149,6 +161,50 @@ await first.record.execute({
   weightKg: 76.8,
 });
 assert.equal((await first.latest.execute())?.weightKg, 76.8);
+const draft = await first.createProgram.execute({ name: "Programa local" });
+await first.saveProgram.execute(draft.id, {
+  blocks: [
+    {
+      sequence: 1,
+      name: "Base",
+      weeks: [
+        {
+          sequence: 1,
+          name: "Semana 1",
+          days: [
+            {
+              sequence: 1,
+              name: "Treino A",
+              prescriptions: [
+                {
+                  sequence: 1,
+                  exerciseId: "50000000-0000-4000-8000-000000000001",
+                  sets: [
+                    {
+                      sequence: 1,
+                      targetMetric: "reps",
+                      targetMin: 8,
+                      targetMax: 10,
+                      rirMin: 2,
+                      rirMax: 2,
+                      restMinSeconds: 120,
+                      restMaxSeconds: 120,
+                      tempo: "3-1-X-0",
+                      loadKind: "athlete_selected",
+                      loadKg: null,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+});
+const activated = await first.activateProgram.execute(draft.id);
+assert.equal(activated.status, "active");
 
 const reloadedClient = createAthleteCoachSupabaseClient({
   publishableKey,
@@ -163,7 +219,12 @@ await reloaded.signIn.execute(credentials);
 snapshot = await reloaded.load.execute();
 assert.equal(snapshot.profile?.preferredName, "Atleta atualizado");
 assert.equal(snapshot.latestWeight?.weightKg, 76.8);
+assert.equal((await reloaded.activeProgram.execute())?.id, draft.id);
+const revision = await reloaded.cloneProgram.execute(draft.id);
+assert.equal(revision.supersedesProgramId, draft.id);
+assert.notEqual(revision.blocks[0].id, activated.blocks[0].id);
+assert.equal((await reloaded.activeProgram.execute())?.id, draft.id);
 
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
-console.log("Phase 3 local Auth/onboarding/profile flow passed.");
+console.log("Local Auth/onboarding/profile/training-program flow passed.");

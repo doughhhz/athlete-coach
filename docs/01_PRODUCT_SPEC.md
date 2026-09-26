@@ -1,7 +1,7 @@
 # Especificação do produto
 
 Status: **canônico, nível conceitual**
-Fase implementada mais recente: 4 — Exercise & Anatomy Knowledge Core
+Fase implementada mais recente: 5 — Training Program Engine
 
 ## Visão
 
@@ -76,6 +76,10 @@ Hoje apresenta somente saudação, objetivo e peso mais recente efetivamente per
 ## Estado após a Phase 4
 
 A tab Treino oferece uma biblioteca canônica de anatomia e 37 exercícios comuns, com nomes PT/EN, busca por nomes/aliases, filtros factuais, instruções originais, músculos, equipamentos e relações explícitas. Ausência de mídia é informada sem imagem simulada. O catálogo descreve movimentos e não prescreve séries, repetições, carga, intensidade, descanso ou progressão.
+
+## Estado após a Phase 5
+
+A tab Treino lista programas reais por lifecycle e apresenta o programa ativo. Um builder manual cria um draft usando o catálogo canônico, com blocos, semanas, dias, exercícios e alvos explícitos por série para reps, segundos ou metros, RIR, descanso, tempo e carga. Ativação é transacional; uma nova revisão clona a estrutura com novos UUIDs e preserva o original. Prescrição representa intenção planejada; performance representará execução observada somente na Phase 6.
 
 ## Questões abertas
 

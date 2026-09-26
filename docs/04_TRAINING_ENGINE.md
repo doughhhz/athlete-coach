@@ -1,6 +1,6 @@
 # Motor de treino
 
-Status: **canônico, conceitual**
+Status: **canônico; planejamento físico definido na Phase 5**
 
 ## Responsabilidade
 
@@ -17,7 +17,13 @@ Workout Session -> Performed Exercise -> Performed Set
 
 Prescrição e execução são entidades distintas. Mudanças no programa são versionadas; sessões concluídas continuam ligadas à versão efetivamente utilizada.
 
-Uma prescrição poderá incluir exercício, ordem, séries, faixa de repetições, carga/intensidade alvo, RIR/RPE alvo, descanso, tempo/cadência e observações. Nem todos os campos serão obrigatórios para todo método.
+Uma prescrição inclui exercício e ordem; cada série planejada possui seu próprio alvo. A métrica é `reps`, `seconds` ou `meters`, com mínimo e máximo positivos. RIR 0–10 e descanso em segundos são faixas opcionais. Tempo usa quatro fases separadas por hífen (`3-1-X-0`), onde `X` indica intenção explosiva. Carga é não prescrita, escolhida pelo atleta/orientada por RIR, ou absoluta em kg. Percentual de 1RM e progressão não existem nesta fase.
+
+## Lifecycle e revisão
+
+Drafts são editáveis. A ativação valida toda a hierarquia e ocorre atomicamente; ao ativar uma revisão, um ativo anterior é concluído. Estruturas ativas, concluídas e arquivadas são protegidas por triggers. Uma revisão editável é um clone completo com novos UUIDs e lineage para o programa anterior. `completed` significa ciclo encerrado normalmente; `archived` significa retirado/guardado e não implica conclusão.
+
+Supersets/circuitos foram postergados: uma entidade de grouping sem semântica de execução validada criaria ambiguidade para o futuro Runner. Ordem explícita sustenta o core atual.
 
 ## Ciclo de uma sessão
 

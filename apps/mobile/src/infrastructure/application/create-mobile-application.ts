@@ -15,6 +15,15 @@ import {
   GetExerciseDetails,
   ListExerciseCatalogFacets,
   ListExercises,
+  ActivateTrainingProgram,
+  ArchiveTrainingProgram,
+  CloneTrainingProgramAsDraft,
+  CompleteTrainingProgram,
+  CreateTrainingProgramDraft,
+  GetActiveTrainingProgram,
+  GetTrainingProgram,
+  ListTrainingPrograms,
+  SaveTrainingProgramStructure,
 } from "@athlete-coach/application";
 import {
   SupabaseAthleteGoalRepository,
@@ -26,6 +35,7 @@ import {
   SupabaseTrainingContextRepository,
   SupabaseAnatomyRepository,
   SupabaseExerciseCatalogRepository,
+  SupabaseTrainingProgramRepository,
   type AthleteCoachSupabaseClient,
 } from "@athlete-coach/data-access";
 
@@ -39,6 +49,7 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
   const onboardingRepository = new SupabaseOnboardingRepository(client);
   const exerciseRepository = new SupabaseExerciseCatalogRepository(client);
   const anatomyRepository = new SupabaseAnatomyRepository(client);
+  const programs = new SupabaseTrainingProgramRepository(client);
 
   return {
     authRepository,
@@ -64,6 +75,15 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     listExercises: new ListExercises(exerciseRepository),
     getExerciseDetails: new GetExerciseDetails(exerciseRepository),
     listExerciseFacets: new ListExerciseCatalogFacets(anatomyRepository),
+    listPrograms: new ListTrainingPrograms(programs),
+    getProgram: new GetTrainingProgram(programs),
+    getActiveProgram: new GetActiveTrainingProgram(programs),
+    createProgramDraft: new CreateTrainingProgramDraft(programs),
+    saveProgramStructure: new SaveTrainingProgramStructure(programs),
+    activateProgram: new ActivateTrainingProgram(programs),
+    cloneProgram: new CloneTrainingProgramAsDraft(programs),
+    completeProgram: new CompleteTrainingProgram(programs),
+    archiveProgram: new ArchiveTrainingProgram(programs),
   } as const;
 }
 

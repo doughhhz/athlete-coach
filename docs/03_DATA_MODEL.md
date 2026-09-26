@@ -41,7 +41,9 @@ Esse conhecimento global não possui `athlete_id`, é somente leitura para clien
 
 ### Training
 
-`TrainingProgram` contém `TrainingBlock`, `TrainingWeek`, `TrainingDay` e `ExercisePrescription`. A prescrição registra alvo e faixa (séries, reps, intensidade, RIR/RPE, descanso) sem confundir com execução.
+`TrainingProgram -> TrainingBlock -> TrainingWeek -> TrainingDay -> ExercisePrescription -> PrescriptionSet` é o agregado físico da Phase 5. Cada nível tem sequência positiva e única no pai. `PrescriptionSet` representa métrica (`reps`, `seconds`, `meters`) e faixa, RIR e descanso opcionais em faixas, tempo opcional `E-I-C-I` com `X` permitido, e carga `unprescribed`, `athlete_selected` ou absoluta em kg. **Prescription representa intenção planejada; Performance representa execução observada.**
+
+Programas usam lifecycle `draft`, `active`, `completed`, `archived`. Somente draft aceita mutação estrutural; revisão clona o agregado com novos UUIDs e `supersedes_program_id`. Um índice parcial limita um programa ativo por atleta. A referência opcional ao objetivo usa FK composta para congelar contexto sem permitir goal de outro atleta.
 
 ### Workout
 

@@ -4,7 +4,7 @@ Status: **canônico em sequência; datas não definidas**
 
 Cada fase termina com validação e revisão humana. Concluir uma fase não autoriza iniciar automaticamente a seguinte.
 
-Estado de execução em 2026-09-25: Phases 0 a 3 concluídas; Phase 4 implementada e aguardando revisão humana; Phase 5 não iniciada.
+Estado de execução em 2026-09-25: Phases 0 a 4 concluídas; Phase 5 implementada e aguardando revisão humana; Phase 6 não iniciada.
 
 ## Phase 0 — Foundation
 
@@ -37,6 +37,8 @@ Implementação: taxonomia anatômica, catálogo interno bilíngue, aliases, bus
 ## Phase 5 — Training Program Engine
 
 Programas versionados, blocos, semanas, dias, prescrições e políticas determinísticas iniciais. Depende de 3 e 4.
+
+Implementação: agregado físico e tipado, lifecycle transacional, um ativo por atleta, drafts editáveis, histórico imutável, clone de revisão, alvos por série e builder/lista/detalhes mobile concluídos. Supersets foram postergados; execução observada e progressão permanecem fora de escopo.
 
 ## Phase 6 — Workout Runner
 
