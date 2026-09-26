@@ -24,6 +24,14 @@ import {
   GetTrainingProgram,
   ListTrainingPrograms,
   SaveTrainingProgramStructure,
+  StartWorkoutSession,
+  GetInProgressWorkoutSession,
+  GetWorkoutSession,
+  ListWorkoutSessions,
+  RecordWorkoutSet,
+  SkipWorkoutSet,
+  CompleteWorkoutSession,
+  AbandonWorkoutSession,
 } from "@athlete-coach/application";
 import {
   SupabaseAthleteGoalRepository,
@@ -36,6 +44,7 @@ import {
   SupabaseAnatomyRepository,
   SupabaseExerciseCatalogRepository,
   SupabaseTrainingProgramRepository,
+  SupabaseWorkoutSessionRepository,
   type AthleteCoachSupabaseClient,
 } from "@athlete-coach/data-access";
 
@@ -50,6 +59,7 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
   const exerciseRepository = new SupabaseExerciseCatalogRepository(client);
   const anatomyRepository = new SupabaseAnatomyRepository(client);
   const programs = new SupabaseTrainingProgramRepository(client);
+  const workouts = new SupabaseWorkoutSessionRepository(client);
 
   return {
     authRepository,
@@ -84,6 +94,14 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     cloneProgram: new CloneTrainingProgramAsDraft(programs),
     completeProgram: new CompleteTrainingProgram(programs),
     archiveProgram: new ArchiveTrainingProgram(programs),
+    startWorkout: new StartWorkoutSession(workouts),
+    getInProgressWorkout: new GetInProgressWorkoutSession(workouts),
+    getWorkout: new GetWorkoutSession(workouts),
+    listWorkouts: new ListWorkoutSessions(workouts),
+    recordWorkoutSet: new RecordWorkoutSet(workouts),
+    skipWorkoutSet: new SkipWorkoutSet(workouts),
+    completeWorkout: new CompleteWorkoutSession(workouts),
+    abandonWorkout: new AbandonWorkoutSession(workouts),
   } as const;
 }
 

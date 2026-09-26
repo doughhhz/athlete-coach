@@ -49,8 +49,5 @@ test("details labels prescription as planned and offers revision", async () => {
   assert.match(text, /Concluído normalmente/);
   assert.match(text, /Arquivado \(retirado\)/);
   assert.match(text, /Série/);
-  assert.doesNotMatch(
-    text,
-    /recorde pessoal|dados realizados|iniciar treino|cronômetro/i,
-  );
+  assert.doesNotMatch(text, /recorde pessoal|dados realizados|cronômetro/i);
 });

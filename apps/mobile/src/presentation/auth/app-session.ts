@@ -7,6 +7,7 @@ import type {
   TrainingContextInput,
   CreateProgramDraftInput,
   ProgramStructureInput,
+  RecordWorkoutSetInput,
 } from "@athlete-coach/application";
 import type {
   AthleteSnapshot,
@@ -16,6 +17,8 @@ import type {
   ExerciseSummary,
   TrainingProgram,
   TrainingProgramSummary,
+  WorkoutSession,
+  WorkoutSessionSummary,
 } from "@athlete-coach/domain";
 import { createContext, useContext } from "react";
 
@@ -60,6 +63,18 @@ export type AppSessionValue = Readonly<{
   cloneProgram(id: string): Promise<TrainingProgram>;
   completeProgram(id: string): Promise<TrainingProgram>;
   archiveProgram(id: string): Promise<TrainingProgram>;
+  startWorkout(trainingDayId: string): Promise<WorkoutSession>;
+  getInProgressWorkout(): Promise<WorkoutSession | null>;
+  getWorkout(id: string): Promise<WorkoutSession | null>;
+  listWorkouts(): Promise<readonly WorkoutSessionSummary[]>;
+  recordWorkoutSet(
+    sessionId: string,
+    setId: string,
+    input: RecordWorkoutSetInput,
+  ): Promise<WorkoutSession>;
+  skipWorkoutSet(setId: string): Promise<WorkoutSession>;
+  completeWorkout(id: string): Promise<WorkoutSession>;
+  abandonWorkout(id: string): Promise<WorkoutSession>;
 }>;
 
 export const AppSessionContext = createContext<AppSessionValue | null>(null);

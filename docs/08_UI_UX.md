@@ -42,6 +42,8 @@ Na Phase 4, a tab Treino oferece acesso à Biblioteca de exercícios sem criar n
 
 Na Phase 5, Treino mostra o programa ativo, lista drafts/ativos/concluídos/arquivados e mantém acesso à Biblioteca. A apresentação distingue “Concluído normalmente” de “Arquivado (retirado)”, para não sugerir que um programa substituído terminou seu ciclo. Detalhes rotulam explicitamente “ALVOS PLANEJADOS”. O builder manual cria uma hierarquia mínima mobile-first, seleciona exercícios do catálogo canônico, valida alvos por série e leva à revisão antes da ativação. Não há ações de iniciar treino ou concluir série.
 
+Na Phase 6, a tab destaca “Continuar treino”, dias ativos oferecem “Iniciar treino” e o Runner separa visualmente PLANEJADO de REALIZADO. Inputs permanecem montados após erro e oferecem retry; o servidor é a autoridade. Completion mostra pendências e abandono exige confirmação. Histórico e resumo exibem apenas fatos, sem score, PR, volume, elogio ou interpretação.
+
 Campos mantêm labels, teclado coerente, mensagens não julgadoras e progresso visível. Estado vazio ou erro é textual, nunca uma tela branca ou dado simulado. O date input textual `AAAA-MM-DD` é uma limitação consciente desta versão e deve ser reavaliado com testes reais de acessibilidade/entrada no iPhone.
 
 ## Conteúdo e tom

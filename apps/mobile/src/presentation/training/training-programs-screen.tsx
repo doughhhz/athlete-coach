@@ -1,6 +1,8 @@
 import type {
   TrainingProgram,
   TrainingProgramSummary,
+  WorkoutSession,
+  WorkoutSessionSummary,
 } from "@athlete-coach/domain";
 import { Link, type Href } from "expo-router";
 import { useEffect, useState } from "react";
@@ -25,15 +27,24 @@ export function TrainingProgramsScreen() {
     theme = useAppTheme();
   const [items, setItems] = useState<readonly TrainingProgramSummary[]>([]),
     [active, setActive] = useState<TrainingProgram | null>(null),
+    [workout, setWorkout] = useState<WorkoutSession | null>(null),
+    [history, setHistory] = useState<readonly WorkoutSessionSummary[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState<string | null>(null);
   function load() {
     setLoading(true);
     setError(null);
-    Promise.all([app.listPrograms(), app.getActiveProgram()])
-      .then(([p, a]) => {
+    Promise.all([
+      app.listPrograms(),
+      app.getActiveProgram(),
+      app.getInProgressWorkout(),
+      app.listWorkouts(),
+    ])
+      .then(([p, a, w, h]) => {
         setItems(p);
         setActive(a);
+        setWorkout(w);
+        setHistory(h);
       })
       .catch((e) =>
         setError(
@@ -46,11 +57,18 @@ export function TrainingProgramsScreen() {
   }
   useEffect(() => {
     let active = true;
-    Promise.all([app.listPrograms(), app.getActiveProgram()])
-      .then(([programs, current]) => {
+    Promise.all([
+      app.listPrograms(),
+      app.getActiveProgram(),
+      app.getInProgressWorkout(),
+      app.listWorkouts(),
+    ])
+      .then(([programs, current, currentWorkout, workoutHistory]) => {
         if (active) {
           setItems(programs);
           setActive(current);
+          setWorkout(currentWorkout);
+          setHistory(workoutHistory);
         }
       })
       .catch((caught) => {
@@ -85,6 +103,23 @@ export function TrainingProgramsScreen() {
           },
         ]}
       >
+        {workout ? (
+          <>
+            <Text style={[s.heading, { color: theme.colors.text }]}>
+              Treino em andamento
+            </Text>
+            <Text style={{ color: theme.colors.textMuted }}>
+              {workout.programName} · {workout.dayName}
+            </Text>
+            <Link href={`/workouts/${workout.id}` as Href} asChild>
+              <Pressable
+                style={[s.button, { backgroundColor: theme.colors.accent }]}
+              >
+                <Text style={s.buttonText}>Continuar treino</Text>
+              </Pressable>
+            </Link>
+          </>
+        ) : null}
         <Text style={[s.heading, { color: theme.colors.text }]}>
           Programa ativo
         </Text>
@@ -177,6 +212,28 @@ export function TrainingProgramsScreen() {
           </Text>
         </Pressable>
       </Link>
+      <Text style={[s.heading, { color: theme.colors.text }]}>
+        Histórico de treinos
+      </Text>
+      {!history.length ? (
+        <Text style={{ color: theme.colors.textMuted }}>
+          Nenhum treino finalizado.
+        </Text>
+      ) : (
+        history.map((w) => (
+          <Link key={w.id} href={`/workouts/${w.id}/summary` as Href} asChild>
+            <Pressable style={[s.card, { borderColor: theme.colors.border }]}>
+              <Text style={[s.program, { color: theme.colors.text }]}>
+                {w.dayName}
+              </Text>
+              <Text style={{ color: theme.colors.textMuted }}>
+                {new Date(w.startedAt).toLocaleString()} ·{" "}
+                {w.status === "completed" ? "Concluído" : "Abandonado"}
+              </Text>
+            </Pressable>
+          </Link>
+        ))
+      )}
     </ScrollView>
   );
 }

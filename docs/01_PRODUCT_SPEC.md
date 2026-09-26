@@ -1,7 +1,7 @@
 # Especificação do produto
 
 Status: **canônico, nível conceitual**
-Fase implementada mais recente: 5 — Training Program Engine
+Fase implementada mais recente: 6 — Workout Runner
 
 ## Visão
 
@@ -82,6 +82,10 @@ A tab Treino oferece uma biblioteca canônica de anatomia e 37 exercícios comun
 A tab Treino lista programas reais por lifecycle e apresenta o programa ativo. Um builder manual cria um draft usando o catálogo canônico, com blocos, semanas, dias, exercícios e alvos explícitos por série para reps, segundos ou metros, RIR, descanso, tempo e carga. Ativação é transacional; uma nova revisão clona a estrutura com novos UUIDs e preserva o original. Substituir o ativo arquiva o programa anterior sem representá-lo como concluído; conclusão normal continua sendo uma ação explícita. Prescrição representa intenção planejada; performance representará execução observada somente na Phase 6.
 
 ## Questões abertas
+
+## Estado após a Phase 6
+
+Workout Session registra execução observada em aggregate próprio, com snapshot da prescrição, retomada online, séries completed/skipped, correção enquanto em andamento e histórico imutável após conclusão ou abandono. **Performance records reality; divergence from prescription is valid data.** Extras, substituições, analytics, progressão e interpretação foram postergados.
 
 - nome e identidade visual do produto;
 - idioma inicial da interface;

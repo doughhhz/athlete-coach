@@ -7,3 +7,6 @@ export * from "./exercise/use-cases.ts";
 export * from "./training/ports.ts";
 export * from "./training/schemas.ts";
 export * from "./training/use-cases.ts";
+export * from "./workout/ports.ts";
+export * from "./workout/schemas.ts";
+export * from "./workout/use-cases.ts";

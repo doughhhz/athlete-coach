@@ -6,9 +6,9 @@ Fundação arquitetural de um aplicativo mobile pessoal de treinamento, nutriç�
 
 ## Estado atual
 
-A **Phase 5 — Training Program Engine** está implementada e aguarda revisão humana. Além de autenticação, perfil e catálogo canônico, o aplicativo permite criar, revisar, ativar, concluir, arquivar e versionar programas determinísticos com blocos, semanas, dias, exercícios e alvos por série.
+A **Phase 6 — Workout Runner** está implementada. Além de autenticação, perfil, catálogo e planejamento, o atleta pode iniciar, retomar, registrar/corrigir séries, pular séries, concluir ou abandonar uma sessão e consultar histórico factual.
 
-Prescrição continua separada de execução: não há Workout Runner, dados realizados, progressão automática, LLM, provider externo, mídia externa, analytics nem programas fictícios de produção.
+Prescrição permanece separada de execução. Performance é Raw Data e pode divergir do alvo. Não há progressão automática, LLM, provider externo, mídia externa ou analytics.
 
 ## Stack do shell
 
@@ -95,7 +95,7 @@ npm run test:integration:local
 npm run validate
 ```
 
-O teste integrado cria somente uma conta artificial local e percorre Auth, onboarding, perfil, pesagem, criação/ativação/persistência e revisão de programa, logout e novo login. Execute `npm run db:reset` depois dele para remover os dados de teste.
+O teste integrado cria somente contas artificiais locais e percorre Auth, onboarding, programa e execução de treino. Execute `npm run db:reset` depois dele para remover os dados de teste.
 
 Os scripts confinam arquivos temporários da CLI a `.cache/`, dentro do repositório e ignorada pelo Git. Para encerrar a stack:
 
@@ -129,4 +129,4 @@ O Supabase local atende aos testes automatizados no computador. Não altere fire
 
 ## Próximo passo recomendado
 
-Revisar humanamente a Phase 5. Não iniciar a Phase 6 antes da aprovação explícita.
+Revisar humanamente a Phase 6. A Phase 7 — Performance & Derived Metrics Engine — não deve começar sem aprovação explícita.

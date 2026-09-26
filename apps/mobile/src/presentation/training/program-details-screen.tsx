@@ -77,6 +77,20 @@ export function ProgramDetailsScreen() {
       setBusy(false);
     }
   }
+  async function startWorkout(dayId: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const workout = await app.startWorkout(dayId);
+      router.push(`/workouts/${workout.id}` as Href);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Não foi possível iniciar o treino.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   if (p === undefined)
     return (
       <ActivityIndicator style={{ margin: 40 }} color={theme.colors.accent} />
@@ -141,6 +155,18 @@ export function ProgramDetailsScreen() {
                       ))}
                     </View>
                   ))}
+                  {p.status === "active" ? (
+                    <Pressable
+                      disabled={busy}
+                      onPress={() => startWorkout(d.id)}
+                      style={[
+                        s.button,
+                        { backgroundColor: theme.colors.accent },
+                      ]}
+                    >
+                      <Text style={s.buttonText}>Iniciar treino</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               ))}
             </View>

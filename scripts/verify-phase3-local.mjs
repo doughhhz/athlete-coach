@@ -20,6 +20,13 @@ import {
   GetActiveTrainingProgram,
   GetTrainingProgram,
   CloneTrainingProgramAsDraft,
+  StartWorkoutSession,
+  GetInProgressWorkoutSession,
+  RecordWorkoutSet,
+  SkipWorkoutSet,
+  CompleteWorkoutSession,
+  AbandonWorkoutSession,
+  ListWorkoutSessions,
 } from "../packages/application/src/index.ts";
 import { createAthleteCoachSupabaseClient } from "../packages/data-access/src/supabase/create-athlete-coach-supabase-client.ts";
 import {
@@ -32,6 +39,7 @@ import {
   SupabaseTrainingContextRepository,
 } from "../packages/data-access/src/supabase/supabase-repositories.ts";
 import { SupabaseTrainingProgramRepository } from "../packages/data-access/src/supabase/training-program-repository.ts";
+import { SupabaseWorkoutSessionRepository } from "../packages/data-access/src/supabase/workout-session-repository.ts";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const temporaryDirectory = resolve(repositoryRoot, ".cache/supabase-cli-temp");
@@ -85,6 +93,7 @@ function compose(client) {
   const training = new SupabaseTrainingContextRepository(client);
   const weight = new SupabaseBodyWeightRepository(client);
   const programs = new SupabaseTrainingProgramRepository(client);
+  const workouts = new SupabaseWorkoutSessionRepository(client);
   return {
     auth,
     complete: new CompleteAthleteOnboarding(
@@ -111,6 +120,13 @@ function compose(client) {
     activeProgram: new GetActiveTrainingProgram(programs),
     getProgram: new GetTrainingProgram(programs),
     cloneProgram: new CloneTrainingProgramAsDraft(programs),
+    startWorkout: new StartWorkoutSession(workouts),
+    activeWorkout: new GetInProgressWorkoutSession(workouts),
+    recordSet: new RecordWorkoutSet(workouts),
+    skipSet: new SkipWorkoutSet(workouts),
+    completeWorkout: new CompleteWorkoutSession(workouts),
+    abandonWorkout: new AbandonWorkoutSession(workouts),
+    listWorkouts: new ListWorkoutSessions(workouts),
   };
 }
 
@@ -195,6 +211,45 @@ await first.saveProgram.execute(draft.id, {
                       loadKind: "athlete_selected",
                       loadKg: null,
                     },
+                    {
+                      sequence: 2,
+                      targetMetric: "reps",
+                      targetMin: 8,
+                      targetMax: 10,
+                      rirMin: 2,
+                      rirMax: 2,
+                      restMinSeconds: 120,
+                      restMaxSeconds: 120,
+                      tempo: null,
+                      loadKind: "athlete_selected",
+                      loadKg: null,
+                    },
+                    {
+                      sequence: 3,
+                      targetMetric: "reps",
+                      targetMin: 8,
+                      targetMax: 10,
+                      rirMin: 2,
+                      rirMax: 2,
+                      restMinSeconds: 120,
+                      restMaxSeconds: 120,
+                      tempo: null,
+                      loadKind: "athlete_selected",
+                      loadKg: null,
+                    },
+                    {
+                      sequence: 4,
+                      targetMetric: "reps",
+                      targetMin: 8,
+                      targetMax: 10,
+                      rirMin: 2,
+                      rirMax: 2,
+                      restMinSeconds: 120,
+                      restMaxSeconds: 120,
+                      tempo: null,
+                      loadKind: "athlete_selected",
+                      loadKg: null,
+                    },
                   ],
                 },
               ],
@@ -207,6 +262,16 @@ await first.saveProgram.execute(draft.id, {
 });
 const activated = await first.activateProgram.execute(draft.id);
 assert.equal(activated.status, "active");
+const workout = await first.startWorkout.execute(
+  activated.blocks[0].weeks[0].days[0].id,
+);
+assert.equal(workout.exercises[0].sets.length, 4);
+assert.equal(workout.programName, "Programa local");
+await first.recordSet.execute(workout.id, workout.exercises[0].sets[0].id, {
+  actualValue: 7,
+  actualLoadKg: 30,
+  actualRir: 2,
+});
 
 const reloadedClient = createAthleteCoachSupabaseClient({
   publishableKey,
@@ -222,6 +287,7 @@ snapshot = await reloaded.load.execute();
 assert.equal(snapshot.profile?.preferredName, "Atleta atualizado");
 assert.equal(snapshot.latestWeight?.weightKg, 76.8);
 assert.equal((await reloaded.activeProgram.execute())?.id, draft.id);
+assert.equal((await reloaded.activeWorkout.execute())?.id, workout.id);
 const revision = await reloaded.cloneProgram.execute(draft.id);
 assert.equal(revision.supersedesProgramId, draft.id);
 assert.notEqual(revision.blocks[0].id, activated.blocks[0].id);
@@ -234,7 +300,49 @@ assert.equal(retiredOriginal?.completedAt, null);
 assert.ok(retiredOriginal?.archivedAt);
 assert.equal(retiredOriginal?.blocks[0].name, activated.blocks[0].name);
 assert.equal((await reloaded.activeProgram.execute())?.id, revision.id);
+const resumed = await reloaded.activeWorkout.execute();
+assert.equal(
+  resumed?.sourceTrainingDayId,
+  activated.blocks[0].weeks[0].days[0].id,
+);
+assert.equal(resumed?.programName, "Programa local");
+await reloaded.recordSet.execute(workout.id, resumed.exercises[0].sets[1].id, {
+  actualValue: 9,
+  actualLoadKg: 30,
+  actualRir: 1,
+});
+await reloaded.recordSet.execute(workout.id, resumed.exercises[0].sets[2].id, {
+  actualValue: 12,
+  actualLoadKg: 27.5,
+  actualRir: 0,
+});
+await reloaded.skipSet.execute(resumed.exercises[0].sets[3].id);
+await reloaded.completeWorkout.execute(workout.id);
+assert.equal((await reloaded.listWorkouts.execute())[0].status, "completed");
+await assert.rejects(() =>
+  reloaded.recordSet.execute(workout.id, resumed.exercises[0].sets[0].id, {
+    actualValue: 8,
+    actualLoadKg: 30,
+    actualRir: 2,
+  }),
+);
+const second = await reloaded.startWorkout.execute(
+  activatedRevision.blocks[0].weeks[0].days[0].id,
+);
+await reloaded.recordSet.execute(second.id, second.exercises[0].sets[0].id, {
+  actualValue: 8,
+  actualLoadKg: 30,
+  actualRir: 2,
+});
+await reloaded.abandonWorkout.execute(second.id);
+const abandoned = (await reloaded.listWorkouts.execute()).find(
+  (x) => x.id === second.id,
+);
+assert.equal(abandoned?.status, "abandoned");
+assert.equal(abandoned?.completedSetCount, 1);
 
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
-console.log("Local Auth/onboarding/profile/training-program flow passed.");
+console.log(
+  "Local Auth/onboarding/training-program/workout-runner flow passed.",
+);

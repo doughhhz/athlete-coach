@@ -38,6 +38,12 @@ Supersets/circuitos foram postergados: uma entidade de grouping sem semântica d
 7. produzir métricas derivadas;
 8. opcionalmente solicitar análise do Coach usando os resultados calculados.
 
+## Implementação da execução na Phase 6
+
+Criar a sessão significa começar: `in_progress -> completed | abandoned`. Start copia atomicamente a hierarquia necessária e snapshots planejados, mantendo source IDs. Um workout iniciado no Programa A permanece ligado a A mesmo após replacement por B. Completed exige todas as séries completed ou skipped; abandoned preserva performance e deixa pendentes como não executadas, sem convertê-las artificialmente em skipped.
+
+Performance registra realidade e não é obrigada a coincidir com a prescrição. Correções são aceitas enquanto a sessão está ativa; estados terminais e filhos ficam imutáveis. Descanso usa timestamps opcionais como fonte de verdade e duração da sessão é derivada. Extra sets, substituição manual, analytics e progressão foram postergados.
+
 ## Métricas determinísticas
 
 Definições finais e fórmulas serão aprovadas antes de código. Exemplos previstos:

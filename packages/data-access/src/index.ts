@@ -7,3 +7,4 @@ export type { Database } from "./generated/database.types";
 export * from "./supabase/supabase-repositories";
 export * from "./supabase/exercise-catalog-repositories";
 export * from "./supabase/training-program-repository";
+export * from "./supabase/workout-session-repository";

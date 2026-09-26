@@ -47,6 +47,8 @@ A Phase 4 adiciona `ExerciseCatalogRepository` e `AnatomyRepository`. Consultas 
 
 A Phase 5 adiciona `TrainingProgramRepository`, modelos puros e casos de uso específicos. A estrutura completa é salva por RPC transacional; ativação, transições e clone também são operações atômicas. Ao ativar qualquer novo draft, o mesmo RPC arquiva o ativo anterior e ativa o novo, preservando timestamps, estrutura e lineage; somente o caso de uso explícito de conclusão produz `completed`. Triggers no banco impedem mutação dos filhos quando o programa não é draft. Presentation recebe apenas modelos da aplicação e continua sem Supabase direto.
 
+A Phase 6 adiciona `WorkoutSessionRepository` e o aggregate de execução independente. Start, complete e abandon são RPCs transacionais; record/skip usam RPCs protegidas. Snapshot planejado e performance observada ocupam colunas distintas. RLS deriva ownership dos filhos pelo root e triggers tornam todo o histórico terminal imutável. A retomada reconstrói estado do servidor; inputs não confirmados ficam na tela para retry, sem cache local concorrente nesta fase.
+
 ### AI (`packages/ai` e backend)
 
 - **AI Gateway:** único ponto autenticado de entrada para solicitações de IA, com limites, observabilidade e idempotência.

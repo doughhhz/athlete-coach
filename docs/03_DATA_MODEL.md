@@ -47,7 +47,9 @@ Programas usam lifecycle `draft`, `active`, `completed`, `archived`. Somente dra
 
 ### Workout
 
-`WorkoutSession` contém `PerformedExercise` e `PerformedSet`. Uma série registra valores observados, ordem e estado. Edições/correções preservam auditoria. Sessões podem estar planejadas, em andamento, concluídas ou canceladas.
+`WorkoutSession -> WorkoutExercise -> WorkoutSet` é o aggregate físico da Phase 6. Sessões nascem `in_progress` ao iniciar um `TrainingDay` ativo; terminam `completed` ou `abandoned`. Não existe draft. Um índice parcial limita uma sessão em andamento por atleta.
+
+`WorkoutExercise` referencia prescrição e exercício canônico sem duplicar anatomia. `WorkoutSet` referencia a série prescrita, congela targets planejados em colunas estruturadas e mantém performance observada separada. `completed` exige valor positivo (inteiro para reps); carga kg e RIR são opcionais. `skipped` não fabrica performance. **Performance records reality; divergence from prescription is valid data.** Histórico terminal é imutável para clientes.
 
 ### Performance
 

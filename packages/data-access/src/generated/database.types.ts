@@ -949,11 +949,229 @@ export type Database = {
           },
         ]
       }
+      workout_exercises: {
+        Row: {
+          created_at: string
+          exercise_id: string
+          exercise_name_snapshot: string
+          id: string
+          planned_athlete_cues: string | null
+          planned_instructions: string | null
+          sequence: number
+          source_exercise_prescription_id: string
+          updated_at: string
+          workout_session_id: string
+        }
+        Insert: {
+          created_at?: string
+          exercise_id: string
+          exercise_name_snapshot: string
+          id?: string
+          planned_athlete_cues?: string | null
+          planned_instructions?: string | null
+          sequence: number
+          source_exercise_prescription_id: string
+          updated_at?: string
+          workout_session_id: string
+        }
+        Update: {
+          created_at?: string
+          exercise_id?: string
+          exercise_name_snapshot?: string
+          id?: string
+          planned_athlete_cues?: string | null
+          planned_instructions?: string | null
+          sequence?: number
+          source_exercise_prescription_id?: string
+          updated_at?: string
+          workout_session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_exercises_source_exercise_prescription_id_fkey"
+            columns: ["source_exercise_prescription_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_prescriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_exercises_workout_session_id_fkey"
+            columns: ["workout_session_id"]
+            isOneToOne: false
+            referencedRelation: "workout_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_sessions: {
+        Row: {
+          abandoned_at: string | null
+          athlete_id: string
+          athlete_notes: string | null
+          completed_at: string | null
+          created_at: string
+          day_name_snapshot: string
+          id: string
+          program_name_snapshot: string
+          source_training_day_id: string
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          abandoned_at?: string | null
+          athlete_id: string
+          athlete_notes?: string | null
+          completed_at?: string | null
+          created_at?: string
+          day_name_snapshot: string
+          id?: string
+          program_name_snapshot: string
+          source_training_day_id: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          abandoned_at?: string | null
+          athlete_id?: string
+          athlete_notes?: string | null
+          completed_at?: string | null
+          created_at?: string
+          day_name_snapshot?: string
+          id?: string
+          program_name_snapshot?: string
+          source_training_day_id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_sessions_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_sessions_source_training_day_id_fkey"
+            columns: ["source_training_day_id"]
+            isOneToOne: false
+            referencedRelation: "training_days"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_sets: {
+        Row: {
+          actual_load_kg: number | null
+          actual_rir: number | null
+          actual_value: number | null
+          created_at: string
+          id: string
+          performed_at: string | null
+          planned_load_kg: number | null
+          planned_load_kind: string
+          planned_metric: string
+          planned_rest_max_seconds: number | null
+          planned_rest_min_seconds: number | null
+          planned_rir_max: number | null
+          planned_rir_min: number | null
+          planned_target_max: number
+          planned_target_min: number
+          planned_tempo: string | null
+          rest_ended_at: string | null
+          rest_started_at: string | null
+          sequence: number
+          source_prescription_set_id: string
+          status: string
+          updated_at: string
+          workout_exercise_id: string
+        }
+        Insert: {
+          actual_load_kg?: number | null
+          actual_rir?: number | null
+          actual_value?: number | null
+          created_at?: string
+          id?: string
+          performed_at?: string | null
+          planned_load_kg?: number | null
+          planned_load_kind: string
+          planned_metric: string
+          planned_rest_max_seconds?: number | null
+          planned_rest_min_seconds?: number | null
+          planned_rir_max?: number | null
+          planned_rir_min?: number | null
+          planned_target_max: number
+          planned_target_min: number
+          planned_tempo?: string | null
+          rest_ended_at?: string | null
+          rest_started_at?: string | null
+          sequence: number
+          source_prescription_set_id: string
+          status?: string
+          updated_at?: string
+          workout_exercise_id: string
+        }
+        Update: {
+          actual_load_kg?: number | null
+          actual_rir?: number | null
+          actual_value?: number | null
+          created_at?: string
+          id?: string
+          performed_at?: string | null
+          planned_load_kg?: number | null
+          planned_load_kind?: string
+          planned_metric?: string
+          planned_rest_max_seconds?: number | null
+          planned_rest_min_seconds?: number | null
+          planned_rir_max?: number | null
+          planned_rir_min?: number | null
+          planned_target_max?: number
+          planned_target_min?: number
+          planned_tempo?: string | null
+          rest_ended_at?: string | null
+          rest_started_at?: string | null
+          sequence?: number
+          source_prescription_set_id?: string
+          status?: string
+          updated_at?: string
+          workout_exercise_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_sets_source_prescription_set_id_fkey"
+            columns: ["source_prescription_set_id"]
+            isOneToOne: false
+            referencedRelation: "prescription_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_sets_workout_exercise_id_fkey"
+            columns: ["workout_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "workout_exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      abandon_workout_session: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       activate_training_program: {
         Args: { p_program_id: string }
         Returns: {
@@ -1063,6 +1281,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      complete_workout_session: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       current_athlete_id: { Args: never; Returns: string }
       ensure_current_athlete: {
         Args: never
@@ -1079,6 +1301,17 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      record_workout_set: {
+        Args: {
+          p_actual_load_kg?: number
+          p_actual_rir?: number
+          p_actual_value: number
+          p_rest_ended_at?: string
+          p_rest_started_at?: string
+          p_set_id: string
+        }
+        Returns: undefined
       }
       replace_training_program_structure: {
         Args: { p_program_id: string; p_structure: Json }
@@ -1110,6 +1343,11 @@ export type Database = {
       set_current_training_availability: {
         Args: { p_available_weekdays: number[] }
         Returns: undefined
+      }
+      skip_workout_set: { Args: { p_set_id: string }; Returns: undefined }
+      start_workout_session: {
+        Args: { p_training_day_id: string }
+        Returns: string
       }
       transition_training_program: {
         Args: { p_program_id: string; p_status: string }

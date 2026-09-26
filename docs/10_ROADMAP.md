@@ -4,7 +4,7 @@ Status: **canônico em sequência; datas não definidas**
 
 Cada fase termina com validação e revisão humana. Concluir uma fase não autoriza iniciar automaticamente a seguinte.
 
-Estado de execução em 2026-09-25: Phases 0 a 4 concluídas; Phase 5 implementada e aguardando revisão humana; Phase 6 não iniciada.
+Estado de execução em 2026-09-26: Phases 0 a 5 concluídas; Phase 6 implementada e validada, aguardando revisão humana; Phase 7 não iniciada.
 
 ## Phase 0 — Foundation
 
@@ -43,6 +43,8 @@ Implementação: agregado físico e tipado, lifecycle transacional, um ativo por
 ## Phase 6 — Workout Runner
 
 Execução resiliente/offline, séries, carga, reps, RIR, descanso, retomada e sincronização idempotente. Depende de 5 e estratégia offline de 2.
+
+Implementação: aggregate de execução, snapshot planejado, performance observada, lifecycle transacional, uma sessão ativa, retomada online, registro/correção/skip, conclusão/abandono e histórico factual. Offline completo, extras e substituições foram postergados explicitamente; nenhuma métrica derivada foi antecipada.
 
 ## Phase 7 — Performance Engine
 

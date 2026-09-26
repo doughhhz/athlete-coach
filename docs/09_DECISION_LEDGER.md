@@ -280,6 +280,37 @@ Mudanças editoriais que não alteram significado não precisam de entrada. Dúv
 - Validação: pgTAP cobre conclusão explícita, substituição independente, substituição de revisão, lineage, imutabilidade, unicidade do ativo e rollback de ativação falha; integração local verifica a semântica de replacement.
 - Impacto: `activate_training_program`, testes de banco/integração, apresentação mobile, Training Engine, Data Model, Architecture e UI/UX.
 
+### ADR-0026 — Aggregate de Workout Session e snapshot planejado
+
+- Data: 2026-09-26
+- Status: accepted
+- Contexto: execução não pode ser confundida com planejamento nem depender de joins futuros.
+- Decisão: usar `WorkoutSession -> WorkoutExercise -> WorkoutSet`, com source IDs e snapshot estruturado dos targets. Performance observada ocupa campos separados. **Performance records reality; divergence from prescription is valid data.**
+- Impacto: migration Phase 6, domain, application, data-access, UI e testes.
+
+### ADR-0027 — Lifecycle e imutabilidade histórica do workout
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: sessão nasce `in_progress`, termina `completed` ou `abandoned`; uma ativa por atleta. Completion exige sets resolvidos. Abandon preserva performance e pending. Correções são permitidas somente enquanto ativa; clientes não alteram nem apagam histórico terminal.
+- Impacto: RPCs, triggers, RLS, casos de uso e UX.
+
+### ADR-0028 — Retomada online e relógios por timestamp
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: servidor é authoritative; retomada reconstrói o aggregate. Falha de save preserva inputs na tela e permite retry. Não há sync engine/cache concorrente. Duração e descanso usam timestamps, nunca contagem persistida de intervalos JS.
+- Motivo: resiliência honesta sem last-write-wins silencioso ou complexidade offline prematura.
+- Impacto: Runner, repository e documentação. Offline completo permanece futuro.
+
+### ADR-0029 — Extras e substituições postergados
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: a Phase 6 não expõe extra sets nem substituição manual/automática. O schema não usa ordinal global rígido, mas toda série atual referencia sua origem prescrita; um modelo futuro deverá distinguir explicitamente extras e contexto de substituição.
+- Motivo: não inventar targets retrospectivos nem contaminar o core de Raw Data.
+- Impacto: escopo do Runner e fases futuras.
+
 ## Hipóteses registradas (não decisões de produto)
 
 - `athlete-coach` é apenas nome técnico do diretório.
