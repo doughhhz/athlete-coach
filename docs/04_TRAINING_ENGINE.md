@@ -21,7 +21,9 @@ Uma prescrição inclui exercício e ordem; cada série planejada possui seu pr�
 
 ## Lifecycle e revisão
 
-Drafts são editáveis. A ativação valida toda a hierarquia e ocorre atomicamente; ao ativar uma revisão, um ativo anterior é concluído. Estruturas ativas, concluídas e arquivadas são protegidas por triggers. Uma revisão editável é um clone completo com novos UUIDs e lineage para o programa anterior. `completed` significa ciclo encerrado normalmente; `archived` significa retirado/guardado e não implica conclusão.
+Drafts são editáveis. A ativação valida toda a hierarquia e ocorre atomicamente. A regra originalmente aprovada dizia que ativar uma revisão concluía o ativo anterior; essa parte foi superseded pela ADR-0025 porque registrava como conclusão normal um ciclo apenas substituído. Agora, ativar qualquer novo draft, independente ou revisão, arquiva o ativo anterior na mesma transação e não preenche `completed_at`. Estruturas ativas, concluídas e arquivadas são protegidas por triggers. Uma revisão editável é um clone completo com novos UUIDs e lineage para o programa anterior. `completed` significa ciclo encerrado normalmente por conclusão explícita; `archived` significa retirado/guardado, inclusive por substituição, e não implica conclusão.
+
+Regra canônica: **conclusão registra o término normal do lifecycle. Substituição aposenta o programa anterior, preservando sua prescrição histórica e lineage.**
 
 Supersets/circuitos foram postergados: uma entidade de grouping sem semântica de execução validada criaria ambiguidade para o futuro Runner. Ordem explícita sustenta o core atual.
 

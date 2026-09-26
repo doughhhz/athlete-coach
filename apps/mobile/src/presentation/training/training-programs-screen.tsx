@@ -18,7 +18,7 @@ const labels = {
   draft: "Rascunho",
   active: "Ativo",
   completed: "Concluído",
-  archived: "Arquivado",
+  archived: "Arquivado (retirado)",
 } as const;
 export function TrainingProgramsScreen() {
   const app = useAppSession(),

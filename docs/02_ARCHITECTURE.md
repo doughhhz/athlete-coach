@@ -45,7 +45,7 @@ A Phase 3 adiciona repositories Supabase específicos para Auth, atleta, perfil,
 
 A Phase 4 adiciona `ExerciseCatalogRepository` e `AnatomyRepository`. Consultas do catálogo global passam por casos de uso; busca/filtros factuais são executados no PostgreSQL e resultados externos são validados antes do mapeamento. Tipos gerados continuam restritos ao adapter e não são modelos de domínio.
 
-A Phase 5 adiciona `TrainingProgramRepository`, modelos puros e casos de uso específicos. A estrutura completa é salva por RPC transacional; ativação, transições e clone também são operações atômicas. Triggers no banco impedem mutação dos filhos quando o programa não é draft. Presentation recebe apenas modelos da aplicação e continua sem Supabase direto.
+A Phase 5 adiciona `TrainingProgramRepository`, modelos puros e casos de uso específicos. A estrutura completa é salva por RPC transacional; ativação, transições e clone também são operações atômicas. Ao ativar qualquer novo draft, o mesmo RPC arquiva o ativo anterior e ativa o novo, preservando timestamps, estrutura e lineage; somente o caso de uso explícito de conclusão produz `completed`. Triggers no banco impedem mutação dos filhos quando o programa não é draft. Presentation recebe apenas modelos da aplicação e continua sem Supabase direto.
 
 ### AI (`packages/ai` e backend)
 

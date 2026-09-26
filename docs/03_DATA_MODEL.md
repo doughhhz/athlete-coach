@@ -43,7 +43,7 @@ Esse conhecimento global não possui `athlete_id`, é somente leitura para clien
 
 `TrainingProgram -> TrainingBlock -> TrainingWeek -> TrainingDay -> ExercisePrescription -> PrescriptionSet` é o agregado físico da Phase 5. Cada nível tem sequência positiva e única no pai. `PrescriptionSet` representa métrica (`reps`, `seconds`, `meters`) e faixa, RIR e descanso opcionais em faixas, tempo opcional `E-I-C-I` com `X` permitido, e carga `unprescribed`, `athlete_selected` ou absoluta em kg. **Prescription representa intenção planejada; Performance representa execução observada.**
 
-Programas usam lifecycle `draft`, `active`, `completed`, `archived`. Somente draft aceita mutação estrutural; revisão clona o agregado com novos UUIDs e `supersedes_program_id`. Um índice parcial limita um programa ativo por atleta. A referência opcional ao objetivo usa FK composta para congelar contexto sem permitir goal de outro atleta.
+Programas usam lifecycle `draft`, `active`, `completed`, `archived`. Somente draft aceita mutação estrutural; revisão clona o agregado com novos UUIDs e `supersedes_program_id`. `completed` registra exclusivamente o encerramento normal explícito; a ativação de outro draft aposenta o ativo anterior como `archived`, com `archived_at`, sem preencher `completed_at`. Drafts independentes e revisões compartilham essa regra de substituição; em revisões, o lineage explica a relação, enquanto o agregado anterior permanece intacto. Um índice parcial limita um programa ativo por atleta. A referência opcional ao objetivo usa FK composta para congelar contexto sem permitir goal de outro atleta.
 
 ### Workout
 

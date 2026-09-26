@@ -11,6 +11,12 @@ import {
 } from "react-native";
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
+const statusLabels = {
+  draft: "Rascunho",
+  active: "Ativo",
+  completed: "Concluído normalmente",
+  archived: "Arquivado (retirado)",
+} as const;
 function range(a: number, b: number) {
   return a === b ? `${a}` : `${a}–${b}`;
 }
@@ -90,7 +96,7 @@ export function ProgramDetailsScreen() {
         {p.name}
       </Text>
       <Text style={{ color: theme.colors.textMuted }}>
-        Status: {p.status} · revisão {p.revision}
+        Status: {statusLabels[p.status]} · revisão {p.revision}
       </Text>
       <Text style={[s.planned, { color: theme.colors.accent }]}>
         ALVOS PLANEJADOS

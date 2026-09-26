@@ -46,6 +46,8 @@ test("details labels prescription as planned and offers revision", async () => {
   const text = await source("program-details-screen.tsx");
   assert.match(text, /ALVOS PLANEJADOS/);
   assert.match(text, /Criar revisão editável/);
+  assert.match(text, /Concluído normalmente/);
+  assert.match(text, /Arquivado \(retirado\)/);
   assert.match(text, /Série/);
   assert.doesNotMatch(
     text,

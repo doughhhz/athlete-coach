@@ -38,7 +38,7 @@ Implementação: taxonomia anatômica, catálogo interno bilíngue, aliases, bus
 
 Programas versionados, blocos, semanas, dias, prescrições e políticas determinísticas iniciais. Depende de 3 e 4.
 
-Implementação: agregado físico e tipado, lifecycle transacional, um ativo por atleta, drafts editáveis, histórico imutável, clone de revisão, alvos por série e builder/lista/detalhes mobile concluídos. Supersets foram postergados; execução observada e progressão permanecem fora de escopo.
+Implementação: agregado físico e tipado, lifecycle transacional, um ativo por atleta, drafts editáveis, histórico imutável, clone de revisão, alvos por série e builder/lista/detalhes mobile concluídos. Correção dirigida da Phase 5: substituição arquiva o ativo anterior, enquanto somente a conclusão explícita registra encerramento normal. Supersets foram postergados; execução observada e progressão permanecem fora de escopo.
 
 ## Phase 6 — Workout Runner
 

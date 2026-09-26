@@ -18,6 +18,7 @@ import {
   SaveTrainingProgramStructure,
   ActivateTrainingProgram,
   GetActiveTrainingProgram,
+  GetTrainingProgram,
   CloneTrainingProgramAsDraft,
 } from "../packages/application/src/index.ts";
 import { createAthleteCoachSupabaseClient } from "../packages/data-access/src/supabase/create-athlete-coach-supabase-client.ts";
@@ -108,6 +109,7 @@ function compose(client) {
     saveProgram: new SaveTrainingProgramStructure(programs),
     activateProgram: new ActivateTrainingProgram(programs),
     activeProgram: new GetActiveTrainingProgram(programs),
+    getProgram: new GetTrainingProgram(programs),
     cloneProgram: new CloneTrainingProgramAsDraft(programs),
   };
 }
@@ -224,6 +226,14 @@ const revision = await reloaded.cloneProgram.execute(draft.id);
 assert.equal(revision.supersedesProgramId, draft.id);
 assert.notEqual(revision.blocks[0].id, activated.blocks[0].id);
 assert.equal((await reloaded.activeProgram.execute())?.id, draft.id);
+const activatedRevision = await reloaded.activateProgram.execute(revision.id);
+const retiredOriginal = await reloaded.getProgram.execute(draft.id);
+assert.equal(activatedRevision.status, "active");
+assert.equal(retiredOriginal?.status, "archived");
+assert.equal(retiredOriginal?.completedAt, null);
+assert.ok(retiredOriginal?.archivedAt);
+assert.equal(retiredOriginal?.blocks[0].name, activated.blocks[0].name);
+assert.equal((await reloaded.activeProgram.execute())?.id, revision.id);
 
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();

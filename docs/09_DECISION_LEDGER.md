@@ -240,7 +240,7 @@ Mudanças editoriais que não alteram significado não precisam de entrada. Dúv
 ### ADR-0022 — Lifecycle, ativação imutável e revisão
 
 - Data: 2026-09-25
-- Status: accepted
+- Status: superseded por ADR-0025
 - Contexto: programas utilizados não podem ser reescritos silenciosamente e a troca de ativo precisa ser atômica.
 - Regra anterior: mudanças seriam versionadas, sem lifecycle físico definido.
 - Decisão: usar `draft`, `active`, `completed`, `archived`; somente draft é estruturalmente mutável. Um índice limita um ativo por atleta. Ativação conclui o ativo anterior na mesma transação. Revisão clona todo o agregado com novos UUIDs e `supersedes_program_id` único.
@@ -267,6 +267,18 @@ Mudanças editoriais que não alteram significado não precisam de entrada. Dúv
 - Decisão: tornar explícito que **Prescription representa intenção planejada; Performance representa execução observada**. A Phase 5 não persiste reps, carga, RIR, descanso ou duração realizados.
 - Motivo/evidência: evita transformar plano em fato e preserva a separação entre planejamento e Raw Data futuro.
 - Impacto: modelo, linguagem da UI, schema e escopo das Phases 5 e 6.
+
+### ADR-0025 — Substituição aposenta sem concluir
+
+- Data: 2026-09-26
+- Status: accepted
+- Contexto: ADR-0022 definiu simultaneamente `completed` como encerramento normal e a ativação de uma revisão como conclusão automática do ativo anterior. Uma substituição antecipada não prova que o ciclo planejado terminou e produziria histórico falso para análises longitudinais e Coach Intelligence.
+- Regra anterior: ativação concluía o ativo anterior na mesma transação, preenchendo `completed_at`.
+- Decisão: manter `draft`, `active`, `completed`, `archived`. Conclusão registra o término normal do lifecycle e somente `CompleteTrainingProgram` faz `active -> completed`. Ativar qualquer novo draft arquiva o ativo anterior na mesma transação, preenche `archived_at` e não preenche `completed_at`. Revisões preservam `new.supersedes_program_id = old.id`; o programa anterior e toda sua estrutura permanecem imutáveis.
+- Motivo/evidência: replacement e completion são eventos semanticamente distintos; separar os timestamps impede falsos positivos históricos sem introduzir um quinto status.
+- Compatibilidade/migração: uma migration substitui somente o RPC de ativação. Não há remapeamento automático de linhas históricas porque não existe evidência determinística para distinguir conclusões explícitas de substituições anteriores.
+- Validação: pgTAP cobre conclusão explícita, substituição independente, substituição de revisão, lineage, imutabilidade, unicidade do ativo e rollback de ativação falha; integração local verifica a semântica de replacement.
+- Impacto: `activate_training_program`, testes de banco/integração, apresentação mobile, Training Engine, Data Model, Architecture e UI/UX.
 
 ## Hipóteses registradas (não decisões de produto)
 

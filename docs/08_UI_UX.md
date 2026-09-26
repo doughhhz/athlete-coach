@@ -40,7 +40,7 @@ Na Phase 3, a raiz separa configuração, boot, Auth, onboarding obrigatório e 
 
 Na Phase 4, a tab Treino oferece acesso à Biblioteca de exercícios sem criar nova tab. Lista e busca possuem carregamento, erro recuperável, vazio e sucesso, com filtros por grupo muscular e equipamento. `/exercises/[slug]` mostra somente conhecimento factual, instruções, segurança e relações; ausência de mídia é declarada honestamente. Prescrição e recomendação permanecem ausentes.
 
-Na Phase 5, Treino mostra o programa ativo, lista drafts/ativos/concluídos/arquivados e mantém acesso à Biblioteca. Detalhes rotulam explicitamente “ALVOS PLANEJADOS”. O builder manual cria uma hierarquia mínima mobile-first, seleciona exercícios do catálogo canônico, valida alvos por série e leva à revisão antes da ativação. Não há ações de iniciar treino ou concluir série.
+Na Phase 5, Treino mostra o programa ativo, lista drafts/ativos/concluídos/arquivados e mantém acesso à Biblioteca. A apresentação distingue “Concluído normalmente” de “Arquivado (retirado)”, para não sugerir que um programa substituído terminou seu ciclo. Detalhes rotulam explicitamente “ALVOS PLANEJADOS”. O builder manual cria uma hierarquia mínima mobile-first, seleciona exercícios do catálogo canônico, valida alvos por série e leva à revisão antes da ativação. Não há ações de iniciar treino ou concluir série.
 
 Campos mantêm labels, teclado coerente, mensagens não julgadoras e progresso visível. Estado vazio ou erro é textual, nunca uma tela branca ou dado simulado. O date input textual `AAAA-MM-DD` é uma limitação consciente desta versão e deve ser reavaliado com testes reais de acessibilidade/entrada no iPhone.
 
