@@ -49,6 +49,8 @@ A Phase 5 adiciona `TrainingProgramRepository`, modelos puros e casos de uso esp
 
 A Phase 6 adiciona `WorkoutSessionRepository` e o aggregate de execução independente. Start, complete e abandon são RPCs transacionais; record/skip usam RPCs protegidas. Snapshot planejado e performance observada ocupam colunas distintas. RLS deriva ownership dos filhos pelo root e triggers tornam todo o histórico terminal imutável. A retomada reconstrói estado do servidor; inputs não confirmados ficam na tela para retry, sem cache local concorrente nesta fase.
 
+A Phase 7 adiciona `PerformanceReadRepository` read-only e calculadores puros em domínio próprio. O adapter consulta aggregates históricos sob RLS, valida/mapeia Raw Data e a aplicação calcula projections sob demanda. Não existem tabelas, views ou caches de métricas; uma nova versão de fórmula pode recomputar todo o histórico sem modificar Workout.
+
 ### AI (`packages/ai` e backend)
 
 - **AI Gateway:** único ponto autenticado de entrada para solicitações de IA, com limites, observabilidade e idempotência.

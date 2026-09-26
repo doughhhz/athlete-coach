@@ -61,6 +61,16 @@ Definições finais e fórmulas serão aprovadas antes de código. Exemplos prev
 
 Não existe uma única definição universal para volume, aderência, PR ou readiness. Escolhas devem entrar no Decision Ledger e nos metadados do cálculo.
 
+### Fórmulas implementadas na Phase 7
+
+- duração terminal: `completed_at|abandoned_at - started_at`, em segundos inteiros;
+- target/RIR/rest attainment: comparação inclusiva com ranges; missing é `not_measured` ou `not_planned`;
+- reps, seconds e meters são somados separadamente apenas em sets completed;
+- `epley-v1`: 1 rep retorna carga registrada; 2–12 reps usam `load_kg × (1 + reps/30)`; outros casos são inelegíveis;
+- PR é específico do exercício, exige valor estritamente maior que todo valor anterior e nunca transforma a primeira observação em evento.
+
+`actual_load_kg` não possui semântica biomecânica uniforme entre implementos. Por isso não existe tonelagem, trabalho mecânico ou agregação global de cargas. Comparações permanecem dentro do mesmo exercício canônico e a UI usa “carga registrada”.
+
 ## Progressão
 
 Progressão é uma política determinística configurável, não texto livre do LLM. Uma política recebe histórico elegível, prescrição, resultado, recuperação relevante e constraints; retorna proposta e explicação estruturada. A IA pode interpretar a proposta ou sugerir revisão, mas não inventa cálculos.

@@ -19,6 +19,10 @@ import type {
   TrainingProgramSummary,
   WorkoutSession,
   WorkoutSessionSummary,
+  PerformanceOverview,
+  ExercisePerformancePoint,
+  ExercisePersonalBest,
+  SessionDerivedMetrics,
 } from "@athlete-coach/domain";
 import { createContext, useContext } from "react";
 
@@ -75,6 +79,15 @@ export type AppSessionValue = Readonly<{
   skipWorkoutSet(setId: string): Promise<WorkoutSession>;
   completeWorkout(id: string): Promise<WorkoutSession>;
   abandonWorkout(id: string): Promise<WorkoutSession>;
+  getPerformanceOverview(): Promise<PerformanceOverview>;
+  getExercisePerformanceHistory(
+    exerciseId?: string,
+  ): Promise<readonly ExercisePerformancePoint[]>;
+  getExercisePersonalBests(): Promise<readonly ExercisePersonalBest[]>;
+  getWorkoutDerivedSummary(id: string): Promise<Readonly<{
+    metrics: SessionDerivedMetrics;
+    personalRecordEvents: readonly ExercisePerformancePoint[];
+  }> | null>;
 }>;
 
 export const AppSessionContext = createContext<AppSessionValue | null>(null);

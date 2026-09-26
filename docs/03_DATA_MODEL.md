@@ -55,6 +55,8 @@ Programas usam lifecycle `draft`, `active`, `completed`, `archived`. Somente dra
 
 `MetricDefinition`, `MetricObservation`, `PersonalRecord`, `Trend` e `ProgressionAssessment`. Observações derivadas guardam algoritmo e proveniência.
 
+Na Phase 7, Performance é uma projection não persistida sobre Workout. Session metrics, attainment, histórico por exercício e personal bests são reconstruídos dos aggregates brutos. E1RM usa `epley-v1`; o point mantém session/set/exercise e proveniência temporal. Missing não vira zero ou falha. Nenhuma tabela de derived metrics foi criada.
+
 ### Recovery
 
 `RecoveryCheckIn`, `SleepObservation`, `SorenessObservation` e `ReadinessAssessment`. Readiness é derivado ou interpretado conforme sua fonte; nunca rotular interpretação como medição.

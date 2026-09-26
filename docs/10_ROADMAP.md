@@ -4,7 +4,7 @@ Status: **canônico em sequência; datas não definidas**
 
 Cada fase termina com validação e revisão humana. Concluir uma fase não autoriza iniciar automaticamente a seguinte.
 
-Estado de execução em 2026-09-26: Phases 0 a 5 concluídas; Phase 6 implementada e validada, aguardando revisão humana; Phase 7 não iniciada.
+Estado de execução em 2026-09-26: Phases 0 a 6 concluídas; Phase 7 implementada e validada, aguardando revisão humana; Phase 8 não iniciada.
 
 ## Phase 0 — Foundation
 
@@ -49,6 +49,8 @@ Implementação: aggregate de execução, snapshot planejado, performance observ
 ## Phase 7 — Performance Engine
 
 Definições/formulas versionadas, volume, tonelagem, aderência, e1RM aplicável, PRs e tendências. Depende de dados reais estruturados de 6.
+
+Implementação: projections read-only, métricas de sessão, attainment factual, histórico cronológico por exercício, Epley v1 e personal bests conservadores. Tonelagem, scores, tendência interpretativa e progressão foram explicitamente postergados por semântica insuficiente ou pertencimento a fases futuras.
 
 ## Phase 8 — AI Coach
 

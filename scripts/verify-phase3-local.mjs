@@ -27,6 +27,9 @@ import {
   CompleteWorkoutSession,
   AbandonWorkoutSession,
   ListWorkoutSessions,
+  GetPerformanceOverview,
+  GetExercisePerformanceHistory,
+  GetExercisePersonalBests,
 } from "../packages/application/src/index.ts";
 import { createAthleteCoachSupabaseClient } from "../packages/data-access/src/supabase/create-athlete-coach-supabase-client.ts";
 import {
@@ -40,6 +43,7 @@ import {
 } from "../packages/data-access/src/supabase/supabase-repositories.ts";
 import { SupabaseTrainingProgramRepository } from "../packages/data-access/src/supabase/training-program-repository.ts";
 import { SupabaseWorkoutSessionRepository } from "../packages/data-access/src/supabase/workout-session-repository.ts";
+import { SupabasePerformanceReadRepository } from "../packages/data-access/src/supabase/performance-read-repository.ts";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const temporaryDirectory = resolve(repositoryRoot, ".cache/supabase-cli-temp");
@@ -94,6 +98,7 @@ function compose(client) {
   const weight = new SupabaseBodyWeightRepository(client);
   const programs = new SupabaseTrainingProgramRepository(client);
   const workouts = new SupabaseWorkoutSessionRepository(client);
+  const performance = new SupabasePerformanceReadRepository(client);
   return {
     auth,
     complete: new CompleteAthleteOnboarding(
@@ -127,6 +132,9 @@ function compose(client) {
     completeWorkout: new CompleteWorkoutSession(workouts),
     abandonWorkout: new AbandonWorkoutSession(workouts),
     listWorkouts: new ListWorkoutSessions(workouts),
+    performanceOverview: new GetPerformanceOverview(performance),
+    performanceHistory: new GetExercisePerformanceHistory(performance),
+    personalBests: new GetExercisePersonalBests(performance),
   };
 }
 
@@ -319,6 +327,15 @@ await reloaded.recordSet.execute(workout.id, resumed.exercises[0].sets[2].id, {
 await reloaded.skipSet.execute(resumed.exercises[0].sets[3].id);
 await reloaded.completeWorkout.execute(workout.id);
 assert.equal((await reloaded.listWorkouts.execute())[0].status, "completed");
+let performanceHistory = await reloaded.performanceHistory.execute(
+  resumed.exercises[0].exerciseId,
+);
+assert.deepEqual(
+  performanceHistory.slice(0, 3).map((point) => point.targetAttainment),
+  ["below_range", "within_range", "above_range"],
+);
+assert.equal(performanceHistory[0].isNewMaxLoggedLoad, false);
+assert.equal(performanceHistory[0].isNewEstimatedOneRepMax, false);
 await assert.rejects(() =>
   reloaded.recordSet.execute(workout.id, resumed.exercises[0].sets[0].id, {
     actualValue: 8,
@@ -340,9 +357,38 @@ const abandoned = (await reloaded.listWorkouts.execute()).find(
 );
 assert.equal(abandoned?.status, "abandoned");
 assert.equal(abandoned?.completedSetCount, 1);
+performanceHistory = await reloaded.performanceHistory.execute(
+  second.exercises[0].exerciseId,
+);
+assert.equal(performanceHistory.at(-1)?.sessionStatus, "abandoned");
+assert.equal(performanceHistory.at(-1)?.isNewMaxLoggedLoad, false);
+const third = await reloaded.startWorkout.execute(
+  activatedRevision.blocks[0].weeks[0].days[0].id,
+);
+await reloaded.recordSet.execute(third.id, third.exercises[0].sets[0].id, {
+  actualValue: 8,
+  actualLoadKg: 35,
+  actualRir: 2,
+});
+for (const pending of third.exercises[0].sets.slice(1))
+  await reloaded.skipSet.execute(pending.id);
+await reloaded.completeWorkout.execute(third.id);
+performanceHistory = await reloaded.performanceHistory.execute(
+  third.exercises[0].exerciseId,
+);
+assert.equal(performanceHistory.at(-1)?.isNewMaxLoggedLoad, true);
+assert.equal(performanceHistory.at(-1)?.isNewEstimatedOneRepMax, true);
+assert.equal((await reloaded.personalBests.execute())[0].maxLoggedLoadKg, 35);
+const overviewBeforeReload = await reloaded.performanceOverview.execute();
+await reloaded.signOut.execute();
+await reloaded.signIn.execute(credentials);
+assert.deepEqual(
+  await reloaded.performanceOverview.execute(),
+  overviewBeforeReload,
+);
 
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training-program/workout-runner flow passed.",
+  "Local Auth/onboarding/training/workout/derived-performance flow passed.",
 );

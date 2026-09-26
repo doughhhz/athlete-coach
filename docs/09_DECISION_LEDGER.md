@@ -311,6 +311,36 @@ Mudanças editoriais que não alteram significado não precisam de entrada. Dúv
 - Motivo: não inventar targets retrospectivos nem contaminar o core de Raw Data.
 - Impacto: escopo do Runner e fases futuras.
 
+### ADR-0030 — Raw Performance versus Derived Performance
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: Derived Data é uma projection read-only e reproduzível de Workout Raw Data. Calculadores nunca alteram sets, sessões, snapshots ou programas. **Derived Data must be reproducible from Raw Data. Missing measurement is not failure.**
+- Impacto: domain Performance, read repository, aplicação, UI e testes.
+
+### ADR-0031 — Epley v1 e performance estimada
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: `epley-v1` aceita sets completed em reps, carga registrada positiva e 1–12 reps. Uma rep retorna a própria carga; 2–12 usam `load × (1 + reps/30)`. RIR não ajusta a fórmula e arredondamento pertence à apresentação. **Estimated performance is not measured performance.**
+- Limites: comparação somente no mesmo exercício; implementos não são universalmente equivalentes.
+- Impacto: calculators, UI, fixtures e futura evolução versionada.
+
+### ADR-0032 — Semântica conservadora de personal record
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: max logged load e e1RM PR são específicos do exercício. A primeira observação é baseline; somente valor estritamente maior que o best anterior é evento. Tie/lower não são recorde. Sets completed em sessões abandoned continuam elegíveis; skipped/pending não.
+- Impacto: ordenação cronológica, projections e UI.
+
+### ADR-0033 — Derived metrics sem armazenamento persistente
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: usar queries RLS, modelos validados e calculadores puros; não criar `performance_metrics`, caches ou materializações. Mudanças futuras de fórmula produzem recomputação versionada sobre Raw Data intacto.
+- Motivo: eliminar staleness e rebuild migrations prematuras.
+- Impacto: banco permanece sem novas entidades de métricas; Data Access é read-only.
+
 ## Hipóteses registradas (não decisões de produto)
 
 - `athlete-coach` é apenas nome técnico do diretório.

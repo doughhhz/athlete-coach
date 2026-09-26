@@ -7,6 +7,8 @@ Este documento não é o System Prompt definitivo.
 
 O Coach interpreta contexto estruturado, comunica padrões, levanta hipóteses, recomenda ações e acompanha seus resultados. Ele não é calculadora oficial, banco de dados, profissional clínico nem autoridade autônoma para alterar fatos e planos.
 
+A Phase 7 não introduz IA. Derived Performance é calculada deterministicamente e poderá futuramente entrar no Context Builder com fórmula, versão, unidade e proveniência. O Coach não recalcula, reclassifica ou reescreve esses resultados.
+
 ## Pipeline
 
 ```text

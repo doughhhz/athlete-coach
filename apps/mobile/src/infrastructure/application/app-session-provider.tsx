@@ -263,6 +263,22 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
       if (!application) throw new Error("Backend não configurado.");
       return application.abandonWorkout.execute(id);
     },
+    getPerformanceOverview: async () => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.getPerformanceOverview.execute();
+    },
+    getExercisePerformanceHistory: async (exerciseId) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.getExercisePerformanceHistory.execute(exerciseId);
+    },
+    getExercisePersonalBests: async () => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.getExercisePersonalBests.execute();
+    },
+    getWorkoutDerivedSummary: async (id) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.getWorkoutDerivedSummary.execute(id);
+    },
   };
 
   return (

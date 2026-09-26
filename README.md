@@ -6,9 +6,9 @@ Fundação arquitetural de um aplicativo mobile pessoal de treinamento, nutriç�
 
 ## Estado atual
 
-A **Phase 6 — Workout Runner** está implementada. Além de autenticação, perfil, catálogo e planejamento, o atleta pode iniciar, retomar, registrar/corrigir séries, pular séries, concluir ou abandonar uma sessão e consultar histórico factual.
+A **Phase 7 — Performance & Derived Metrics Engine** está implementada. O histórico bruto de treinos agora produz, por cálculo determinístico, resumos factuais, attainment, séries cronológicas por exercício, carga máxima registrada, 1RM estimado e recordes conservadores.
 
-Prescrição permanece separada de execução. Performance é Raw Data e pode divergir do alvo. Não há progressão automática, LLM, provider externo, mídia externa ou analytics.
+Raw Performance permanece imutável e separada de Derived Data. Métricas são recalculadas sob demanda; não há cache persistido, tonelagem global, score, progressão automática, LLM ou interpretação estratégica.
 
 ## Stack do shell
 
@@ -129,4 +129,4 @@ O Supabase local atende aos testes automatizados no computador. Não altere fire
 
 ## Próximo passo recomendado
 
-Revisar humanamente a Phase 6. A Phase 7 — Performance & Derived Metrics Engine — não deve começar sem aprovação explícita.
+Revisar humanamente a Phase 7. A Phase 8 — AI Coach — não deve começar sem aprovação explícita e revisão formal de safety/privacidade.

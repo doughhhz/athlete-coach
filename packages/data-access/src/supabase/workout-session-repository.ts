@@ -60,12 +60,12 @@ const sessionSchema = z.object({
   updated_at: z.iso.datetime({ offset: true }),
   workout_exercises: z.array(exerciseSchema),
 });
-const tree =
+export const workoutSessionSelectTree =
   "id,athlete_id,source_training_day_id,program_name_snapshot,day_name_snapshot,status,athlete_notes,started_at,completed_at,abandoned_at,created_at,updated_at,workout_exercises(id,source_exercise_prescription_id,exercise_id,sequence,exercise_name_snapshot,planned_instructions,planned_athlete_cues,workout_sets(id,source_prescription_set_id,sequence,status,planned_metric,planned_target_min,planned_target_max,planned_rir_min,planned_rir_max,planned_rest_min_seconds,planned_rest_max_seconds,planned_tempo,planned_load_kind,planned_load_kg,actual_value,actual_load_kg,actual_rir,performed_at,rest_started_at,rest_ended_at))";
 function fail(message: string, error: unknown): never {
   throw new DataAccessError(message, { cause: error });
 }
-function map(input: unknown): WorkoutSession {
+export function mapWorkoutSession(input: unknown): WorkoutSession {
   const s = sessionSchema.parse(input);
   return {
     id: s.id,
@@ -132,29 +132,29 @@ export class SupabaseWorkoutSessionRepository implements WorkoutSessionRepositor
   async getInProgress() {
     const { data, error } = await this.client
       .from("workout_sessions")
-      .select(tree)
+      .select(workoutSessionSelectTree)
       .eq("status", "in_progress")
       .maybeSingle();
     if (error) fail("Não foi possível carregar o treino em andamento.", error);
-    return data ? map(data) : null;
+    return data ? mapWorkoutSession(data) : null;
   }
   async get(id: string) {
     const { data, error } = await this.client
       .from("workout_sessions")
-      .select(tree)
+      .select(workoutSessionSelectTree)
       .eq("id", id)
       .maybeSingle();
     if (error) fail("Não foi possível carregar o treino.", error);
-    return data ? map(data) : null;
+    return data ? mapWorkoutSession(data) : null;
   }
   async list(): Promise<readonly WorkoutSessionSummary[]> {
     const { data, error } = await this.client
       .from("workout_sessions")
-      .select(tree)
+      .select(workoutSessionSelectTree)
       .neq("status", "in_progress")
       .order("started_at", { ascending: false });
     if (error) fail("Não foi possível carregar o histórico.", error);
-    return (data ?? []).map(map).map((s) => {
+    return (data ?? []).map(mapWorkoutSession).map((s) => {
       const sets = s.exercises.flatMap((e) => e.sets),
         { exercises, ...rest } = s;
       return {

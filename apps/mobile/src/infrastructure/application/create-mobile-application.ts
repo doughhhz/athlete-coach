@@ -32,6 +32,10 @@ import {
   SkipWorkoutSet,
   CompleteWorkoutSession,
   AbandonWorkoutSession,
+  GetPerformanceOverview,
+  GetExercisePerformanceHistory,
+  GetExercisePersonalBests,
+  GetWorkoutDerivedSummary,
 } from "@athlete-coach/application";
 import {
   SupabaseAthleteGoalRepository,
@@ -45,6 +49,7 @@ import {
   SupabaseExerciseCatalogRepository,
   SupabaseTrainingProgramRepository,
   SupabaseWorkoutSessionRepository,
+  SupabasePerformanceReadRepository,
   type AthleteCoachSupabaseClient,
 } from "@athlete-coach/data-access";
 
@@ -60,6 +65,7 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
   const anatomyRepository = new SupabaseAnatomyRepository(client);
   const programs = new SupabaseTrainingProgramRepository(client);
   const workouts = new SupabaseWorkoutSessionRepository(client);
+  const performance = new SupabasePerformanceReadRepository(client);
 
   return {
     authRepository,
@@ -102,6 +108,12 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     skipWorkoutSet: new SkipWorkoutSet(workouts),
     completeWorkout: new CompleteWorkoutSession(workouts),
     abandonWorkout: new AbandonWorkoutSession(workouts),
+    getPerformanceOverview: new GetPerformanceOverview(performance),
+    getExercisePerformanceHistory: new GetExercisePerformanceHistory(
+      performance,
+    ),
+    getExercisePersonalBests: new GetExercisePersonalBests(performance),
+    getWorkoutDerivedSummary: new GetWorkoutDerivedSummary(performance),
   } as const;
 }
 

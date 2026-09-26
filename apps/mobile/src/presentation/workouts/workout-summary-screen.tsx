@@ -1,4 +1,7 @@
-import type { WorkoutSession } from "@athlete-coach/domain";
+import type {
+  SessionDerivedMetrics,
+  WorkoutSession,
+} from "@athlete-coach/domain";
 import { workoutDurationSeconds } from "@athlete-coach/domain";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -9,9 +12,16 @@ export function WorkoutSummaryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>(),
     app = useAppSession(),
     theme = useAppTheme(),
-    [session, setSession] = useState<WorkoutSession | null>();
+    [session, setSession] = useState<WorkoutSession | null>(),
+    [derived, setDerived] = useState<SessionDerivedMetrics | null>(null);
   useEffect(() => {
-    void app.getWorkout(id).then(setSession);
+    void Promise.all([
+      app.getWorkout(id),
+      app.getWorkoutDerivedSummary(id),
+    ]).then(([workout, summary]) => {
+      setSession(workout);
+      setDerived(summary?.metrics ?? null);
+    });
   }, [app, id]);
   if (!session) return <Text style={s.page}>Carregando…</Text>;
   const sets = session.exercises.flatMap((e) => e.sets);
@@ -29,6 +39,20 @@ export function WorkoutSummaryScreen() {
         {sets.filter((x) => x.status === "completed").length} concluídas ·{" "}
         {sets.filter((x) => x.status === "skipped").length} puladas
       </Text>
+      {derived ? (
+        <View>
+          <Text style={{ color: theme.colors.textMuted }}>
+            Reps registradas: {derived.totalActualReps} · dentro do alvo:{" "}
+            {derived.withinTargetCount}/{derived.targetEligibleCount}
+          </Text>
+          <Text style={{ color: theme.colors.textMuted }}>
+            Melhor 1RM estimado na sessão:{" "}
+            {derived.bestEstimatedOneRepMaxKg === null
+              ? "não elegível"
+              : `${derived.bestEstimatedOneRepMaxKg.toFixed(1)} kg`}
+          </Text>
+        </View>
+      ) : null}
       {session.exercises.map((e) => (
         <View key={e.id}>
           <Text style={[s.exercise, { color: theme.colors.text }]}>

@@ -1,7 +1,7 @@
 # Especificação do produto
 
 Status: **canônico, nível conceitual**
-Fase implementada mais recente: 6 — Workout Runner
+Fase implementada mais recente: 7 — Performance & Derived Metrics Engine
 
 ## Visão
 
@@ -86,6 +86,10 @@ A tab Treino lista programas reais por lifecycle e apresenta o programa ativo. U
 ## Estado após a Phase 6
 
 Workout Session registra execução observada em aggregate próprio, com snapshot da prescrição, retomada online, séries completed/skipped, correção enquanto em andamento e histórico imutável após conclusão ou abandono. **Performance records reality; divergence from prescription is valid data.** Extras, substituições, analytics, progressão e interpretação foram postergados.
+
+## Estado após a Phase 7
+
+Progresso apresenta fatos históricos recalculados a partir de Raw Performance: contagens, reps, attainment, melhores cargas registradas, Epley v1 e histórico cronológico por exercício. **Derived Data must be reproducible from Raw Data. Missing measurement is not failure. Estimated performance is not measured performance.** Não há scores, tendências interpretativas, progressão ou Coach.
 
 - nome e identidade visual do produto;
 - idioma inicial da interface;

@@ -44,6 +44,8 @@ Na Phase 5, Treino mostra o programa ativo, lista drafts/ativos/concluídos/arqu
 
 Na Phase 6, a tab destaca “Continuar treino”, dias ativos oferecem “Iniciar treino” e o Runner separa visualmente PLANEJADO de REALIZADO. Inputs permanecem montados após erro e oferecem retry; o servidor é a autoridade. Completion mostra pendências e abandono exige confirmação. Histórico e resumo exibem apenas fatos, sem score, PR, volume, elogio ou interpretação.
 
+Na Phase 7, Progresso deixa de ser placeholder e mostra resumo factual total, melhores marcas por exercício e lista cronológica selecionável. “1RM estimado” nunca é apresentado como medido; baseline não recebe celebração falsa. Resumos de workout podem exibir reps, attainment e melhor e1RM elegível, sem julgamento, gráfico, score ou recomendação.
+
 Campos mantêm labels, teclado coerente, mensagens não julgadoras e progresso visível. Estado vazio ou erro é textual, nunca uma tela branca ou dado simulado. O date input textual `AAAA-MM-DD` é uma limitação consciente desta versão e deve ser reavaliado com testes reais de acessibilidade/entrada no iPhone.
 
 ## Conteúdo e tom
