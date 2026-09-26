@@ -1,7 +1,7 @@
 # Especificação do produto
 
 Status: **canônico, nível conceitual**
-Fase implementada mais recente: 3 — Athlete Profile & Onboarding
+Fase implementada mais recente: 4 — Exercise & Anatomy Knowledge Core
 
 ## Visão
 
@@ -61,7 +61,7 @@ Metas numéricas ainda não foram definidas e não devem ser inventadas antes de
 
 ## Fora do escopo atual
 
-UI final, catálogo, prescrição automática, programa de treino, integração Gemini, aconselhamento clínico, HealthKit, analytics, nutrição detalhada e monetização.
+UI final, prescrição automática, programa de treino, integração Gemini, aconselhamento clínico, HealthKit, analytics, nutrição detalhada e monetização.
 
 ## Estado após a Phase 1
 
@@ -72,6 +72,10 @@ Existe um shell mobile executável e navegável, sem capacidades de domínio. As
 O usuário pode criar conta e entrar por e-mail/senha, concluir onboarding, restaurar a sessão, editar dados fundamentais e acrescentar pesagens sem destruir o histórico. O app persiste nome preferido, nascimento, altura, timezone IANA, objetivo, experiência, rotina, duração, ambiente, disponibilidade, observações e preferências. Cada campo tem uso futuro identificado para personalização ou Training Engine; sexo, nutrição e informações de localização exata não são coletados.
 
 Hoje apresenta somente saudação, objetivo e peso mais recente efetivamente persistidos. As demais áreas continuam declarando ausência de implementação; nenhum resultado fictício é tratado como real.
+
+## Estado após a Phase 4
+
+A tab Treino oferece uma biblioteca canônica de anatomia e 37 exercícios comuns, com nomes PT/EN, busca por nomes/aliases, filtros factuais, instruções originais, músculos, equipamentos e relações explícitas. Ausência de mídia é informada sem imagem simulada. O catálogo descreve movimentos e não prescreve séries, repetições, carga, intensidade, descanso ou progressão.
 
 ## Questões abertas
 

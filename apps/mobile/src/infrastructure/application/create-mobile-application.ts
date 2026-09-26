@@ -12,6 +12,9 @@ import {
   SignUpWithEmail,
   UpdateAthleteProfile,
   UpdateTrainingContext,
+  GetExerciseDetails,
+  ListExerciseCatalogFacets,
+  ListExercises,
 } from "@athlete-coach/application";
 import {
   SupabaseAthleteGoalRepository,
@@ -21,6 +24,8 @@ import {
   SupabaseBodyWeightRepository,
   SupabaseOnboardingRepository,
   SupabaseTrainingContextRepository,
+  SupabaseAnatomyRepository,
+  SupabaseExerciseCatalogRepository,
   type AthleteCoachSupabaseClient,
 } from "@athlete-coach/data-access";
 
@@ -32,6 +37,8 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
   const trainingRepository = new SupabaseTrainingContextRepository(client);
   const weightRepository = new SupabaseBodyWeightRepository(client);
   const onboardingRepository = new SupabaseOnboardingRepository(client);
+  const exerciseRepository = new SupabaseExerciseCatalogRepository(client);
+  const anatomyRepository = new SupabaseAnatomyRepository(client);
 
   return {
     authRepository,
@@ -54,6 +61,9 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     signUp: new SignUpWithEmail(authRepository),
     updateProfile: new UpdateAthleteProfile(profileRepository),
     updateTrainingContext: new UpdateTrainingContext(trainingRepository),
+    listExercises: new ListExercises(exerciseRepository),
+    getExerciseDetails: new GetExerciseDetails(exerciseRepository),
+    listExerciseFacets: new ListExerciseCatalogFacets(anatomyRepository),
   } as const;
 }
 

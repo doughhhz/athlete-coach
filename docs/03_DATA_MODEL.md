@@ -26,7 +26,18 @@ Análise, observação, hipótese, recomendação, explicação e decisão. Cada
 
 ### Exercise
 
-`Exercise`, `Muscle`, `Equipment`, `Instruction`, `Variation`, `Substitution`, `ExerciseMedia`. Conteúdo de terceiros exige origem/licença.
+`Exercise`, `Muscle`, `Equipment`, `Instruction`, `Variation`, `Substitution`, `ExerciseMedia`. Conteúdo de terceiros exige origem/licença. Regra física da Phase 4: **Exercise descreve o movimento; Prescription descreve como o atleta deve executá-lo naquele contexto.** Nenhum campo de séries, repetições, carga, RIR, descanso ou tempo pertence a `Exercise`.
+
+## Catálogo físico da Phase 4
+
+- `body_regions -> muscle_groups -> muscles` forma a taxonomia anatômica global. Músculos possuem UUID e slug internos estáveis, nomes PT/EN e nome anatômico opcional.
+- `exercises` possui identidade interna, nomes bilíngues, descrição e vocabulários fechados de padrão, mecânica, lateralidade e dificuldade opcional.
+- `exercise_muscles` representa os papéis `primary`, `secondary` e `stabilizer`, sem percentuais de ativação. `exercise_equipment` vincula equipamentos canônicos.
+- `exercise_aliases` sustenta busca case/accent-insensitive. `exercise_instruction_steps` guarda conteúdo original ordenado por seção.
+- `exercise_relations` é explícita. `similar_pattern`, `similar_target` e `equipment_alternative` são materializadas nos dois sentidos; `variation_of`, `regression` e `progression` são direcionais. Relação não autoriza substituição contextual.
+- `exercise_media` modela tipo, fonte, licença, atribuição e políticas futuras. Não há ativo nem bucket nesta fase. `exercise_external_mappings` reserva integração futura sem transformar ID externo em identidade.
+
+Esse conhecimento global não possui `athlete_id`, é somente leitura para clientes autenticados e permanece independente de Supabase nos modelos de domínio.
 
 ### Training
 

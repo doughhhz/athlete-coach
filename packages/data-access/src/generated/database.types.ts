@@ -194,6 +194,27 @@ export type Database = {
         }
         Relationships: []
       }
+      body_regions: {
+        Row: {
+          id: string
+          name_en: string
+          name_pt: string
+          slug: string
+        }
+        Insert: {
+          id: string
+          name_en: string
+          name_pt: string
+          slug: string
+        }
+        Update: {
+          id?: string
+          name_en?: string
+          name_pt?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       body_weight_entries: {
         Row: {
           athlete_id: string
@@ -229,11 +250,414 @@ export type Database = {
           },
         ]
       }
+      equipment: {
+        Row: {
+          id: string
+          name_en: string
+          name_pt: string
+          slug: string
+        }
+        Insert: {
+          id: string
+          name_en: string
+          name_pt: string
+          slug: string
+        }
+        Update: {
+          id?: string
+          name_en?: string
+          name_pt?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      exercise_aliases: {
+        Row: {
+          alias: string
+          exercise_id: string
+          id: string
+          language: string
+          normalized_alias: string | null
+        }
+        Insert: {
+          alias: string
+          exercise_id: string
+          id: string
+          language: string
+          normalized_alias?: string | null
+        }
+        Update: {
+          alias?: string
+          exercise_id?: string
+          id?: string
+          language?: string
+          normalized_alias?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_aliases_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_equipment: {
+        Row: {
+          equipment_id: string
+          exercise_id: string
+          is_primary: boolean
+        }
+        Insert: {
+          equipment_id: string
+          exercise_id: string
+          is_primary?: boolean
+        }
+        Update: {
+          equipment_id?: string
+          exercise_id?: string
+          is_primary?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_equipment_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_equipment_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_external_mappings: {
+        Row: {
+          created_at: string
+          exercise_id: string
+          external_exercise_id: string
+          id: string
+          provider: string
+        }
+        Insert: {
+          created_at?: string
+          exercise_id: string
+          external_exercise_id: string
+          id: string
+          provider: string
+        }
+        Update: {
+          created_at?: string
+          exercise_id?: string
+          external_exercise_id?: string
+          id?: string
+          provider?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_external_mappings_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_instruction_steps: {
+        Row: {
+          content_pt: string
+          exercise_id: string
+          id: string
+          section: string
+          sort_order: number
+        }
+        Insert: {
+          content_pt: string
+          exercise_id: string
+          id: string
+          section: string
+          sort_order: number
+        }
+        Update: {
+          content_pt?: string
+          exercise_id?: string
+          id?: string
+          section?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_instruction_steps_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_media: {
+        Row: {
+          angle_view: string | null
+          attribution: string | null
+          cache_policy: string | null
+          created_at: string
+          exercise_id: string
+          external_asset_id: string | null
+          id: string
+          is_primary: boolean
+          license: string | null
+          media_type: string
+          provider: string | null
+          source_type: string
+          source_url: string | null
+          storage_path: string | null
+          usage_policy: string | null
+        }
+        Insert: {
+          angle_view?: string | null
+          attribution?: string | null
+          cache_policy?: string | null
+          created_at?: string
+          exercise_id: string
+          external_asset_id?: string | null
+          id: string
+          is_primary?: boolean
+          license?: string | null
+          media_type: string
+          provider?: string | null
+          source_type: string
+          source_url?: string | null
+          storage_path?: string | null
+          usage_policy?: string | null
+        }
+        Update: {
+          angle_view?: string | null
+          attribution?: string | null
+          cache_policy?: string | null
+          created_at?: string
+          exercise_id?: string
+          external_asset_id?: string | null
+          id?: string
+          is_primary?: boolean
+          license?: string | null
+          media_type?: string
+          provider?: string | null
+          source_type?: string
+          source_url?: string | null
+          storage_path?: string | null
+          usage_policy?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_media_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_muscles: {
+        Row: {
+          exercise_id: string
+          muscle_id: string
+          role: string
+          sort_order: number
+        }
+        Insert: {
+          exercise_id: string
+          muscle_id: string
+          role: string
+          sort_order?: number
+        }
+        Update: {
+          exercise_id?: string
+          muscle_id?: string
+          role?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_muscles_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_muscles_muscle_id_fkey"
+            columns: ["muscle_id"]
+            isOneToOne: false
+            referencedRelation: "muscles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_relations: {
+        Row: {
+          note_pt: string | null
+          relation_type: string
+          source_exercise_id: string
+          target_exercise_id: string
+        }
+        Insert: {
+          note_pt?: string | null
+          relation_type: string
+          source_exercise_id: string
+          target_exercise_id: string
+        }
+        Update: {
+          note_pt?: string | null
+          relation_type?: string
+          source_exercise_id?: string
+          target_exercise_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_relations_source_id_fkey"
+            columns: ["source_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_relations_target_id_fkey"
+            columns: ["target_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercises: {
+        Row: {
+          created_at: string
+          difficulty: string | null
+          id: string
+          is_active: boolean
+          laterality: string
+          mechanics: string
+          movement_pattern: string
+          name_en: string
+          name_pt: string
+          short_description_pt: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          difficulty?: string | null
+          id: string
+          is_active?: boolean
+          laterality: string
+          mechanics: string
+          movement_pattern: string
+          name_en: string
+          name_pt: string
+          short_description_pt: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          difficulty?: string | null
+          id?: string
+          is_active?: boolean
+          laterality?: string
+          mechanics?: string
+          movement_pattern?: string
+          name_en?: string
+          name_pt?: string
+          short_description_pt?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      muscle_groups: {
+        Row: {
+          body_region_id: string
+          description: string | null
+          id: string
+          name_en: string
+          name_pt: string
+          slug: string
+        }
+        Insert: {
+          body_region_id: string
+          description?: string | null
+          id: string
+          name_en: string
+          name_pt: string
+          slug: string
+        }
+        Update: {
+          body_region_id?: string
+          description?: string | null
+          id?: string
+          name_en?: string
+          name_pt?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muscle_groups_body_region_id_fkey"
+            columns: ["body_region_id"]
+            isOneToOne: false
+            referencedRelation: "body_regions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      muscles: {
+        Row: {
+          anatomical_name: string | null
+          description: string | null
+          id: string
+          muscle_group_id: string
+          name_en: string
+          name_pt: string
+          slug: string
+        }
+        Insert: {
+          anatomical_name?: string | null
+          description?: string | null
+          id: string
+          muscle_group_id: string
+          name_en: string
+          name_pt: string
+          slug: string
+        }
+        Update: {
+          anatomical_name?: string | null
+          description?: string | null
+          id?: string
+          muscle_group_id?: string
+          name_en?: string
+          name_pt?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "muscles_muscle_group_id_fkey"
+            columns: ["muscle_group_id"]
+            isOneToOne: false
+            referencedRelation: "muscle_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      catalog_search_text: { Args: { value: string }; Returns: string }
       change_current_athlete_goal: {
         Args: {
           p_goal_type: string
@@ -310,6 +734,29 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      search_exercise_catalog: {
+        Args: {
+          p_equipment_slug?: string
+          p_movement_pattern?: string
+          p_muscle_group_slug?: string
+          p_muscle_slug?: string
+          p_query?: string
+        }
+        Returns: {
+          difficulty: string
+          equipment: string[]
+          id: string
+          laterality: string
+          mechanics: string
+          movement_pattern: string
+          name_en: string
+          name_pt: string
+          primary_muscle_groups: string[]
+          primary_muscles: string[]
+          short_description_pt: string
+          slug: string
+        }[]
       }
       set_current_training_availability: {
         Args: { p_available_weekdays: number[] }

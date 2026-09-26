@@ -6,9 +6,9 @@ Fundação arquitetural de um aplicativo mobile pessoal de treinamento, nutriç�
 
 ## Estado atual
 
-A **Phase 3 — Athlete Profile & Onboarding** está implementada e aguarda revisão humana. O aplicativo possui autenticação real por e-mail/senha, sessão persistida, onboarding atômico em etapas, edição de perfil e histórico de peso sobre a fundação Supabase local.
+A **Phase 4 — Exercise & Anatomy Knowledge Core** está implementada e aguarda revisão humana. Além de autenticação, onboarding, perfil e peso, o aplicativo possui uma biblioteca canônica somente leitura de anatomia e exercícios, com busca, filtros e detalhes factuais.
 
-Hoje usa somente dados persistidos do atleta. Treino, Nutrição, Progresso e Personal continuam sem capacidades de domínio; não há integração com LLM, analytics, programa de treino nem dados pessoais de exemplo.
+O catálogo não é uma prescrição. Programa, Workout Runner, Nutrição, Progresso e Personal continuam sem capacidades de domínio; não há LLM, provider externo, mídia externa, analytics, programa de treino nem dados pessoais de exemplo.
 
 ## Stack do shell
 
@@ -129,4 +129,4 @@ O Supabase local atende aos testes automatizados no computador. Não altere fire
 
 ## Próximo passo recomendado
 
-Revisar humanamente a Phase 3. Não iniciar a Phase 4 antes da aprovação explícita.
+Revisar humanamente a Phase 4. Não iniciar a Phase 5 antes da aprovação explícita.

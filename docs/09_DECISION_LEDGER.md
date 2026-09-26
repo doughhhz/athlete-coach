@@ -187,6 +187,46 @@ Mudanças editoriais que não alteram significado não precisam de entrada. Dúv
 - Compatibilidade/validação: unitários de schemas/domínio/aplicação, contrato de mapper e teste arquitetural de dependências.
 - Impacto: manifests/lockfile, packages `domain`, `application`, `data-access`, composição mobile e documentação.
 
+### ADR-0017 — Identidade canônica de exercício
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: catálogos externos podem mudar IDs, disponibilidade e termos.
+- Regra anterior: `Exercise` era conceitual; fonte e identidade estavam abertas.
+- Decisão: exercícios, anatomia e equipamentos usam UUID e slug internos estáveis. Mapeamentos externos são metadados opcionais N:1 e nunca identidade de domínio. O catálogo interno é a fonte canônica.
+- Motivo/evidência: integridade referencial, independência de provider e evolução reproduzível.
+- Impacto: migration/seed Phase 4, domain, application, data-access e futuras prescrições.
+
+### ADR-0018 — Taxonomia anatômica
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: busca, filtros e descrição muscular exigem granularidade coerente sem pseudo-precisão.
+- Regra anterior: `Muscle` era um conceito sem hierarquia física.
+- Decisão: adotar `body_regions -> muscle_groups -> muscles`; subdividir porções somente onde agregam valor anatômico. A relação exercício-músculo usa `primary`, `secondary` e `stabilizer`, sem percentuais ou scores.
+- Motivo/evidência: filtros factuais e nomenclatura anatômica auditável sem simular medição de ativação.
+- Impacto: schema, seed, modelos de domínio e UI da biblioteca.
+
+### ADR-0019 — Exercise separado de Prescription
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: o movimento é conhecimento global; sua execução em um programa depende do atleta e do contexto.
+- Regra anterior: o Training Engine já separava prescrição de execução, mas a fronteira com o catálogo não estava física.
+- Decisão: `Exercise` descreve o movimento. `Prescription` descreverá como o atleta deve executá-lo naquele contexto. Sets, reps, carga, RIR, descanso, tempo, progressão e ranges não entram no catálogo.
+- Motivo/evidência: impedir recomendação implícita, preservar reuso e manter Phase 5 fora de escopo.
+- Impacto: domain Exercise, schema Phase 4, UI e futuro Training Program Engine.
+
+### ADR-0020 — Proveniência de mídia de exercício
+
+- Data: 2026-09-25
+- Status: accepted
+- Contexto: mídia futura pode ser própria, licenciada ou transmitida por provider, com direitos e cache distintos.
+- Regra anterior: `ExerciseMedia` era conceitual e fonte/licença permaneciam abertas.
+- Decisão: modelar `exercise_media` com tipo, `source_type`, localização coerente, provider/asset externo quando aplicável, licença, atribuição e políticas de uso/cache. Nenhum ativo, URL externa ou bucket é criado na Phase 4.
+- Motivo/evidência: impedir mídia sem proveniência e evitar infraestrutura vazia antes de uma fonte licenciada.
+- Impacto: migration e testes Phase 4; futuros storage/provider adapters.
+
 ## Hipóteses registradas (não decisões de produto)
 
 - `athlete-coach` é apenas nome técnico do diretório.

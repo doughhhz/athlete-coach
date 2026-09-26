@@ -43,6 +43,8 @@ Implementações de repositórios, mappers, cache e consultas. Converte tipos ex
 
 A Phase 3 adiciona repositories Supabase específicos para Auth, atleta, perfil, objetivo, contexto/disponibilidade, peso e onboarding. A composição concreta vive em `apps/mobile/src/infrastructure`; Presentation consome casos de uso via contexto, não importa Data Access ou `@supabase/*` e não executa `.from(...)`. Não há repository genérico. Respostas externas são validadas/mapeadas na boundary antes de virarem tipos de domínio.
 
+A Phase 4 adiciona `ExerciseCatalogRepository` e `AnatomyRepository`. Consultas do catálogo global passam por casos de uso; busca/filtros factuais são executados no PostgreSQL e resultados externos são validados antes do mapeamento. Tipos gerados continuam restritos ao adapter e não são modelos de domínio.
+
 ### AI (`packages/ai` e backend)
 
 - **AI Gateway:** único ponto autenticado de entrada para solicitações de IA, com limites, observabilidade e idempotência.
@@ -91,6 +93,7 @@ Não duplicar a mesma entidade persistentemente em Query e Zustand. A estratégi
 - O mobile recebe somente URL e publishable key públicas; service role e secret key nunca vão para o cliente.
 - Migrations versionam schema, constraints, índices, funções e políticas.
 - Grants limitam operações antes da avaliação de RLS: `anon` não acessa `athletes`; `authenticated` recebe CRUD sujeito às políticas de ownership; `service_role` fica reservado ao backend confiável.
+- O catálogo canônico global não possui `athlete_id`: `authenticated` recebe somente `SELECT`, `anon` não recebe acesso e clientes não recebem grants de mutação.
 - O mobile usa um único cliente persistido em AsyncStorage, um único listener de ciclo de vida e os estados estruturais `BOOTING`, `CONFIGURATION_ERROR`, `SIGNED_OUT`, `SIGNED_IN_ONBOARDING_REQUIRED` e `SIGNED_IN_READY`.
 - Rotas protegidas do Expo Router estruturam a navegação, mas não substituem RLS. Após sessão válida, `ensureCurrentAthlete` garante explicitamente a identidade de domínio.
 - A conclusão do onboarding é uma RPC `SECURITY INVOKER`, atômica e serializada por atleta; o timestamp de conclusão só é escrito ao final.

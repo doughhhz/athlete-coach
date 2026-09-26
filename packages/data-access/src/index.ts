@@ -5,3 +5,4 @@ export {
 } from "./supabase/create-athlete-coach-supabase-client";
 export type { Database } from "./generated/database.types";
 export * from "./supabase/supabase-repositories";
+export * from "./supabase/exercise-catalog-repositories";

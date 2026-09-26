@@ -38,6 +38,8 @@ O tema possui tokens centrais para light/dark e segue a preferência do sistema.
 
 Na Phase 3, a raiz separa configuração, boot, Auth, onboarding obrigatório e app pronto. O onboarding usa oito telas de conteúdo mais a ação de conclusão na revisão: boas-vindas, dados pessoais/peso, objetivo, experiência, rotina, disponibilidade, observações e revisão. Rascunho é local e só é persistido pela confirmação atômica; fechar antes disso pode reiniciar o fluxo. Perfil é acessado por Hoje, sem sexta tab.
 
+Na Phase 4, a tab Treino oferece acesso à Biblioteca de exercícios sem criar nova tab. Lista e busca possuem carregamento, erro recuperável, vazio e sucesso, com filtros por grupo muscular e equipamento. `/exercises/[slug]` mostra somente conhecimento factual, instruções, segurança e relações; ausência de mídia é declarada honestamente. Prescrição e recomendação permanecem ausentes.
+
 Campos mantêm labels, teclado coerente, mensagens não julgadoras e progresso visível. Estado vazio ou erro é textual, nunca uma tela branca ou dado simulado. O date input textual `AAAA-MM-DD` é uma limitação consciente desta versão e deve ser reavaliado com testes reais de acessibilidade/entrada no iPhone.
 
 ## Conteúdo e tom

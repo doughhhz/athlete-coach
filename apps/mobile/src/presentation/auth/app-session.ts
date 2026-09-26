@@ -6,7 +6,13 @@ import type {
   ProfileInput,
   TrainingContextInput,
 } from "@athlete-coach/application";
-import type { AthleteSnapshot } from "@athlete-coach/domain";
+import type {
+  AthleteSnapshot,
+  ExerciseCatalogFacets,
+  ExerciseCatalogFilters,
+  ExerciseDetails,
+  ExerciseSummary,
+} from "@athlete-coach/domain";
 import { createContext, useContext } from "react";
 
 export type AppAccessState =
@@ -33,6 +39,11 @@ export type AppSessionValue = Readonly<{
   signUp(credentials: AuthCredentials): Promise<void>;
   updateProfile(input: ProfileInput): Promise<void>;
   updateTrainingContext(input: TrainingContextInput): Promise<void>;
+  listExercises(
+    filters?: ExerciseCatalogFilters,
+  ): Promise<readonly ExerciseSummary[]>;
+  getExerciseDetails(slug: string): Promise<ExerciseDetails | null>;
+  listExerciseFacets(): Promise<ExerciseCatalogFacets>;
 }>;
 
 export const AppSessionContext = createContext<AppSessionValue | null>(null);

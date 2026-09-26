@@ -6,7 +6,10 @@ import type {
   ProfileInput,
   TrainingContextInput,
 } from "@athlete-coach/application";
-import type { AthleteSnapshot } from "@athlete-coach/domain";
+import type {
+  AthleteSnapshot,
+  ExerciseCatalogFilters,
+} from "@athlete-coach/domain";
 import {
   useEffect,
   useMemo,
@@ -196,6 +199,18 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
           await refresh();
         }
       }),
+    listExercises: async (filters: ExerciseCatalogFilters = {}) => {
+      if (!application) return [];
+      return application.listExercises.execute(filters);
+    },
+    getExerciseDetails: async (slug: string) => {
+      if (!application) return null;
+      return application.getExerciseDetails.execute(slug);
+    },
+    listExerciseFacets: async () => {
+      if (!application) return { muscleGroups: [], muscles: [], equipment: [] };
+      return application.listExerciseFacets.execute();
+    },
   };
 
   return (

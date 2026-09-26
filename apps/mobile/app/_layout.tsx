@@ -75,6 +75,10 @@ function RootNavigator() {
       <Stack.Protected guard={routes.ready}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ title: "Perfil" }} />
+        <Stack.Screen
+          name="exercises/[slug]"
+          options={{ title: "Exercício" }}
+        />
       </Stack.Protected>
     </Stack>
   );

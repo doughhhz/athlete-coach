@@ -4,7 +4,7 @@ Status: **canônico em sequência; datas não definidas**
 
 Cada fase termina com validação e revisão humana. Concluir uma fase não autoriza iniciar automaticamente a seguinte.
 
-Estado de execução em 2026-09-25: Phases 0 a 2 concluídas; Phase 3 implementada e aguardando revisão humana; Phase 4 não iniciada.
+Estado de execução em 2026-09-25: Phases 0 a 3 concluídas; Phase 4 implementada e aguardando revisão humana; Phase 5 não iniciada.
 
 ## Phase 0 — Foundation
 
@@ -31,6 +31,8 @@ Implementação: Auth por e-mail/senha, identidade idempotente, onboarding atôm
 ## Phase 4 — Exercise Catalog
 
 Catálogo, músculos, equipamentos, instruções, variações e substituições. Resolver fonte/licença de conteúdo e mídia. Depende de 2; usa preferências/constraints de 3.
+
+Implementação: taxonomia anatômica, catálogo interno bilíngue, aliases, busca/filtros, instruções originais, relações factuais e modelo de proveniência de mídia. O mobile expõe biblioteca e detalhe na tab Treino. Não há prescription, providers externos, ativos de mídia nem escolha contextual de substituição.
 
 ## Phase 5 — Training Program Engine
 
