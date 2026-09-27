@@ -138,3 +138,7 @@ Implementada como projeção on-demand `athlete-training-dossier-v1`: contexto, 
 ## Phase 9 — Personal AI Foundation
 
 O Personal usa o backend autenticado `coach-analyze`: constrói o dossier corrente sob a identidade JWT, aplica safety determinístico, chama um provider substituível e valida JSON e evidências. Gemini usa HTTP server-side e `GEMINI_API_KEY`; nenhuma chave ou chamada direta ao provider existe no mobile. A conversa é bounded em memória e recomendações nunca alteram programas.
+
+## Phase 10 — Propostas revisadas do Personal
+
+Uma recomendação elegível pode gerar, sob demanda, um `coach-proposal-v1`. O backend aceita somente ajustes de target, RIR, descanso e carga absoluta sobre IDs canônicos, valida e persiste a proposta no Runtime Coaching Decision Ledger. A aprovação cria uma revisão em rascunho em uma única transação; o programa ativo permanece intacto e a ativação continua sendo uma ação humana separada.

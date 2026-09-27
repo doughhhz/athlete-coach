@@ -131,6 +131,15 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     ),
     analyzeWithCoach: (input: Parameters<SupabaseCoachGateway["analyze"]>[0]) =>
       coach.analyze(input),
+    generateCoachProposal: (
+      analysis: Parameters<SupabaseCoachGateway["propose"]>[0],
+    ) => coach.propose(analysis),
+    listCoachDecisions: () => coach.listDecisions(),
+    materializeCoachProposal: (id: string) => coach.materialize(id),
+    rejectCoachProposal: (
+      id: string,
+      reason: Parameters<SupabaseCoachGateway["reject"]>[1],
+    ) => coach.reject(id, reason),
   } as const;
 }
 

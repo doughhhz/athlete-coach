@@ -406,3 +406,43 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Decisão: até seis mensagens anteriores em memória; sem `coach_threads/messages`.
 - Motivo: primeira análise útil não exige retenção; persistência ampliaria privacy, deletion e RLS prematuramente.
 - Impacto: mobile, request contract e data model.
+
+### ADR-0043 — Structured Coach Proposal Contract
+
+- Data: 2026-09-27
+- Status: accepted
+- Decisão: `coach-proposal-v1` é separado de `CoachAnalysis` e aceita somente ajustes de target, RIR, descanso e carga absoluta. Não há JSON Patch, add/remove set ou replace exercise nesta fase.
+- Motivo: vocabulário pequeno permite validação completa e impede escolha de tabela/coluna pelo modelo.
+- Impacto: domain, application, AI provider, Edge e Personal.
+
+### ADR-0044 — Validator determinístico autoritativo
+
+- Data: 2026-09-27
+- Status: accepted
+- Decisão: schema, ownership, programa/revisão ativa, evidence, IDs e invariantes de `PrescriptionSet` são revalidados fora do LLM antes de persistir e novamente antes de materializar.
+- Motivo: output do modelo é untrusted e não redefine fatos ou safety.
+- Impacto: domínio, testes e transaction boundary.
+
+### ADR-0045 — Decisão humana e materialização somente em draft
+
+- Data: 2026-09-27
+- Status: accepted
+- Decisão: aprovação explícita materializa clone draft e nunca ativa programa. `approved_at` e `materialized_at` são atômicos; não existe estado aprovado sem draft.
+- Motivo: preservar o lifecycle da Phase 5 e o controle humano.
+- Impacto: RPC, UI de revisão e Program Builder.
+
+### ADR-0046 — Runtime Coaching Decision Ledger
+
+- Data: 2026-09-27
+- Status: accepted
+- Decisão: `coach_decisions` guarda snapshot versionado, provenance e lifecycle `proposed → rejected | stale | materialized`, com RLS e imutabilidade terminal. Este ledger do atleta é distinto deste documento, o Project Decision Ledger.
+- Motivo: a proposta e a decisão são fatos históricos auditáveis mesmo sem persistência de chat/dossier completo.
+- Impacto: data model, repository, security e histórico Personal.
+
+### ADR-0047 — Staleness e idempotência
+
+- Data: 2026-09-27
+- Status: accepted
+- Decisão: source program/revision precisa continuar ativo na aprovação; caso contrário a decisão vira stale sem draft. Row lock, estado terminal, lineage única e retorno do mesmo registro materializado tornam retries idempotentes.
+- Motivo: impedir aplicação em baseline diferente e revisões duplicadas por double tap/retry.
+- Impacto: RPC transacional, testes e UX.

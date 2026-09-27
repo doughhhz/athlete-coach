@@ -97,3 +97,9 @@ Phase 8 não integra LLM. O futuro Personal AI recebe `AthleteTrainingDossier` v
 O Coach é técnico, longitudinal, conservador e orientado pela evidência individual. A prioridade é dossier, métricas determinísticas, contexto canônico, declaração atual e conhecimento geral. Strings do atleta são dados não confiáveis separados da policy `coach-system-v1`.
 
 `CoachAnalysisRequest v1` contém dossier, pergunta, modo e até seis mensagens. `CoachAnalysis v1` separa resumo, observations, hypotheses, recommendations revisadas por humano, questions, uncertainties, evidenceUsed e safetyFlags. Confiança baixa/média/alta é qualitativa. JSON e evidence IDs são validados; referência inexistente invalida toda análise. Não há tools, DB, web, mutations ou chain-of-thought. Gemini é adapter HTTP server-side e testes usam fixture provider. Chat não é persistido.
+
+## CoachProposal v1
+
+Proposal generation é uma segunda chamada opcional (`coach-proposal-v1`) para reduzir custo e intervention bias. `{"proposal": null}` representa no-change. Actions permitidas: `adjust_prescription_target`, `adjust_prescription_rir`, `adjust_prescription_rest` e `adjust_absolute_load_target`. Cada action carrega rationale, evidence e IDs de day/prescription/set fornecidos. Add/remove set e replace exercise foram postergados; não existe patch genérico.
+
+Output do provider é não confiável: Zod valida o envelope e o domínio revalida ownership, source/revision, evidence e invariantes. Safety flags que bloqueiam training advice impedem proposal. O prompt não solicita chain-of-thought e proíbe medical adaptation, mutations e ativação. Falha de geração não invalida a análise anterior. A cadeia futura é `Decision → ProgramRevision → Workouts → Derived Performance → Longitudinal Signals → Outcome Evaluation`; outcome scoring não pertence a esta fase.

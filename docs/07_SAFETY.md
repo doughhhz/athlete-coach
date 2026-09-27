@@ -68,3 +68,7 @@ Um aviso de responsabilidade é necessário, mas não substitui design seguro, l
 ## Safety do Personal — Phase 9
 
 Safety é código fora do prompt e atua antes/depois do provider. O pre-check bloqueia aconselhamento diante de dor aguda, possível lesão, sintomas graves/emergência, diagnóstico/medicação e práticas extremas de peso. O Coach não diagnostica tecido, prescreve tratamento ou recomenda ignorar dor. O post-check degrada afirmações clínicas proibidas; missing data vira incerteza e evidence inexistente invalida a resposta. As regras lexicais são uma barreira inicial, não detecção clínica completa nem proteção absoluta contra injection.
+
+## Phase 10 — Safety de proposals
+
+Uma análise com `blocksTrainingAdvice` não pode iniciar proposal de treinamento. O modelo não converte dor aguda, possível lesão, medicação ou perda extrema de peso em redução de carga, troca de exercício ou retorno terapêutico. Mesmo uma proposta schema-valid é inerte até validação determinística e decisão humana. O sistema não classifica magnitude como ciência fisiológica sem regra canônica; não foram inventados thresholds pseudocientíficos.

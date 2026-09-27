@@ -288,6 +288,22 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
         throw new Error("O Personal está temporariamente indisponível.");
       return application.analyzeWithCoach(input);
     },
+    generateCoachProposal: async (analysis) => {
+      if (!application)
+        throw new Error("O Personal está temporariamente indisponível.");
+      return application.generateCoachProposal(analysis);
+    },
+    listCoachDecisions: async () => application?.listCoachDecisions() ?? [],
+    materializeCoachProposal: async (id) => {
+      if (!application)
+        throw new Error("O Personal está temporariamente indisponível.");
+      return application.materializeCoachProposal(id);
+    },
+    rejectCoachProposal: async (id, reason) => {
+      if (!application)
+        throw new Error("O Personal está temporariamente indisponível.");
+      return application.rejectCoachProposal(id, reason);
+    },
   };
 
   return (

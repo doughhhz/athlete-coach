@@ -141,3 +141,9 @@ A infraestrutura local usa Supabase CLI 2.117.0 versionada na raiz. `supabase/mi
 `coach-analyze` exige JWT, rejeita `athleteId` do cliente e cria repositories com o token corrente. O fluxo é `Dossier v1 → input safety → prompt/policy v1 → CoachModelProvider → Zod → evidence validation → output safety`. `packages/ai` contém prompt, policy e adapters; application conhece portas e domínio não conhece Gemini. O adapter inicial usa HTTP. Configuração central: `GEMINI_API_KEY`, `GEMINI_MODEL`, `COACH_TEMPERATURE`, `COACH_TIMEOUT_MS` e `COACH_MAX_OUTPUT_TOKENS`.
 
 O gateway limita corpo a 16 KiB, contexto a seis mensagens, dez requests/minuto por instância e timeout configurável. Rate limiting é best-effort/in-memory nesta fase. Logs omitem contexto pessoal e contêm IDs, provider/model, latência, resultado e categoria de erro.
+
+## Phase 10 proposal boundary
+
+`coach-propose` recompõe Dossier e programa ativo sob o JWT, chama o provider separado de proposals, valida schema/evidence/IDs/invariantes e persiste via backend. `coach-decide` aceita apenas intenção de rejeitar ou materializar. Materialização ocorre na RPC transacional `materialize_coach_decision`: lock do ledger, rechecagem de ownership/status/revision, clone com novos UUIDs, aplicação das actions suportadas e vínculo ao draft. Mobile nunca envia patch nem chama Gemini/SQL diretamente.
+
+Fluxo: `CoachAnalysis → GenerateCoachProposal (opcional) → validator determinístico → ledger proposed → decisão humana → RPC atômica → ProgramRevision draft`. Application/domain não importam Gemini ou Supabase; `packages/ai` não aplica programas.

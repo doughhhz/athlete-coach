@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { router } from "expo-router";
 import {
   ActivityIndicator,
   Pressable,
@@ -11,6 +12,7 @@ import {
 import type {
   CoachAnalysis,
   CoachConversationMessage,
+  CoachDecision,
 } from "@athlete-coach/domain";
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
@@ -95,12 +97,25 @@ function Analysis({ value }: { value: CoachAnalysis }) {
 }
 export default function CoachScreen() {
   const theme = useAppTheme(),
-    { analyzeWithCoach } = useAppSession();
+    {
+      analyzeWithCoach,
+      generateCoachProposal,
+      listCoachDecisions,
+      rejectCoachProposal,
+    } = useAppSession();
   const [question, setQuestion] = useState(""),
     [analysis, setAnalysis] = useState<CoachAnalysis | null>(null),
     [history, setHistory] = useState<CoachConversationMessage[]>([]),
     [loading, setLoading] = useState(false),
-    [error, setError] = useState<string | null>(null);
+    [error, setError] = useState<string | null>(null),
+    [proposalLoading, setProposalLoading] = useState(false),
+    [decision, setDecision] = useState<CoachDecision | null>(null),
+    [decisions, setDecisions] = useState<readonly CoachDecision[]>([]);
+  useEffect(() => {
+    void listCoachDecisions()
+      .then(setDecisions)
+      .catch(() => undefined);
+  }, [listCoachDecisions]);
   async function send() {
     const text = question.trim();
     if (!text || loading) return;
@@ -129,6 +144,40 @@ export default function CoachScreen() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+  async function propose() {
+    if (!analysis) return;
+    setProposalLoading(true);
+    setError(null);
+    try {
+      const value = await generateCoachProposal(analysis);
+      setDecision(value);
+      if (value) setDecisions((items) => [value, ...items]);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível gerar a proposta estruturada.",
+      );
+    } finally {
+      setProposalLoading(false);
+    }
+  }
+  async function reject() {
+    if (!decision) return;
+    try {
+      const value = await rejectCoachProposal(decision.id, "not_now");
+      setDecision(value);
+      setDecisions((items) =>
+        items.map((item) => (item.id === value.id ? value : item)),
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível rejeitar a proposta.",
+      );
     }
   }
   return (
@@ -187,6 +236,69 @@ export default function CoachScreen() {
         </Section>
       )}
       {analysis && <Analysis value={analysis} />}
+      {analysis?.recommendations.some(
+        (item) => item.category === "training_adjustment",
+      ) &&
+        !analysis.safetyFlags.some((item) => item.blocksTrainingAdvice) &&
+        !decision && (
+          <Pressable
+            accessibilityRole="button"
+            disabled={proposalLoading}
+            onPress={() => void propose()}
+            style={[styles.button, { backgroundColor: theme.colors.accent }]}
+          >
+            <Text style={styles.buttonText}>
+              {proposalLoading ? "Gerando proposta…" : "Ver proposta de ajuste"}
+            </Text>
+          </Pressable>
+        )}
+      {decision && (
+        <Section title="Proposta de ajuste">
+          <Text style={{ color: theme.colors.text }}>
+            {decision.proposal.summary}
+          </Text>
+          <Text style={[styles.muted, { color: theme.colors.textMuted }]}>
+            Programa de origem: revisão{" "}
+            {decision.proposal.sourceProgramRevision}. A proposta não altera seu
+            programa até sua decisão.
+          </Text>
+          {decision.status === "proposed" && (
+            <View style={styles.actions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void reject()}
+              >
+                <Text style={{ color: theme.colors.danger }}>
+                  Rejeitar proposta
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  router.push({
+                    pathname: "/coach-proposals/[id]",
+                    params: { id: decision.id },
+                  } as never)
+                }
+              >
+                <Text style={{ color: theme.colors.accent, fontWeight: "700" }}>
+                  Revisar proposta
+                </Text>
+              </Pressable>
+            </View>
+          )}
+          <Text style={[styles.muted, { color: theme.colors.textMuted }]}>
+            Status: {decision.status}
+          </Text>
+        </Section>
+      )}
+      <Section title="Histórico de decisões">
+        <Lines
+          values={decisions.map(
+            (item) => `${item.proposal.summary} — ${item.status}`,
+          )}
+        />
+      </Section>
     </ScrollView>
   );
 }
@@ -216,4 +328,10 @@ const styles = StyleSheet.create({
   item: { lineHeight: 22 },
   muted: { lineHeight: 22 },
   retry: { fontWeight: "700", marginTop: 10 },
+  actions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 16,
+    marginTop: 12,
+  },
 });

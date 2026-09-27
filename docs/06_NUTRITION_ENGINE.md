@@ -34,3 +34,5 @@ Antes de implementar: definir fonte/licença de alimentos, localidade e unidades
 ## Boundary com o Personal na Phase 9
 
 O Personal pode oferecer conhecimento geral e deve declarar ausência de contexto nutricional individual. Não inventa calorias, macros ou dieta e não implementa este motor.
+
+Na Phase 10, `CoachProposal` não possui actions nutricionais. Propostas de calorias, macros, dieta, medicação, perda extrema de peso ou adaptações clínicas não podem ser materializadas como revisão de treino.

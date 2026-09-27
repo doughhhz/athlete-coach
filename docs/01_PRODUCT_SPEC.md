@@ -107,3 +107,7 @@ Projeção versionada sob demanda com contexto mínimo, programa ativo, fatos de
 ## Estado após a Phase 9
 
 A tab Personal aceita perguntas e renderiza análise estruturada. A conversa mantém até seis mensagens anteriores somente em memória. Não há persistência de chat, autonomia, aplicação de recomendação ou alteração de programa. **The AI may interpret evidence, but it may not redefine facts. The AI proposes; deterministic systems validate; humans retain control.**
+
+## Phase 10 — Propostas e decisão humana
+
+Após uma análise, o atleta pode pedir opcionalmente uma proposta concreta. Toda proposta mostra mudança, motivo, evidência, limitações e programa/revisão de origem. O atleta pode rejeitar ou revisar; somente a ação explícita **Criar revisão em rascunho** materializa uma nova revisão. Não há aprovação, aplicação ou ativação automática. O histórico de decisões preserva proposed, rejected, stale e materialized; rejeição não treina o modelo.

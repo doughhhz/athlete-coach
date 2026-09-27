@@ -16,3 +16,6 @@ export * from "./dossier/use-cases.ts";
 export * from "./coach/ports.ts";
 export * from "./coach/schemas.ts";
 export * from "./coach/use-cases.ts";
+export * from "./coach/proposal-schemas.ts";
+export * from "./coach/proposal-ports.ts";
+export * from "./coach/proposal-use-cases.ts";

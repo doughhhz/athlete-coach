@@ -33,10 +33,12 @@ import {
   BuildAthleteTrainingDossier,
   AnalyzeAthleteWithCoach,
   InvalidCoachEvidenceError,
+  GenerateCoachProposal,
 } from "../packages/application/src/index.ts";
 import {
   DeterministicCoachSafetyPolicy,
   FixtureCoachModelProvider,
+  FixtureCoachProposalProvider,
 } from "../packages/ai/src/index.ts";
 import { createAthleteCoachSupabaseClient } from "../packages/data-access/src/supabase/create-athlete-coach-supabase-client.ts";
 import {
@@ -51,6 +53,7 @@ import {
 import { SupabaseTrainingProgramRepository } from "../packages/data-access/src/supabase/training-program-repository.ts";
 import { SupabaseWorkoutSessionRepository } from "../packages/data-access/src/supabase/workout-session-repository.ts";
 import { SupabasePerformanceReadRepository } from "../packages/data-access/src/supabase/performance-read-repository.ts";
+import { SupabaseCoachDecisionRepository } from "../packages/data-access/src/supabase/coach-decision-repository.ts";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const temporaryDirectory = resolve(repositoryRoot, ".cache/supabase-cli-temp");
@@ -483,6 +486,81 @@ await assert.rejects(
     invalidCoach.execute({ userRequest: "Avalie", analysisMode: "question" }),
   InvalidCoachEvidenceError,
 );
+const programEvidence = dossierBeforeReload.evidence.find(
+  (item) => item.kind === "training_program" && item.id === revision.id,
+);
+assert.ok(programEvidence);
+const sourceDay = activatedRevision.blocks[0].weeks[0].days[0];
+const sourcePrescription = sourceDay.prescriptions[0];
+const sourceSet = sourcePrescription.sets[0];
+const proposalFixture = {
+  schemaVersion: "coach-proposal-v1",
+  id: crypto.randomUUID(),
+  analysisId: coachFixture.analysisId,
+  sourceProgramId: activatedRevision.id,
+  sourceProgramRevision: activatedRevision.revision,
+  createdAt: new Date().toISOString(),
+  summary: "Ajustar o RIR planejado",
+  rationale: "Proposta determinística de integração.",
+  evidenceReferences: [programEvidence],
+  actions: [
+    {
+      kind: "adjust_prescription_rir",
+      trainingDayId: sourceDay.id,
+      exercisePrescriptionId: sourcePrescription.id,
+      prescriptionSetId: sourceSet.id,
+      rirMin: 3,
+      rirMax: 3,
+      rationale: "Validar materialização controlada.",
+      evidence: [programEvidence],
+    },
+  ],
+  limitations: ["Fixture local sem chamada de rede."],
+  requiresHumanApproval: true,
+  analysisSnapshot: {
+    summary: coachFixture.summary,
+    provider: "fixture",
+    model: "deterministic",
+    promptVersion: "coach-proposal-v1",
+    policyVersion: "coach-safety-v1",
+    dossierSchemaVersion: "athlete-training-dossier-v1",
+  },
+};
+const serviceKey = local.SECRET_KEY ?? local.SERVICE_ROLE_KEY;
+assert.equal(typeof serviceKey, "string", "Supabase local secret key ausente.");
+const serviceClient = createAthleteCoachSupabaseClient({
+  publishableKey: serviceKey,
+  url,
+});
+const decisions = new SupabaseCoachDecisionRepository(
+  serviceClient,
+  identity.userId,
+);
+const generatedDecision = await new GenerateCoachProposal(
+  reloaded.dossier,
+  new SupabaseTrainingProgramRepository(reloadedClient),
+  new FixtureCoachProposalProvider(proposalFixture),
+  decisions,
+).execute(coachFixture);
+assert.equal(generatedDecision?.status, "proposed");
+const materialized = await decisions.materialize(generatedDecision.id);
+assert.equal(materialized.status, "materialized");
+const proposalDraft = await reloaded.getProgram.execute(
+  materialized.materializedProgramId,
+);
+assert.equal(proposalDraft?.status, "draft");
+assert.equal(
+  (await reloaded.activeProgram.execute())?.id,
+  activatedRevision.id,
+);
+assert.equal(
+  proposalDraft?.blocks[0].weeks[0].days[0].prescriptions[0].sets[0].rirMin,
+  3,
+);
+assert.equal(
+  (await decisions.materialize(generatedDecision.id)).materializedProgramId,
+  materialized.materializedProgramId,
+);
 await reloaded.signOut.execute();
 await reloaded.signIn.execute(credentials);
 assert.deepEqual(
@@ -497,6 +575,7 @@ assert.deepEqual(
 
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
+serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/derived-performance/dossier/coach-fixture flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft flow passed.",
 );

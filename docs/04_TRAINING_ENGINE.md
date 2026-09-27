@@ -98,3 +98,7 @@ Fórmulas, conversões de unidade, arredondamento, sessões incompletas, duplica
 ## Phase 9 Coach boundary
 
 O Coach recebe métricas calculadas e pode interpretá-las, mas não recalcula performance nem produz `ProgramRevision`. `training_adjustment` é somente proposta textual com `requiresHumanReview = true`; não há CTA, RPC ou mutation para aplicá-la.
+
+## Phase 10 — Materialização controlada
+
+Uma `CoachProposal` nunca é um `ProgramRevision`. O validator reutiliza `assertPrescriptionSet` para target, RIR, descanso e carga e proíbe mudança de métrica, IDs pendentes e operations não suportadas. Na aprovação, o baseline deve continuar ativo na mesma revisão. A RPC cria novos IDs e revision/lineage pelo mesmo modelo de clone da Phase 5, altera somente sets-alvo no novo draft, preserva a origem e não ativa. Retry de decisão materializada retorna o mesmo ledger/draft.

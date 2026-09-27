@@ -250,6 +250,106 @@ export type Database = {
           },
         ]
       }
+      coach_decisions: {
+        Row: {
+          approved_at: string | null
+          athlete_id: string
+          created_at: string
+          dossier_schema_version: string
+          id: string
+          materialized_at: string | null
+          materialized_program_id: string | null
+          model_identifier: string
+          prompt_version: string
+          proposal_schema_version: string
+          proposal_snapshot: Json
+          proposed_at: string
+          provider: string
+          rejected_at: string | null
+          rejection_notes: string | null
+          rejection_reason: string | null
+          safety_policy_version: string
+          source_analysis_id: string
+          source_program_id: string
+          source_program_revision: number
+          stale_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          athlete_id: string
+          created_at?: string
+          dossier_schema_version: string
+          id?: string
+          materialized_at?: string | null
+          materialized_program_id?: string | null
+          model_identifier: string
+          prompt_version: string
+          proposal_schema_version: string
+          proposal_snapshot: Json
+          proposed_at?: string
+          provider: string
+          rejected_at?: string | null
+          rejection_notes?: string | null
+          rejection_reason?: string | null
+          safety_policy_version: string
+          source_analysis_id: string
+          source_program_id: string
+          source_program_revision: number
+          stale_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          athlete_id?: string
+          created_at?: string
+          dossier_schema_version?: string
+          id?: string
+          materialized_at?: string | null
+          materialized_program_id?: string | null
+          model_identifier?: string
+          prompt_version?: string
+          proposal_schema_version?: string
+          proposal_snapshot?: Json
+          proposed_at?: string
+          provider?: string
+          rejected_at?: string | null
+          rejection_notes?: string | null
+          rejection_reason?: string | null
+          safety_policy_version?: string
+          source_analysis_id?: string
+          source_program_id?: string
+          source_program_revision?: number
+          stale_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_decisions_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_decisions_materialized_program_id_fkey"
+            columns: ["materialized_program_id"]
+            isOneToOne: true
+            referencedRelation: "training_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_decisions_source_program_id_fkey"
+            columns: ["source_program_id"]
+            isOneToOne: false
+            referencedRelation: "training_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment: {
         Row: {
           id: string
@@ -1285,6 +1385,40 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      create_coach_decision: {
+        Args: { p_proposal: Json; p_user_id: string }
+        Returns: {
+          approved_at: string | null
+          athlete_id: string
+          created_at: string
+          dossier_schema_version: string
+          id: string
+          materialized_at: string | null
+          materialized_program_id: string | null
+          model_identifier: string
+          prompt_version: string
+          proposal_schema_version: string
+          proposal_snapshot: Json
+          proposed_at: string
+          provider: string
+          rejected_at: string | null
+          rejection_notes: string | null
+          rejection_reason: string | null
+          safety_policy_version: string
+          source_analysis_id: string
+          source_program_id: string
+          source_program_revision: number
+          stale_at: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "coach_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_athlete_id: { Args: never; Returns: string }
       ensure_current_athlete: {
         Args: never
@@ -1302,6 +1436,40 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      materialize_coach_decision: {
+        Args: { p_decision_id: string; p_user_id: string }
+        Returns: {
+          approved_at: string | null
+          athlete_id: string
+          created_at: string
+          dossier_schema_version: string
+          id: string
+          materialized_at: string | null
+          materialized_program_id: string | null
+          model_identifier: string
+          prompt_version: string
+          proposal_schema_version: string
+          proposal_snapshot: Json
+          proposed_at: string
+          provider: string
+          rejected_at: string | null
+          rejection_notes: string | null
+          rejection_reason: string | null
+          safety_policy_version: string
+          source_analysis_id: string
+          source_program_id: string
+          source_program_revision: number
+          stale_at: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "coach_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       record_workout_set: {
         Args: {
           p_actual_load_kg?: number
@@ -1312,6 +1480,45 @@ export type Database = {
           p_set_id: string
         }
         Returns: undefined
+      }
+      reject_coach_decision: {
+        Args: {
+          p_decision_id: string
+          p_notes?: string
+          p_reason: string
+          p_user_id: string
+        }
+        Returns: {
+          approved_at: string | null
+          athlete_id: string
+          created_at: string
+          dossier_schema_version: string
+          id: string
+          materialized_at: string | null
+          materialized_program_id: string | null
+          model_identifier: string
+          prompt_version: string
+          proposal_schema_version: string
+          proposal_snapshot: Json
+          proposed_at: string
+          provider: string
+          rejected_at: string | null
+          rejection_notes: string | null
+          rejection_reason: string | null
+          safety_policy_version: string
+          source_analysis_id: string
+          source_program_id: string
+          source_program_revision: number
+          stale_at: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "coach_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       replace_training_program_structure: {
         Args: { p_program_id: string; p_structure: Json }

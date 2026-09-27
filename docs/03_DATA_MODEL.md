@@ -143,3 +143,9 @@ Raw Data continua significando observação, Derived Data cálculo determinísti
 Read model, não tabela. Contém contexto, programa/revisão/lineage ativos, cinco janelas, exposição/comparação por `exercise_id`, cobertura, até 12 sessões com metadata de truncamento e referências tipadas. Janelas usam dias civis no timezone IANA, início inclusivo/fim exclusivo. Peso inclui só a última observação.
 
 Na Phase 9, cada sessão recente resolve deterministicamente `sourceTrainingDayId` até programa, revisão e `supersedesProgramId` pela hierarquia imutável. Raw Workout não é alterado. `CoachAnalysis v1` é Coach Intelligence não persistida, com versões, evidência, confiança qualitativa, hipóteses, propostas, incertezas e safety. Não existe tabela de chat nesta fase.
+
+## Runtime Coaching Decision Ledger — Phase 10
+
+`coach_decisions` pertence ao atleta e guarda snapshot JSONB validado `coach-proposal-v1`, analysis ID resumido, source program/revision, versões de provider/model/prompt/safety/dossier, status e timestamps. `materialized_program_id` liga o fato proposto ao draft criado. Snapshot/proveniência e estados terminais são imutáveis; RLS permite somente leitura própria e operações de escrita ficam em funções backend-only. Este ledger não é `docs/09_DECISION_LEDGER.md`, que registra decisões do projeto.
+
+Lifecycle: `proposed → rejected | stale | materialized`. `approved_at` e `materialized_at` são gravados juntos na transação para não existir aprovação sem draft. O dossier, chat completo e chain-of-thought não são persistidos.

@@ -67,3 +67,7 @@ Progresso mostra últimos 28 dias, período anterior, deltas numéricos, amostra
 ## Phase 9 — Personal
 
 Personal oferece pergunta e estados de loading, sucesso estruturado, erro seguro, indisponibilidade e retry. Separa resumo, observações, hipóteses, sugestões e lacunas; safety aparece naturalmente. Confidence fica auditável sem percentual. Drill-down de evidência foi postergado. Não existe “Aplicar recomendação”.
+
+## Phase 10 — Revisão de proposta
+
+Recomendações elegíveis oferecem **Ver proposta de ajuste** sob demanda. A card mostra origem, rationale, evidence count e limitações; ações são **Rejeitar proposta** e **Revisar proposta**. A tela de revisão resolve o baseline e mostra diff factual Antes/Proposto. O CTA é **Criar revisão em rascunho**, acompanhado de aviso de que o ativo não muda até revisão e ativação posteriores. Sucesso oferece **Revisar rascunho**. Estados stale, loading, error/retry e histórico de decisões permanecem explícitos; não existe “Aplicar automaticamente”.

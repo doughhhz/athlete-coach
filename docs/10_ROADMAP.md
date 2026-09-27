@@ -111,3 +111,7 @@ Contrato v1 on-demand, janelas 7/28/lifetime, exposição, comparação, cobertu
 ## Phase 9 — Personal AI Foundation — complete
 
 Gateway autenticado, provider boundary, Gemini HTTP server-side, contratos estruturados, grounding, safety pré/pós, prompt versionado, fake provider e UI Personal foram implementados. A antiga “Phase 9 — Workout Analysis” foi absorvida como modos iniciais sem alterar programas. Autonomia, proposals executáveis e ledger runtime permanecem futuros.
+
+## Phase 10 — Structured Coach Proposals — complete
+
+Contrato versionado, geração sob demanda, validator determinístico, Runtime Coaching Decision Ledger, rejeição humana e materialização transacional draft-only foram implementados. O roadmap antigo que chamava Phase 10 de Recovery/Readiness está superseded por esta entrega; Recovery/Readiness permanece futuro. Ativação automática, outcome scoring, causal attribution e aprendizagem/autonomia permanecem explicitamente fora de escopo.
