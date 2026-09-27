@@ -4,3 +4,4 @@ export * from "./training/training.ts";
 export * from "./workout/workout.ts";
 export * from "./performance/performance.ts";
 export * from "./dossier/dossier.ts";
+export * from "./coach/coach.ts";

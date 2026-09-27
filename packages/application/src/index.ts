@@ -13,3 +13,6 @@ export * from "./workout/use-cases.ts";
 export * from "./performance/ports.ts";
 export * from "./performance/use-cases.ts";
 export * from "./dossier/use-cases.ts";
+export * from "./coach/ports.ts";
+export * from "./coach/schemas.ts";
+export * from "./coach/use-cases.ts";

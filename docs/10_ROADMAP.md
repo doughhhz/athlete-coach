@@ -107,3 +107,7 @@ Nenhuma fase que manipule dados reais avança sem segurança de acesso e recuper
 ## Phase 8 — Athlete Training Dossier & Longitudinal Signals — complete
 
 Contrato v1 on-demand, janelas 7/28/lifetime, exposição, comparação, cobertura, evidência limitada e UI factual estão implementados. “Phase 8 — AI Coach” foi superseded pela ADR-0034. AI/Coach permanece Phase 9+; nenhum código de IA foi implementado.
+
+## Phase 9 — Personal AI Foundation — complete
+
+Gateway autenticado, provider boundary, Gemini HTTP server-side, contratos estruturados, grounding, safety pré/pós, prompt versionado, fake provider e UI Personal foram implementados. A antiga “Phase 9 — Workout Analysis” foi absorvida como modos iniciais sem alterar programas. Autonomia, proposals executáveis e ledger runtime permanecem futuros.

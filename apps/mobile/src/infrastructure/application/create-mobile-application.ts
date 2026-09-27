@@ -54,6 +54,7 @@ import {
   SupabasePerformanceReadRepository,
   type AthleteCoachSupabaseClient,
 } from "@athlete-coach/data-access";
+import { SupabaseCoachGateway } from "@/infrastructure/coach/supabase-coach-gateway";
 
 export function createMobileApplication(client: AthleteCoachSupabaseClient) {
   const authRepository = new SupabaseAuthRepository(client);
@@ -68,6 +69,7 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
   const programs = new SupabaseTrainingProgramRepository(client);
   const workouts = new SupabaseWorkoutSessionRepository(client);
   const performance = new SupabasePerformanceReadRepository(client);
+  const coach = new SupabaseCoachGateway(client);
 
   const loadProfile = new LoadCurrentAthleteProfile(
     athleteRepository,
@@ -127,6 +129,8 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     getLongitudinalTrainingSignals: new GetLongitudinalTrainingSignals(
       buildTrainingDossier,
     ),
+    analyzeWithCoach: (input: Parameters<SupabaseCoachGateway["analyze"]>[0]) =>
+      coach.analyze(input),
   } as const;
 }
 

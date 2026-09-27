@@ -366,3 +366,43 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0037 — Signals are not conclusions
 
 “The dossier organizes evidence; it does not interpret it.” “A longitudinal signal is a factual comparison, not a coaching conclusion.” O contrato proíbe recommendation, interpretation, score, fatigue/readiness e sugestões.
+
+### ADR-0038 — AI Gateway e provider boundary
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: somente `coach-analyze` autenticado chama `CoachModelProvider`; Gemini é adapter HTTP server-side configurável. Mobile, application e domain não importam provider.
+- Motivo: proteger secrets, permitir substituição e normalizar falhas.
+- Impacto: packages/ai, application Coach, Edge Function, mobile e arquitetura.
+
+### ADR-0039 — Dossier e proveniência histórica
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: dossier é contexto factual primário. Sessões resolvem programa/revisão/lineage pela hierarquia imutável a partir do training day; Raw Workout não ganha campo redundante.
+- Motivo: impedir joins arbitrários pelo modelo.
+- Impacto: dossier, query de Workout e grounding.
+
+### ADR-0040 — Structured Coach Analysis e grounding
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: JSON v1 validado separa observação, hipótese, recomendação, incerteza e safety. Referência ausente invalida output; confidence é qualitativa; chain-of-thought não é persistido.
+- Motivo: fatos não podem ser redefinidos nem citações falsas exibidas.
+- Impacto: domain, application, providers, testes e Personal.
+
+### ADR-0041 — Safety e controle humano
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: safety determinístico antes/depois do modelo; recomendações são propostas textuais com revisão humana. Nenhuma mutation, tool call ou autonomia.
+- Motivo: risco de saúde e controle do atleta.
+- Impacto: policy, prompt, gateway, UX e roadmap.
+
+### ADR-0042 — Conversa efêmera bounded
+
+- Data: 2026-09-26
+- Status: accepted
+- Decisão: até seis mensagens anteriores em memória; sem `coach_threads/messages`.
+- Motivo: primeira análise útil não exige retenção; persistência ampliaria privacy, deletion e RLS prematuramente.
+- Impacto: mobile, request contract e data model.

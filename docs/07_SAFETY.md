@@ -64,3 +64,7 @@ Qualquer nova capacidade de IA ou health data requer threat modeling, revisão d
 ## Disclaimer
 
 Um aviso de responsabilidade é necessário, mas não substitui design seguro, limites técnicos ou escalonamento adequado.
+
+## Safety do Personal — Phase 9
+
+Safety é código fora do prompt e atua antes/depois do provider. O pre-check bloqueia aconselhamento diante de dor aguda, possível lesão, sintomas graves/emergência, diagnóstico/medicação e práticas extremas de peso. O Coach não diagnostica tecido, prescreve tratamento ou recomenda ignorar dor. O post-check degrada afirmações clínicas proibidas; missing data vira incerteza e evidence inexistente invalida a resposta. As regras lexicais são uma barreira inicial, não detecção clínica completa nem proteção absoluta contra injection.

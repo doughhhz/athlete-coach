@@ -59,9 +59,22 @@ const sessionSchema = z.object({
   created_at: z.iso.datetime({ offset: true }),
   updated_at: z.iso.datetime({ offset: true }),
   workout_exercises: z.array(exerciseSchema),
+  source_training_day: z
+    .object({
+      training_week: z.object({
+        training_block: z.object({
+          training_program: z.object({
+            id: z.uuid(),
+            revision: z.number().int().positive(),
+            supersedes_program_id: z.uuid().nullable(),
+          }),
+        }),
+      }),
+    })
+    .optional(),
 });
 export const workoutSessionSelectTree =
-  "id,athlete_id,source_training_day_id,program_name_snapshot,day_name_snapshot,status,athlete_notes,started_at,completed_at,abandoned_at,created_at,updated_at,workout_exercises(id,source_exercise_prescription_id,exercise_id,sequence,exercise_name_snapshot,planned_instructions,planned_athlete_cues,workout_sets(id,source_prescription_set_id,sequence,status,planned_metric,planned_target_min,planned_target_max,planned_rir_min,planned_rir_max,planned_rest_min_seconds,planned_rest_max_seconds,planned_tempo,planned_load_kind,planned_load_kg,actual_value,actual_load_kg,actual_rir,performed_at,rest_started_at,rest_ended_at))";
+  "id,athlete_id,source_training_day_id,program_name_snapshot,day_name_snapshot,status,athlete_notes,started_at,completed_at,abandoned_at,created_at,updated_at,source_training_day:training_days!workout_sessions_source_training_day_id_fkey(training_week:training_weeks!training_days_training_week_id_fkey(training_block:training_blocks!training_weeks_training_block_id_fkey(training_program:training_programs!training_blocks_training_program_id_fkey(id,revision,supersedes_program_id)))),workout_exercises(id,source_exercise_prescription_id,exercise_id,sequence,exercise_name_snapshot,planned_instructions,planned_athlete_cues,workout_sets(id,source_prescription_set_id,sequence,status,planned_metric,planned_target_min,planned_target_max,planned_rir_min,planned_rir_max,planned_rest_min_seconds,planned_rest_max_seconds,planned_tempo,planned_load_kind,planned_load_kg,actual_value,actual_load_kg,actual_rir,performed_at,rest_started_at,rest_ended_at))";
 function fail(message: string, error: unknown): never {
   throw new DataAccessError(message, { cause: error });
 }
@@ -71,6 +84,18 @@ export function mapWorkoutSession(input: unknown): WorkoutSession {
     id: s.id,
     athleteId: s.athlete_id,
     sourceTrainingDayId: s.source_training_day_id,
+    sourceProgram: s.source_training_day
+      ? {
+          id: s.source_training_day.training_week.training_block
+            .training_program.id,
+          revision:
+            s.source_training_day.training_week.training_block.training_program
+              .revision,
+          supersedesProgramId:
+            s.source_training_day.training_week.training_block.training_program
+              .supersedes_program_id,
+        }
+      : null,
     programName: s.program_name_snapshot,
     dayName: s.day_name_snapshot,
     status: s.status,

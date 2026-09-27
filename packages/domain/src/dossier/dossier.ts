@@ -147,6 +147,12 @@ export type AthleteTrainingDossier = Readonly<{
       programName: string;
       dayName: string;
       sourceTrainingDayId: string;
+      sourceProgram: Readonly<{
+        id: string;
+        revision: number;
+        supersedesProgramId: string | null;
+      }> | null;
+      evidence: readonly EvidenceReference[];
     }>[];
   }>;
   evidence: readonly EvidenceReference[];
@@ -494,6 +500,19 @@ export function buildAthleteTrainingDossier(
       programName: session.programName,
       dayName: session.dayName,
       sourceTrainingDayId: session.sourceTrainingDayId,
+      sourceProgram: session.sourceProgram ?? null,
+      evidence: [
+        { kind: "workout_session" as const, id: session.id, version: null },
+        ...(session.sourceProgram
+          ? [
+              {
+                kind: "training_program" as const,
+                id: session.sourceProgram.id,
+                version: String(session.sourceProgram.revision),
+              },
+            ]
+          : []),
+      ],
     }));
   const evidence: EvidenceReference[] = [];
   if (input.activeProgram)

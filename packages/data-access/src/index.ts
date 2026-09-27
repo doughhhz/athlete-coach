@@ -3,7 +3,7 @@ export {
   type AthleteCoachSupabaseClient,
   type PublicSupabaseConfig,
 } from "./supabase/create-athlete-coach-supabase-client";
-export type { Database } from "./generated/database.types";
+export type { Database } from "./generated/database.types.ts";
 export * from "./supabase/supabase-repositories";
 export * from "./supabase/exercise-catalog-repositories";
 export * from "./supabase/training-program-repository";

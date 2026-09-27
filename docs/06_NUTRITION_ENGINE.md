@@ -30,3 +30,7 @@ Fluxos devem reconhecer contexto médico declarado, comportamentos potencialment
 ## Dependências e riscos
 
 Antes de implementar: definir fonte/licença de alimentos, localidade e unidades, política de edição histórica, privacidade, limites do Coach, qualidade de dados, funcionamento offline e relação entre gasto energético estimado e recomendações.
+
+## Boundary com o Personal na Phase 9
+
+O Personal pode oferecer conhecimento geral e deve declarar ausência de contexto nutricional individual. Não inventa calorias, macros ou dieta e não implementa este motor.

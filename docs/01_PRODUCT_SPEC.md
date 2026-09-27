@@ -103,3 +103,7 @@ Progresso apresenta fatos históricos recalculados a partir de Raw Performance: 
 ## Phase 8 — dossiê longitudinal
 
 Projeção versionada sob demanda com contexto mínimo, programa ativo, fatos de 7/28 dias e períodos anteriores, exposição por exercício, deltas, cobertura carga/RIR/descanso, peso mais recente e evidências limitadas. Reps, segundos e metros permanecem separados. O dossiê organiza evidência; não interpreta nem recomenda.
+
+## Estado após a Phase 9
+
+A tab Personal aceita perguntas e renderiza análise estruturada. A conversa mantém até seis mensagens anteriores somente em memória. Não há persistência de chat, autonomia, aplicação de recomendação ou alteração de programa. **The AI may interpret evidence, but it may not redefine facts. The AI proposes; deterministic systems validate; humans retain control.**

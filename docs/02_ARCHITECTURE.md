@@ -135,3 +135,9 @@ A infraestrutura local usa Supabase CLI 2.117.0 versionada na raiz. `supabase/mi
 ## Phase 8 projection boundary
 
 `BuildAthleteTrainingDossier` compõe perfil, programa, workouts e performance existentes; funções puras constroem sinais e RLS preserva ownership. O contrato é reconstruído, versionado e não persistido. Futuro, não implementado: `Dossier → Personal AI → Structured Coach Proposal → Deterministic Validator → Human Approval/Policy → Program Revision → runtime Coach Decision Ledger`.
+
+## Phase 9 AI boundary
+
+`coach-analyze` exige JWT, rejeita `athleteId` do cliente e cria repositories com o token corrente. O fluxo é `Dossier v1 → input safety → prompt/policy v1 → CoachModelProvider → Zod → evidence validation → output safety`. `packages/ai` contém prompt, policy e adapters; application conhece portas e domínio não conhece Gemini. O adapter inicial usa HTTP. Configuração central: `GEMINI_API_KEY`, `GEMINI_MODEL`, `COACH_TEMPERATURE`, `COACH_TIMEOUT_MS` e `COACH_MAX_OUTPUT_TOKENS`.
+
+O gateway limita corpo a 16 KiB, contexto a seis mensagens, dez requests/minuto por instância e timeout configurável. Rate limiting é best-effort/in-memory nesta fase. Logs omitem contexto pessoal e contêm IDs, provider/model, latência, resultado e categoria de erro.

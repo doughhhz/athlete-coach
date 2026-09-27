@@ -31,7 +31,13 @@ import {
   GetExercisePerformanceHistory,
   GetExercisePersonalBests,
   BuildAthleteTrainingDossier,
+  AnalyzeAthleteWithCoach,
+  InvalidCoachEvidenceError,
 } from "../packages/application/src/index.ts";
+import {
+  DeterministicCoachSafetyPolicy,
+  FixtureCoachModelProvider,
+} from "../packages/ai/src/index.ts";
 import { createAthleteCoachSupabaseClient } from "../packages/data-access/src/supabase/create-athlete-coach-supabase-client.ts";
 import {
   SupabaseAthleteGoalRepository,
@@ -396,6 +402,87 @@ assert.equal(dossierBeforeReload.exerciseSignals.length, 1);
 assert.ok(
   dossierBeforeReload.evidence.some((item) => item.kind === "training_program"),
 );
+assert.equal(
+  dossierBeforeReload.recentSessions.items[0].sourceProgram?.id,
+  revision.id,
+);
+assert.equal(
+  dossierBeforeReload.recentSessions.items[0].sourceProgram?.revision,
+  revision.revision,
+);
+const workoutEvidence = dossierBeforeReload.recentSessions.items[0].evidence[0];
+const coachFixture = {
+  schemaVersion: "coach-analysis-v1",
+  analysisId: "integration-analysis",
+  requestId: "integration-request",
+  createdAt: "2026-09-26T12:00:00.000Z",
+  summary: "O histórico recente contém sessões registradas.",
+  observations: [
+    {
+      id: "o1",
+      statement: "Há treino recente registrado.",
+      evidence: [workoutEvidence],
+      confidence: "high",
+      limitations: [],
+    },
+  ],
+  hypotheses: [],
+  recommendations: [
+    {
+      id: "r1",
+      statement: "Mantenha o registro consistente.",
+      evidence: [workoutEvidence],
+      confidence: "medium",
+      limitations: [],
+      category: "maintain",
+      rationale: "Preserva a base factual para comparações.",
+      requiresHumanReview: true,
+    },
+  ],
+  questions: [],
+  uncertainties: [],
+  evidenceUsed: [workoutEvidence],
+  safetyFlags: [],
+  metadata: {
+    dossierSchemaVersion: "athlete-training-dossier-v1",
+    promptVersion: "coach-system-v1",
+    policyVersion: "coach-safety-v1",
+    provider: "fixture",
+    model: "deterministic",
+    inputTokens: null,
+    outputTokens: null,
+  },
+};
+const coach = new AnalyzeAthleteWithCoach(
+  reloaded.dossier,
+  new FixtureCoachModelProvider(coachFixture),
+  new DeterministicCoachSafetyPolicy(),
+  () => "integration-request",
+);
+assert.equal(
+  (
+    await coach.execute({
+      userRequest: "Avalie meu histórico recente",
+      analysisMode: "general_review",
+    })
+  ).observations.length,
+  1,
+);
+const invalidCoach = new AnalyzeAthleteWithCoach(
+  reloaded.dossier,
+  new FixtureCoachModelProvider({
+    ...coachFixture,
+    evidenceUsed: [
+      { kind: "workout_session", id: "other-athlete-session", version: null },
+    ],
+  }),
+  new DeterministicCoachSafetyPolicy(),
+);
+await assert.rejects(
+  () =>
+    invalidCoach.execute({ userRequest: "Avalie", analysisMode: "question" }),
+  InvalidCoachEvidenceError,
+);
 await reloaded.signOut.execute();
 await reloaded.signIn.execute(credentials);
 assert.deepEqual(
@@ -411,5 +498,5 @@ assert.deepEqual(
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/derived-performance/dossier flow passed.",
+  "Local Auth/onboarding/training/workout/derived-performance/dossier/coach-fixture flow passed.",
 );

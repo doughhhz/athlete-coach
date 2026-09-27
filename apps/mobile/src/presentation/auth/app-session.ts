@@ -24,6 +24,9 @@ import type {
   ExercisePersonalBest,
   SessionDerivedMetrics,
   AthleteTrainingDossier,
+  CoachAnalysis,
+  CoachAnalysisMode,
+  CoachConversationMessage,
 } from "@athlete-coach/domain";
 import { createContext, useContext } from "react";
 
@@ -90,6 +93,13 @@ export type AppSessionValue = Readonly<{
     personalRecordEvents: readonly ExercisePerformancePoint[];
   }> | null>;
   buildTrainingDossier(): Promise<AthleteTrainingDossier>;
+  analyzeWithCoach(
+    input: Readonly<{
+      userRequest: string;
+      analysisMode: CoachAnalysisMode;
+      conversationContext: readonly CoachConversationMessage[];
+    }>,
+  ): Promise<CoachAnalysis>;
 }>;
 
 export const AppSessionContext = createContext<AppSessionValue | null>(null);

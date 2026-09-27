@@ -141,3 +141,5 @@ Raw Data continua significando observação, Derived Data cálculo determinísti
 ## AthleteTrainingDossier v1
 
 Read model, não tabela. Contém contexto, programa/revisão/lineage ativos, cinco janelas, exposição/comparação por `exercise_id`, cobertura, até 12 sessões com metadata de truncamento e referências tipadas. Janelas usam dias civis no timezone IANA, início inclusivo/fim exclusivo. Peso inclui só a última observação.
+
+Na Phase 9, cada sessão recente resolve deterministicamente `sourceTrainingDayId` até programa, revisão e `supersedesProgramId` pela hierarquia imutável. Raw Workout não é alterado. `CoachAnalysis v1` é Coach Intelligence não persistida, com versões, evidência, confiança qualitativa, hipóteses, propostas, incertezas e safety. Não existe tabela de chat nesta fase.

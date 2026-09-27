@@ -134,3 +134,7 @@ Revisar humanamente a Phase 8. AI Coach permanece Phase 9+ e não deve começar 
 ## Phase 8 — Athlete Training Dossier & Longitudinal Signals
 
 Implementada como projeção on-demand `athlete-training-dossier-v1`: contexto, programa ativo, janelas civis 7/28 dias, comparações por exercício, cobertura e evidências limitadas. Nenhum dossier/signal é persistido. The dossier organizes evidence; it does not interpret it. A longitudinal signal is a factual comparison, not a coaching conclusion.
+
+## Phase 9 — Personal AI Foundation
+
+O Personal usa o backend autenticado `coach-analyze`: constrói o dossier corrente sob a identidade JWT, aplica safety determinístico, chama um provider substituível e valida JSON e evidências. Gemini usa HTTP server-side e `GEMINI_API_KEY`; nenhuma chave ou chamada direta ao provider existe no mobile. A conversa é bounded em memória e recomendações nunca alteram programas.

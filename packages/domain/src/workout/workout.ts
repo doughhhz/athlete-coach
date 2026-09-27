@@ -48,6 +48,11 @@ export type WorkoutSession = Readonly<{
   id: string;
   athleteId: string;
   sourceTrainingDayId: string;
+  sourceProgram?: Readonly<{
+    id: string;
+    revision: number;
+    supersedesProgramId: string | null;
+  }> | null;
   programName: string;
   dayName: string;
   status: WorkoutSessionStatus;

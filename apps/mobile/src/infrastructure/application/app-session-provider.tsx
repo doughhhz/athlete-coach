@@ -283,6 +283,11 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
       if (!application) throw new Error("Backend não configurado.");
       return application.buildTrainingDossier.execute();
     },
+    analyzeWithCoach: async (input) => {
+      if (!application)
+        throw new Error("O Personal está temporariamente indisponível.");
+      return application.analyzeWithCoach(input);
+    },
   };
 
   return (

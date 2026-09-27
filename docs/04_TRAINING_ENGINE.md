@@ -94,3 +94,7 @@ Fórmulas, conversões de unidade, arredondamento, sessões incompletas, duplica
 ## Longitudinal signals v1
 
 Últimos 28 dias civis são comparados aos 28 anteriores. `absoluteDelta = current - previous`; `relativeDelta = (current - previous) / abs(previous)` só com denominador não-zero. Frequência é sessões distintas com série concluída. Carga/e1RM seguem exercise-specific/Epley v1. Não há tendência qualitativa, causalidade, tonelagem ou recomendação.
+
+## Phase 9 Coach boundary
+
+O Coach recebe métricas calculadas e pode interpretá-las, mas não recalcula performance nem produz `ProgramRevision`. `training_adjustment` é somente proposta textual com `requiresHumanReview = true`; não há CTA, RPC ou mutation para aplicá-la.

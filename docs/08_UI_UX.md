@@ -63,3 +63,7 @@ Testar registro de série sob tempo, retomada após interrupção, uso offline, 
 ## Progress longitudinal facts
 
 Progresso mostra últimos 28 dias, período anterior, deltas numéricos, amostras e cobertura como numerador/denominador. Usa “comparação factual”, “carga registrada” e “1RM estimado”; não mostra score, julgamento, causalidade ou recomendação.
+
+## Phase 9 — Personal
+
+Personal oferece pergunta e estados de loading, sucesso estruturado, erro seguro, indisponibilidade e retry. Separa resumo, observações, hipóteses, sugestões e lacunas; safety aparece naturalmente. Confidence fica auditável sem percentual. Drill-down de evidência foi postergado. Não existe “Aplicar recomendação”.

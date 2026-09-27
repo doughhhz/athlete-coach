@@ -91,3 +91,9 @@ Modelo Gemini inicial, estratégia de custos, retenção pelo provider, regiões
 ## Dossier boundary before AI
 
 Phase 8 não integra LLM. O futuro Personal AI recebe `AthleteTrainingDossier` versionado e futuramente drill-down específico de evidência; acesso irrestrito ao banco não é sua interface primária. Recomendações futuras exigem schema, validação determinística e aprovação humana/policy.
+
+## Contrato implementado na Phase 9
+
+O Coach é técnico, longitudinal, conservador e orientado pela evidência individual. A prioridade é dossier, métricas determinísticas, contexto canônico, declaração atual e conhecimento geral. Strings do atleta são dados não confiáveis separados da policy `coach-system-v1`.
+
+`CoachAnalysisRequest v1` contém dossier, pergunta, modo e até seis mensagens. `CoachAnalysis v1` separa resumo, observations, hypotheses, recommendations revisadas por humano, questions, uncertainties, evidenceUsed e safetyFlags. Confiança baixa/média/alta é qualitativa. JSON e evidence IDs são validados; referência inexistente invalida toda análise. Não há tools, DB, web, mutations ou chain-of-thought. Gemini é adapter HTTP server-side e testes usam fixture provider. Chat não é persistido.
