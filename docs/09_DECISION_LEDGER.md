@@ -484,14 +484,14 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0052 — Individual Response Evidence contract
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; regra de agrupamento superseded pela ADR-0056 (v2 inclui target metric)
 - Decisão: `individual-response-evidence-v1` agrupa episódios ativados apenas por `exercise_id` + dimensão (`target`, `planned_rir`, `planned_rest`, `absolute_load`). Cada episódio mantém prescrição antes/proposta/ativada, fatos, comparações, amostras e limitações próprios; não há média entre episódios, preferência, reward, bandit, RL ou alteração automática de prompts/proposals/programas. **Individual response is learned as accumulated evidence across comparable exposures, not as a single causal conclusion.** Volume/frequência exigem futuras interventions add/remove set e scheduling antes de qualquer aprendizado legítimo.
 - Impacto: domain/application.
 
 ### ADR-0053 — Athlete Training Dossier v2
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; v2 permanece histórico; versão corrente superseded pela ADR-0060 (v3)
 - Regra anterior: `athlete-training-dossier-v1` (ADR-0034) sem histórico de intervenções.
 - Decisão: `athlete-training-dossier-v2` mantém todos os campos e significados de v1 e adiciona `interventionHistory` (até 10 decisões mais recentes por `proposedAt` desc/ID, com `totalAvailable/included/hasMore`, status de outcome, mudanças, amostras, comparações sem evidência inline, limitações e evidências). `null` significa não carregado. Evidence vocabulary ganha `coach_decision`. Metadata de `CoachAnalysis` aceita v1 (histórico) e v2 e passa a registrar a versão real do dossier enviado. v1 não é alterado silenciosamente: permanece em snapshots históricos.
 - Motivo: adicionar seção muda o contrato enviado ao provider; bump explícito evita quebra silenciosa.
@@ -500,7 +500,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0054 — Coach prompt policy for prior interventions
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; prompts v2 permanecem históricos; versão corrente superseded pela ADR-0061 (v3)
 - Regra anterior: `coach-system-v1` e prompt de proposal sem política sobre outcomes.
 - Decisão: `coach-system-v2` = v1 literal + política: outcomes anteriores são evidência observacional com confounding; respeitar amostras; citar limitações; não afirmar causalidade; não assumir que delta passado garante resposta futura; não repetir/reverter mudança só pelo sinal do delta. Proposal prompt `coach-proposal-prompt-v2` (versão de prompt, distinta do schema `coach-proposal-v1`) proíbe repetição automática. v1 continua exportado como histórico. Nenhuma regra lexical determinística de causalidade foi adicionada ao output safety (limitação).
 - Impacto: packages/ai, application (fallback de safety), testes.
@@ -514,3 +514,54 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Evidência: durante o cascade o pai já foi removido e `assert_program_structure_mutable()` não resolve o programa, lançando `Only draft program structure can be changed`. Qualquer draft com estrutura (salvo antes, clone de revisão, draft materializado pelo Coach) não podia ser salvo novamente. Reproduzido no banco local.
 - Decisão: migration nova `20260928120000_correct_draft_structure_replacement.sql` substitui somente a função, removendo filhos leaf-first. Guard, grants, ownership e semântica do draft inalterados; nenhuma migration anterior reescrita.
 - Impacto: DB (12 asserções pgTAP novas), Program Builder e fluxo de revisão de proposals.
+
+### ADR-0056 — Individual Response Evidence v2
+
+- Data: 2026-09-28
+- Status: accepted
+- Regra anterior (ADR-0052): `individual-response-evidence-v1` agrupava por `exercise_id` + dimensão.
+- Decisão: `individual-response-evidence-v2` agrupa por `exercise_id` + dimensão + (para `target`) métrica do valor ativado; reps, segundos e metros nunca se misturam. Cada episódio passa a carregar resumo/data da proposta, programa de origem e de intervenção (id/revisão) e o contexto de peso corporal do outcome. Continua sem médias, preferências ou scores.
+- Motivo: Response Memory precisa de grupos semanticamente compatíveis e de proveniência por episódio sem criar um segundo sistema paralelo.
+- Impacto: domain outcomes, application, testes. `IndividualResponseEvidence` é a base (episódios organizados); `IndividualResponseMemory` é a projeção bounded para o Coach.
+
+### ADR-0057 — Individual Response Memory contract
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: `individual-response-memory-v1` é uma projeção derivada e reconstruível de `coach_decisions` + lineage de programas + workouts + outcomes (Phase 11). Sem tabela, cache, `learned_preferences`, `response_scores` ou pesos. Contém `notices`, `summary`, `groups` (`totalAvailable/included/hasMore`), `totalEpisodes`, `includedEpisodeDetails`, `omittedEpisodeDetails` e `truncation`. **Response Memory remembers observations, not truths.** **Repeated observational evidence may inform future reasoning, but it must not become an automatic training rule.**
+- Bounding: até 10 grupos (alinhado ao histórico de 10 decisões) e até 5 episódios detalhados por grupo; agregados sempre usam todos os episódios do grupo. Drill-down (`GetResponseMemoryGroup`) não trunca.
+- Ordem determinística: grupos por última ativação desc, depois key; episódios por `activatedAt` desc, depois decision ID. Sem decay, pesos de recência ou ranking por LLM.
+- Identidade estável: key estruturada `exerciseId.dimension[.metric]`, sem UUID aleatório nem hashing.
+- Impacto: domain `response-memory`, application, dossier, UI.
+
+### ADR-0058 — Comparable intervention episode semantics
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: a assinatura (`NormalizedInterventionSignature`) usa o valor **ativado** (não o proposto). Direção estrutural `increase | decrease | unchanged | mixed | not_comparable`: valores simples comparam numericamente; faixas só têm direção quando os dois limites se movem no mesmo sentido ou um fica igual (ex.: 8–12 → 8–10 = decrease); alargar/estreitar é `mixed`; valor ausente, carga não absoluta ou métrica diferente é `not_comparable`. Não há buckets de magnitude.
+- Strict comparable exige: alteração ativada identificável, ≥1 exposição antes e depois, nenhum confounder estrutural da Phase 11 (`multiple_variables_changed_concurrently`, `multiple_exercises_changed_concurrently`, `unproposed_changes_in_affected_prescription`, `program_revision_changed_other_prescriptions`, `exercise_identity_changed`, `proposed_action_not_present_at_activation`), observação da dimensão presente (`rir/rest/load_observations_missing` exclui) e ≥1 comparação relevante com delta. Os demais episódios são `context_only`, com os motivos, e nunca são apagados.
+- Limitações de dados (cobertura parcial, janelas menores, contagens desiguais, baseline de outro programa ou de intervenção anterior, janela aberta, peso corporal) permanecem visíveis mas não excluem: intervenções sequenciais no mesmo exercício têm, por construção, o baseline sob a intervenção anterior, que é justamente o estado "antes".
+- **Strict ≠ experimento controlado**: significa apenas comparável segundo regras estruturais.
+
+### ADR-0059 — Observational aggregation without causality
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: por grupo e métrica (sets alterados: métricas que a Phase 11 marca relevantes à dimensão; exercício inteiro: séries por exposição, maior carga registrada, melhor e1RM), sobre episódios strict: contagens de deltas positivos/zero/negativos/ausentes, mínimo, máximo, **mediana** e totais de amostras antes/depois. Média não é calculada (amostras pequenas e outliers). Deltas relativos não são agregados. "Positivo" é aritmético (depois − antes > 0), nunca "melhor". `signPattern` e `contradictory` (positivo e negativo coexistem) tornam contradições explícitas; nenhum episódio antigo é removido por ser contraditório. `hasMultipleComparableEpisodes` (≥2 strict) é técnico, não "evidência forte". Proibidos: responder/non-responder, valores ótimos, confidence calculado, scores.
+- Impacto: domain, UI, Coach.
+
+### ADR-0060 — Athlete Training Dossier v3
+
+- Data: 2026-09-28
+- Status: accepted
+- Regra anterior (ADR-0053): v2 com `interventionHistory`.
+- Decisão: `athlete-training-dossier-v3` mantém v2 intacto e adiciona `responseMemory` bounded. Episódios da memória referenciam decisões (`coach_decision`) e trazem apenas observações compactas das métricas de resposta, sem fatos brutos por janela nem evidência inline, evitando duplicar `interventionHistory`. Novo evidence kind `response_memory_group` (id = key estável). `BuildInterventionContext` produz histórico e memória a partir de uma única computação de outcomes (antes: histórico isolado); a dívida de calcular todas as decisões antes de limitar permanece.
+- Impacto: domain, application, Edge Functions, mobile, schemas Zod, testes, integração.
+
+### ADR-0061 — Coach Learning Policy
+
+- Data: 2026-09-28
+- Status: accepted
+- Regra anterior (ADR-0054): `coach-system-v2` e `coach-proposal-prompt-v2`.
+- Decisão: `coach-system-v3` = v2 literal + Coach Learning Policy com 14 regras (evidência observacional, repetição ≠ causalidade, sem regra fixa, amostras, confounders, cobertura, alteração ativada, contradições explícitas, não descartar episódio contrário, sem "responde melhor" sem qualificação, sem garantia de repetição, conhecimento geral não apaga evidência individual, não é experimento, validator + aprovação humana obrigatórios) e reafirma que performance passada não supera safety. `coach-proposal-prompt-v3`: Response Memory nunca autoriza proposta por si; delta passado positivo sozinho não justifica repetir (nem negativo reverter). v1/v2 continuam exportados. Response Memory não altera prompts, proposals, programas ou modelos automaticamente.
+- Loop documentado: Response Memory → interpretação do Coach → proposta estruturada → validator → aprovação humana → revisão → outcome → Response Memory. É aprendizado com controle humano, não autonomia.

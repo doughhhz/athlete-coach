@@ -75,3 +75,7 @@ Recomendações elegíveis oferecem **Ver proposta de ajuste** sob demanda. A ca
 ## Phase 11 — Resposta observada
 
 Progresso ganha **Alterações acompanhadas**: proposta/data, status (aguardando ativação, coletando dados, poucos dados, comparação disponível, não ativada), exercício, alteração antes → aplicada, sessões observadas antes/depois, deltas numéricos e amostras, com estado vazio. No histórico do Personal, decisões com dados oferecem **Ver resposta observada**, que mostra ANTES, DEPOIS, DIFERENÇA, AMOSTRA e LIMITAÇÕES, proposto vs aplicado e o aviso de que mudança não é prova de causa. Loading, erro e retry são explícitos. Proibido: “Funcionou”, “Não funcionou”, sucesso, fracasso, efetividade, “Resultado da estratégia”.
+
+## Phase 12 — Memória de resposta
+
+Progresso ganha **Memória de resposta**: por exercício e alteração, intervenções registradas, comparáveis, com mudanças simultâneas ou dados limitados, contagem de variações do 1RM estimado (positivas/iguais/negativas) e aviso quando as observações apontam em direções diferentes, com truncamento declarado. O detalhe **Histórico observado** lista cada intervenção com data, revisão do programa, alteração ativada e direção, Antes/Depois/Variação numérica/Amostra e Limitações, marcando "Intervenção comparável" ou "Apenas contexto". O resultado observado de uma decisão oferece **Ver histórico relacionado**. Proibido: "Aprendeu que", "Funciona", "Ideal", "Ótimo", "Melhor estratégia", "O que funciona para você", classificações de responder.

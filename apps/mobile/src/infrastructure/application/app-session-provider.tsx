@@ -306,6 +306,10 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
       if (!application) throw new Error("Backend não configurado.");
       return application.getIndividualResponseEvidence.execute();
     },
+    getResponseMemoryGroup: async (key) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.getResponseMemoryGroup.execute(key);
+    },
     materializeCoachProposal: async (id) => {
       if (!application)
         throw new Error("O Personal está temporariamente indisponível.");

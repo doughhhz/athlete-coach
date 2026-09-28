@@ -1,10 +1,13 @@
 import {
   buildIndividualResponseEvidence,
+  buildIndividualResponseMemory,
   buildInterventionHistory,
   buildInterventionOutcome,
   sortInterventionOutcomes,
   type CoachDecision,
+  type ComparableInterventionGroup,
   type IndividualResponseEvidence,
+  type IndividualResponseMemory,
   type InterventionHistory,
   type InterventionOutcomeEvaluation,
   type TrainingProgram,
@@ -40,9 +43,21 @@ export class BuildInterventionOutcomes {
   async execute(
     filter?: (decision: CoachDecision) => boolean,
   ): Promise<readonly InterventionOutcomeEvaluation[]> {
+    return (await this.build(filter)).evaluations;
+  }
+  /** Same projection plus the owning athlete and generation instant. */
+  async build(filter?: (decision: CoachDecision) => boolean): Promise<
+    Readonly<{
+      athleteId: string | null;
+      generatedAt: string;
+      evaluations: readonly InterventionOutcomeEvaluation[];
+    }>
+  > {
     const all = await this.decisions.list();
     const decisions = filter ? all.filter(filter) : all;
-    if (!decisions.length) return [];
+    const generatedAt = this.now().toISOString();
+    const athleteId = all[0]?.athleteId ?? null;
+    if (!decisions.length) return { athleteId, generatedAt, evaluations: [] };
     const [sessions, bodyWeights] = await Promise.all([
       this.performance.listHistoricalSessions(),
       this.bodyWeights.list(),
@@ -73,26 +88,29 @@ export class BuildInterventionOutcomes {
         .map((decision) => decision.materializedProgramId)
         .filter((id): id is string => id !== null),
     );
-    const generatedAt = this.now().toISOString();
-    return sortInterventionOutcomes(
-      decisions.map((decision) =>
-        buildInterventionOutcome({
-          decision,
-          sourceProgram: owned(
-            decision.proposal.sourceProgramId,
-            decision.athleteId,
-          ),
-          interventionProgram: owned(
-            decision.materializedProgramId,
-            decision.athleteId,
-          ),
-          sessions,
-          bodyWeights,
-          interventionProgramIds,
-          generatedAt,
-        }),
+    return {
+      athleteId,
+      generatedAt,
+      evaluations: sortInterventionOutcomes(
+        decisions.map((decision) =>
+          buildInterventionOutcome({
+            decision,
+            sourceProgram: owned(
+              decision.proposal.sourceProgramId,
+              decision.athleteId,
+            ),
+            interventionProgram: owned(
+              decision.materializedProgramId,
+              decision.athleteId,
+            ),
+            sessions,
+            bodyWeights,
+            interventionProgramIds,
+            generatedAt,
+          }),
+        ),
       ),
-    );
+    };
   }
 }
 
@@ -146,5 +164,70 @@ export class BuildInterventionHistory {
   }
   async execute(): Promise<InterventionHistory> {
     return buildInterventionHistory(await this.outcomes.execute());
+  }
+}
+
+const materialized = (decision: CoachDecision) =>
+  decision.status === "materialized";
+
+/** Full (default-bounded) response memory; derived, never persisted. */
+export class BuildIndividualResponseMemory {
+  private readonly outcomes: BuildInterventionOutcomes;
+  constructor(outcomes: BuildInterventionOutcomes) {
+    this.outcomes = outcomes;
+  }
+  async execute(): Promise<IndividualResponseMemory> {
+    const { athleteId, generatedAt, evaluations } =
+      await this.outcomes.build(materialized);
+    return buildIndividualResponseMemory(evaluations, {
+      athleteId,
+      generatedAt,
+    });
+  }
+}
+
+/** One group with every episode detail (no truncation), for drill-down. */
+export class GetResponseMemoryGroup {
+  private readonly outcomes: BuildInterventionOutcomes;
+  constructor(outcomes: BuildInterventionOutcomes) {
+    this.outcomes = outcomes;
+  }
+  async execute(key: string): Promise<ComparableInterventionGroup | null> {
+    const { athleteId, generatedAt, evaluations } =
+      await this.outcomes.build(materialized);
+    return (
+      buildIndividualResponseMemory(evaluations, {
+        athleteId,
+        generatedAt,
+        groupLimit: null,
+        episodeDetailLimit: null,
+      }).groups.items.find((group) => group.key === key) ?? null
+    );
+  }
+}
+
+export type InterventionContext = Readonly<{
+  interventionHistory: InterventionHistory;
+  responseMemory: IndividualResponseMemory;
+}>;
+
+/**
+ * Dossier v3 context from a single outcome pass: recent decisions (history)
+ * and accumulated observations (memory) without recomputing outcomes twice.
+ */
+export class BuildInterventionContext {
+  private readonly outcomes: BuildInterventionOutcomes;
+  constructor(outcomes: BuildInterventionOutcomes) {
+    this.outcomes = outcomes;
+  }
+  async execute(): Promise<InterventionContext> {
+    const { athleteId, generatedAt, evaluations } = await this.outcomes.build();
+    return {
+      interventionHistory: buildInterventionHistory(evaluations),
+      responseMemory: buildIndividualResponseMemory(
+        evaluations.filter((item) => item.status !== "not_materialized"),
+        { athleteId, generatedAt },
+      ),
+    };
   }
 }

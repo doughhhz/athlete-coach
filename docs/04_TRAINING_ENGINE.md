@@ -113,3 +113,11 @@ Uma `CoachProposal` nunca é um `ProgramRevision`. O validator reutiliza `assert
 - e1RM e carga só são comparados dentro do mesmo `exercise_id`; troca de exercício é limitação e não comparação.
 - Limitações determinísticas incluem ações concorrentes, edição manual, valor ativado diferente, exercício trocado, exposições ausentes/insuficientes/desiguais, janela aberta ou encerrada cedo, baseline de outros programas ou de intervenção anterior, RIR/descanso/carga ausentes ou parciais e peso corporal indisponível/alterado (apenas contexto, sem ajuste de performance).
 - Add/remove set e frequência não são interventions suportadas; aprendizado de volume/frequência permanece futuro.
+
+## Phase 12 — Response Memory (`individual-response-memory-v1`)
+
+- Grupo: `exercise_id` + dimensão (`target`, `planned_rir`, `planned_rest`, `absolute_load`) + métrica para `target`; key `exerciseId.dimension[.metric]`.
+- Assinatura: valores ativados antes → depois; direção estrutural apenas quando inequívoca (faixas: ambos limites no mesmo sentido ou um fixo; alargar/estreitar = `mixed`).
+- Strict comparable: alteração ativada identificável, exposições antes/depois, sem confounder estrutural, observação da dimensão presente e comparação relevante com delta. Não é experimento controlado.
+- Agregados sobre strict: contagens de sinais, ausentes, mín., máx., mediana (média par = média dos dois centrais), totais de amostras. Sem média, sem agregação de deltas relativos, sem pesos de recência.
+- Volume, frequência e seleção de exercício continuam sem grupos: faltam interventions add/remove set, scheduling e replace exercise.

@@ -150,3 +150,9 @@ Decisões materializadas cujo programa foi **ativado** viram episódios de inter
 Uma migration corretiva (`20260928120000`) permite salvar novamente a estrutura de drafts já preenchidos (ADR-0055).
 
 Próximo passo recomendado: revisão humana da Phase 11 antes de qualquer nova fase.
+
+## Phase 12 — Memória de resposta do atleta
+
+As intervenções ativadas são organizadas deterministicamente por exercício e tipo de alteração (`individual-response-memory-v1`): o que foi realmente ativado, quantas eram comparáveis, confounders, variações numéricas observadas e contradições, sempre com amostras. Nada é persistido; o dossier passou a `athlete-training-dossier-v3` e o Personal usa `coach-system-v3` com a Coach Learning Policy. **Response Memory remembers observations, not truths.** Nenhuma regra, preferência ou adaptação automática é criada.
+
+Próximo passo recomendado: revisão humana da Phase 12.

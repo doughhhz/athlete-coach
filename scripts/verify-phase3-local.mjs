@@ -39,6 +39,9 @@ import {
   ListInterventionOutcomes,
   GetCoachDecisionOutcome,
   GetIndividualResponseEvidence,
+  BuildIndividualResponseMemory,
+  BuildInterventionContext,
+  GetResponseMemoryGroup,
 } from "../packages/application/src/index.ts";
 import {
   DeterministicCoachSafetyPolicy,
@@ -403,7 +406,7 @@ assert.equal(performanceHistory.at(-1)?.isNewEstimatedOneRepMax, true);
 assert.equal((await reloaded.personalBests.execute())[0].maxLoggedLoadKg, 35);
 const overviewBeforeReload = await reloaded.performanceOverview.execute();
 const dossierBeforeReload = await reloaded.dossier.execute();
-assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v2");
+assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v3");
 assert.equal(dossierBeforeReload.activeProgram?.id, revision.id);
 assert.equal(dossierBeforeReload.windows.at(-1)?.sessionsStarted, 3);
 assert.equal(dossierBeforeReload.exerciseSignals.length, 1);
@@ -804,9 +807,207 @@ api = outcomeApi();
 assert.deepEqual(await api.list.execute(), outcomesBeforeReload);
 assert.deepEqual(await api.individual.execute(), individualBeforeReload);
 
+// Phase 12 — Individual Response Memory & Coach Learning Policy.
+// Intervention 3 (C → D): same exercise/dimension, no manual edits.
+const dayC = programC.blocks[0].weeks[0].days[0];
+const dossierForD = await reloaded.dossier.execute();
+const programCEvidence = dossierForD.evidence.find(
+  (item) => item.kind === "training_program" && item.id === programC.id,
+);
+assert.ok(programCEvidence);
+const decisionD = await new GenerateCoachProposal(
+  reloaded.dossier,
+  new SupabaseTrainingProgramRepository(reloadedClient),
+  new FixtureCoachProposalProvider({
+    ...proposalFixture,
+    id: crypto.randomUUID(),
+    sourceProgramId: programC.id,
+    sourceProgramRevision: programC.revision,
+    evidenceReferences: [programCEvidence],
+    actions: [
+      {
+        ...proposalFixture.actions[0],
+        trainingDayId: dayC.id,
+        exercisePrescriptionId: dayC.prescriptions[0].id,
+        prescriptionSetId: dayC.prescriptions[0].sets[0].id,
+        rirMin: 2,
+        rirMax: 2,
+        evidence: [programCEvidence],
+      },
+    ],
+  }),
+  decisions,
+).execute(coachFixture);
+const materializedD = await decisions.materialize(decisionD.id);
+const programD = await reloaded.activateProgram.execute(
+  materializedD.materializedProgramId,
+);
+const dayD = programD.blocks[0].weeks[0].days[0];
+await trainDay(dayD, [{ actualValue: 9, actualLoadKg: 35, actualRir: 2 }]);
+await trainDay(dayD, [{ actualValue: 10, actualLoadKg: 35, actualRir: 2 }]);
+const memoryApi = () => {
+  const outcomes = new BuildInterventionOutcomes(
+    new SupabaseCoachDecisionRepository(reloadedClient, identity.userId),
+    new SupabaseTrainingProgramRepository(reloadedClient),
+    new SupabasePerformanceReadRepository(reloadedClient),
+    new SupabaseBodyWeightRepository(reloadedClient),
+    outcomeClock,
+  );
+  return {
+    memory: new BuildIndividualResponseMemory(outcomes),
+    group: new GetResponseMemoryGroup(outcomes),
+    context: new BuildInterventionContext(outcomes),
+  };
+};
+let memoryUseCases = memoryApi();
+const memory = await memoryUseCases.memory.execute();
+assert.equal(memory.schemaVersion, "individual-response-memory-v1");
+assert.equal(memory.athleteId, identity.id);
+assert.equal(memory.groups.totalAvailable, 1);
+const rirGroup = memory.groups.items[0];
+assert.equal(rirGroup.key, `${sourcePrescription.exerciseId}.planned_rir`);
+assert.equal(rirGroup.coverage.totalEpisodes, 3);
+assert.equal(rirGroup.coverage.strictComparableEpisodes, 2);
+assert.equal(rirGroup.coverage.contextOnlyEpisodes, 1);
+const episodeByDecision = Object.fromEntries(
+  rirGroup.episodes.items.map((episode) => [episode.decisionId, episode]),
+);
+// Intervention 1 (A → B) had a manual edit before activation.
+assert.equal(
+  episodeByDecision[materialized.id].comparability.classification,
+  "context_only",
+);
+assert.ok(
+  episodeByDecision[materialized.id].comparability.reasons.includes(
+    "unproposed_changes_in_affected_prescription",
+  ),
+);
+assert.equal(
+  episodeByDecision[materializedC.id].comparability.classification,
+  "strict_comparable",
+);
+assert.equal(
+  episodeByDecision[materializedD.id].comparability.classification,
+  "strict_comparable",
+);
+assert.equal(
+  episodeByDecision[materializedC.id].signature.direction,
+  "decrease",
+);
+assert.equal(
+  episodeByDecision[materializedD.id].signature.direction,
+  "increase",
+);
+assert.deepEqual(episodeByDecision[materializedD.id].interventionProgram, {
+  id: programD.id,
+  revision: programD.revision,
+});
+const rirAggregate = rirGroup.aggregates.find(
+  (item) =>
+    item.metric === "mean_actual_rir" &&
+    item.scope === "affected_prescription_sets",
+);
+// C: RIR 3 → 1 (−2); D: RIR 1 → 2 (+1). Kept as contradictory observations.
+assert.equal(rirAggregate.strictComparableEpisodeCount, 2);
+assert.equal(rirAggregate.negativeDeltaCount, 1);
+assert.equal(rirAggregate.positiveDeltaCount, 1);
+assert.equal(rirAggregate.contradictory, true);
+assert.equal(rirAggregate.signPattern, "opposite_signs");
+assert.ok(rirAggregate.beforeSampleCountTotal > 0);
+assert.ok(rirAggregate.afterSampleCountTotal > 0);
+assert.equal(memory.summary.groupsWithContradictoryObservations, 1);
+assert.doesNotMatch(
+  JSON.stringify(memory),
+  /optimal|effectiveness|successScore|responseScore|preferredRir|preferredRest|recommendedLoad|causalEffect|responder/i,
+);
+const drillDown = await memoryUseCases.group.execute(rirGroup.key);
+assert.equal(drillDown.episodes.included, 3);
+// Dossier v3 through the single-pass context loader.
+const dossierV3 = await new BuildAthleteTrainingDossier(
+  reloaded.load,
+  new SupabaseTrainingProgramRepository(reloadedClient),
+  new SupabaseWorkoutSessionRepository(reloadedClient),
+  new SupabasePerformanceReadRepository(reloadedClient),
+  outcomeClock,
+  memoryUseCases.context,
+).execute();
+assert.equal(dossierV3.schemaVersion, "athlete-training-dossier-v3");
+assert.equal(dossierV3.interventionHistory.totalAvailable, 3);
+assert.equal(dossierV3.responseMemory.groups.included, 1);
+assert.equal(dossierV3.responseMemory.truncation.groupLimit, 10);
+assert.equal(dossierV3.responseMemory.truncation.episodeDetailLimit, 5);
+// Coach fake provider receives v3 and cites the memory group; nothing is proposed.
+const decisionsBeforeCoach = (
+  await new SupabaseCoachDecisionRepository(
+    reloadedClient,
+    identity.userId,
+  ).list()
+).length;
+const groupEvidence = rirGroup.evidence[0];
+let capturedRequest = null;
+const learningAnalysis = await new AnalyzeAthleteWithCoach(
+  { execute: async () => dossierV3 },
+  {
+    async analyze(request, requestId) {
+      capturedRequest = request;
+      return {
+        analysis: {
+          ...coachFixture,
+          requestId,
+          summary: "Os episódios observados apontaram em direções diferentes.",
+          observations: [
+            {
+              ...coachFixture.observations[0],
+              statement: "Há duas intervenções comparáveis com sinais opostos.",
+              evidence: [groupEvidence],
+            },
+          ],
+          evidenceUsed: [groupEvidence],
+        },
+        provider: "fixture",
+        model: "deterministic",
+        inputTokens: null,
+        outputTokens: null,
+      };
+    },
+  },
+  new DeterministicCoachSafetyPolicy(),
+  () => "phase12-request",
+).execute({
+  userRequest: "Já tentamos algo parecido no RIR?",
+  analysisMode: "question",
+});
+assert.equal(
+  capturedRequest.dossier.schemaVersion,
+  "athlete-training-dossier-v3",
+);
+assert.equal(
+  capturedRequest.dossier.responseMemory.groups.items[0].key,
+  rirGroup.key,
+);
+assert.equal(
+  learningAnalysis.metadata.dossierSchemaVersion,
+  "athlete-training-dossier-v3",
+);
+assert.equal(
+  (
+    await new SupabaseCoachDecisionRepository(
+      reloadedClient,
+      identity.userId,
+    ).list()
+  ).length,
+  decisionsBeforeCoach,
+);
+assert.equal((await reloaded.activeProgram.execute())?.id, programD.id);
+const memoryBeforeReload = await memoryUseCases.memory.execute();
+await reloaded.signOut.execute();
+await reloaded.signIn.execute(credentials);
+memoryUseCases = memoryApi();
+assert.deepEqual(await memoryUseCases.memory.execute(), memoryBeforeReload);
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory flow passed.",
 );

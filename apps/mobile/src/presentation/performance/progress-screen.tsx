@@ -118,7 +118,8 @@ export function ProgressScreen() {
     trackedChanges =
       dossier?.interventionHistory?.items.filter(
         (item) => item.outcomeStatus !== "not_materialized",
-      ) ?? [];
+      ) ?? [],
+    memoryGroups = dossier?.responseMemory?.groups.items ?? [];
   return (
     <ScrollView contentContainerStyle={s.page}>
       <Text
@@ -183,6 +184,69 @@ export function ProgressScreen() {
           </Text>
         </View>
       ) : null}
+      <Text style={[s.heading, { color: theme.colors.text }]}>
+        Memória de resposta
+      </Text>
+      {!memoryGroups.length ? (
+        <Text style={{ color: theme.colors.textMuted }}>
+          Ainda não há intervenções ativadas para formar um histórico observado.
+        </Text>
+      ) : (
+        <>
+          <Text style={{ color: theme.colors.textMuted }}>
+            Observações de intervenções anteriores, agrupadas por exercício e
+            alteração. Não são regras nem prova de causa.
+            {dossier?.responseMemory?.groups.hasMore
+              ? ` Mostrando ${dossier.responseMemory.groups.included} de ${dossier.responseMemory.groups.totalAvailable} grupos.`
+              : ""}
+          </Text>
+          {memoryGroups.map((group) => {
+            const oneRm = group.aggregates.find(
+              (item) =>
+                item.metric === "best_estimated_one_rep_max_kg" &&
+                item.scope === "exercise",
+            );
+            return (
+              <Pressable
+                key={group.key}
+                accessibilityRole="button"
+                onPress={() =>
+                  router.push({
+                    pathname: "/response-memory/[key]",
+                    params: { key: group.key },
+                  } as never)
+                }
+                style={[s.card, { borderColor: theme.colors.border }]}
+              >
+                <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
+                  {group.exerciseName}
+                </Text>
+                <Text style={{ color: theme.colors.textMuted }}>
+                  {dimensionLabels[group.interventionDimension]}
+                </Text>
+                <Text style={{ color: theme.colors.textMuted }}>
+                  {group.coverage.totalEpisodes} intervenção(ões) registrada(s)
+                  · {group.coverage.strictComparableEpisodes} comparável(is) ·{" "}
+                  {group.coverage.contextOnlyEpisodes} com mudanças simultâneas
+                  ou dados limitados
+                </Text>
+                {oneRm && oneRm.observedDeltaCount > 0 ? (
+                  <Text style={{ color: theme.colors.textMuted }}>
+                    1RM estimado: {oneRm.positiveDeltaCount} variação(ões)
+                    positiva(s) · {oneRm.zeroDeltaCount} igual(is) ·{" "}
+                    {oneRm.negativeDeltaCount} negativa(s)
+                  </Text>
+                ) : null}
+                {group.aggregates.some((item) => item.contradictory) ? (
+                  <Text style={{ color: theme.colors.textMuted }}>
+                    Observações em direções diferentes.
+                  </Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </>
+      )}
       <Text style={[s.heading, { color: theme.colors.text }]}>
         Alterações acompanhadas
       </Text>

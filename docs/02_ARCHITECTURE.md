@@ -153,3 +153,14 @@ Fluxo: `CoachAnalysis → GenerateCoachProposal (opcional) → validator determi
 `packages/domain/src/outcomes` contém funções puras: episode, fidelity, janelas por exposição, comparações, individual response e histórico bounded. `packages/application/src/outcomes` orquestra `BuildInterventionOutcomes`, `ListInterventionOutcomes`, `GetCoachDecisionOutcome`, `GetIndividualResponseEvidence` e `BuildInterventionHistory` sobre portas existentes (`CoachDecisionReader`, `TrainingProgramRepository.get`, `PerformanceReadRepository`) mais `BodyWeightHistoryReader` (read-only). Não há repository genérico, tabela ou cache.
 
 `coach-analyze` e `coach-propose` montam `athlete-training-dossier-v2` com `interventionHistory` lendo decisões pelo cliente com o JWT do atleta (RLS); o service role continua restrito às escritas do ledger. No mobile, decisões chegam pelo gateway autenticado `coach-decide list`. Nada nesta camada altera programas, prompts, proposals ou pesos de modelo.
+
+## Phase 12 response memory boundary
+
+`packages/domain/src/response-memory` constrói, com funções puras, `IndividualResponseMemory` a partir de `IndividualResponseEvidence v2` (Phase 11): assinatura ativada, classificação strict/context-only, agregados observacionais e bounding. Application adiciona `BuildIndividualResponseMemory`, `GetResponseMemoryGroup` e `BuildInterventionContext`, que alimenta o dossier v3 com histórico e memória numa única computação. Nenhum repository, tabela, migration ou índice novo.
+
+Loop com controle humano (não autonomia):
+
+```text
+Response Memory → Coach Interpretation → Structured Proposal → Validator
+  → Human Approval → Program Revision → Outcome → Response Memory
+```

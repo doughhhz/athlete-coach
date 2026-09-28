@@ -87,8 +87,9 @@ const build = (sessions) =>
   });
 test("dossier has a versioned deterministic contract", () => {
   const a = build([]);
-  assert.equal(a.schemaVersion, "athlete-training-dossier-v2");
+  assert.equal(a.schemaVersion, "athlete-training-dossier-v3");
   assert.equal(a.interventionHistory, null);
+  assert.equal(a.responseMemory, null);
   assert.deepEqual(a, build([]));
 });
 test("civil window includes local exact dates and excludes earlier boundary", () => {

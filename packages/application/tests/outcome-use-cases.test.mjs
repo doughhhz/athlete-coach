@@ -2,236 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   BuildAthleteTrainingDossier,
+  BuildInterventionContext,
   BuildInterventionHistory,
-  BuildInterventionOutcomes,
   GetCoachDecisionOutcome,
   GetIndividualResponseEvidence,
   ListInterventionOutcomes,
 } from "../src/index.ts";
-
-const ATHLETE = "athlete-1";
-const EXERCISE = "exercise-bench";
-const setTarget = (id, min, max) => ({
-  id,
-  sequence: 1,
-  targetMetric: "reps",
-  targetMin: min,
-  targetMax: max,
-  rirMin: null,
-  rirMax: null,
-  restMinSeconds: null,
-  restMaxSeconds: null,
-  tempo: null,
-  loadKind: "athlete_selected",
-  loadKg: null,
-});
-function program(id, change = {}) {
-  const { sets = [setTarget(`${id}-set`, 8, 10)], ...rest } = change;
-  return {
-    id,
-    athleteId: ATHLETE,
-    athleteGoalId: null,
-    name: id,
-    description: null,
-    status: "active",
-    revision: 1,
-    supersedesProgramId: null,
-    createdAt: "2026-08-01T00:00:00.000Z",
-    updatedAt: "2026-08-01T00:00:00.000Z",
-    activatedAt: "2026-08-01T00:00:00.000Z",
-    completedAt: null,
-    archivedAt: null,
-    blocks: [
-      {
-        id: `${id}-b`,
-        sequence: 1,
-        name: "B",
-        description: null,
-        weeks: [
-          {
-            id: `${id}-w`,
-            sequence: 1,
-            name: null,
-            notes: null,
-            days: [
-              {
-                id: `${id}-day`,
-                sequence: 1,
-                name: "D",
-                preferredWeekday: null,
-                notes: null,
-                prescriptions: [
-                  {
-                    id: `${id}-p`,
-                    exerciseId: EXERCISE,
-                    exerciseName: "Supino",
-                    sequence: 1,
-                    instructions: null,
-                    athleteCues: null,
-                    sets,
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    ],
-    ...rest,
-  };
-}
-function decision(id, sourceId, materializedId, change = {}) {
-  return {
-    id,
-    athleteId: ATHLETE,
-    status: materializedId ? "materialized" : "proposed",
-    proposal: {
-      schemaVersion: "coach-proposal-v1",
-      id: `proposal-${id}`,
-      analysisId: "analysis",
-      sourceProgramId: sourceId,
-      sourceProgramRevision: 1,
-      createdAt: "2026-09-01T00:00:00.000Z",
-      summary: `Proposta ${id}`,
-      rationale: "Fixture",
-      evidenceReferences: [
-        { kind: "training_program", id: sourceId, version: "1" },
-      ],
-      actions: [
-        {
-          kind: "adjust_prescription_target",
-          trainingDayId: `${sourceId}-day`,
-          exercisePrescriptionId: `${sourceId}-p`,
-          prescriptionSetId: `${sourceId}-set`,
-          targetMetric: "reps",
-          targetMin: 6,
-          targetMax: 8,
-          rationale: "Fixture",
-          evidence: [{ kind: "exercise", id: EXERCISE, version: null }],
-        },
-      ],
-      limitations: [],
-      requiresHumanApproval: true,
-      analysisSnapshot: {
-        summary: "S",
-        provider: "fixture",
-        model: "m",
-        promptVersion: "coach-system-v1",
-        policyVersion: "coach-safety-v1",
-        dossierSchemaVersion: "athlete-training-dossier-v1",
-      },
-    },
-    rejectionReason: null,
-    rejectionNotes: null,
-    proposedAt: "2026-09-01T00:00:00.000Z",
-    approvedAt: materializedId ? "2026-09-01T01:00:00.000Z" : null,
-    rejectedAt: null,
-    staleAt: null,
-    materializedAt: materializedId ? "2026-09-01T01:00:00.000Z" : null,
-    materializedProgramId: materializedId,
-    createdAt: "2026-09-01T00:00:00.000Z",
-    updatedAt: "2026-09-01T00:00:00.000Z",
-    ...change,
-  };
-}
-function session(
-  id,
-  startedAt,
-  programId,
-  setId,
-  actualValue,
-  athleteId = ATHLETE,
-) {
-  return {
-    id,
-    athleteId,
-    sourceTrainingDayId: `${programId}-day`,
-    sourceProgram: { id: programId, revision: 1, supersedesProgramId: null },
-    programName: programId,
-    dayName: "D",
-    status: "completed",
-    athleteNotes: null,
-    startedAt,
-    completedAt: startedAt,
-    abandonedAt: null,
-    createdAt: startedAt,
-    updatedAt: startedAt,
-    exercises: [
-      {
-        id: `${id}-we`,
-        sourceExercisePrescriptionId: `${programId}-p`,
-        exerciseId: EXERCISE,
-        sequence: 1,
-        exerciseName: "Supino",
-        plannedInstructions: null,
-        plannedAthleteCues: null,
-        sets: [
-          {
-            id: `${id}-ws`,
-            sourcePrescriptionSetId: setId,
-            sequence: 1,
-            status: "completed",
-            plannedMetric: "reps",
-            plannedTargetMin: 8,
-            plannedTargetMax: 10,
-            plannedRirMin: null,
-            plannedRirMax: null,
-            plannedRestMinSeconds: null,
-            plannedRestMaxSeconds: null,
-            plannedTempo: null,
-            plannedLoadKind: "athlete_selected",
-            plannedLoadKg: null,
-            actualValue,
-            actualLoadKg: 60,
-            actualRir: null,
-            performedAt: startedAt,
-            restStartedAt: null,
-            restEndedAt: null,
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function harness({ decisions, programs, sessions = [], weights = [] }) {
-  const calls = [];
-  const deps = {
-    decisions: { list: async () => decisions },
-    programs: {
-      get: async (id) => {
-        calls.push(id);
-        return programs.find((item) => item.id === id) ?? null;
-      },
-    },
-    performance: {
-      listHistoricalSessions: async () => sessions,
-      getHistoricalSession: async () => null,
-    },
-    weights: { list: async () => weights },
-  };
-  const outcomes = new BuildInterventionOutcomes(
-    deps.decisions,
-    deps.programs,
-    deps.performance,
-    deps.weights,
-    () => new Date("2026-09-30T00:00:00.000Z"),
-  );
-  return { outcomes, calls };
-}
-
-const A = program("program-a", {
-  status: "archived",
-  archivedAt: "2026-09-10T00:00:00.000Z",
-});
-const B = program("program-b", {
-  revision: 2,
-  activatedAt: "2026-09-10T00:00:00.000Z",
-  sets: [setTarget("program-b-set", 6, 8)],
-});
-const baseline = [
-  session("pre-1", "2026-09-05T10:00:00.000Z", "program-a", "program-a-set", 9),
-];
+import {
+  ATHLETE,
+  EXERCISE,
+  setTarget,
+  program,
+  decision,
+  session,
+  harness,
+  A,
+  B,
+  baseline,
+} from "./fixtures/outcome-fixtures.mjs";
 
 test("materialized decision with draft revision is awaiting activation", async () => {
   const { outcomes } = harness({
@@ -463,9 +251,11 @@ test("dossier embeds intervention history only when a loader is composed", async
   const { outcomes } = harness({ decisions: [], programs: [] });
   const withHistory = await new BuildAthleteTrainingDossier(
     ...deps,
-    new BuildInterventionHistory(outcomes),
+    new BuildInterventionContext(outcomes),
   ).execute();
-  assert.equal(withHistory.schemaVersion, "athlete-training-dossier-v2");
+  assert.equal(withHistory.schemaVersion, "athlete-training-dossier-v3");
+  assert.equal(withHistory.responseMemory.totalEpisodes, 0);
+  assert.equal(without.responseMemory, null);
   assert.deepEqual(
     {
       total: withHistory.interventionHistory.totalAvailable,

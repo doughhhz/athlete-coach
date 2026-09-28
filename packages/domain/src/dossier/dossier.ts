@@ -9,14 +9,19 @@ import {
   estimateOneRepMaxKg,
 } from "../performance/performance.ts";
 import type { InterventionHistory } from "../outcomes/outcomes.ts";
+import type { IndividualResponseMemory } from "../response-memory/response-memory.ts";
 import type { TrainingProgram } from "../training/training.ts";
 import type { WorkoutSession, WorkoutSet } from "../workout/workout.ts";
 
-/** v2 keeps every v1 field and meaning and adds `interventionHistory` (ADR-0053). */
+/**
+ * v2 keeps every v1 field and meaning and adds `interventionHistory` (ADR-0053).
+ * v3 keeps v2 unchanged and adds bounded `responseMemory` (ADR-0060).
+ */
 export const ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION =
-  "athlete-training-dossier-v2" as const;
+  "athlete-training-dossier-v3" as const;
 export const athleteTrainingDossierSchemaVersions = [
   "athlete-training-dossier-v1",
+  "athlete-training-dossier-v2",
   ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION,
 ] as const;
 export const DOSSIER_RECENT_SESSION_LIMIT = 12;
@@ -35,7 +40,8 @@ export type EvidenceReference = Readonly<{
     | "exercise"
     | "body_weight_entry"
     | "derived_calculation"
-    | "coach_decision";
+    | "coach_decision"
+    | "response_memory_group";
   id: string;
   version: string | null;
 }>;
@@ -167,6 +173,12 @@ export type AthleteTrainingDossier = Readonly<{
    * projections. `null` means the caller did not load intervention history.
    */
   interventionHistory: InterventionHistory | null;
+  /**
+   * Accumulated, bounded observational memory grouped by exercise and
+   * dimension. References decisions instead of duplicating history.
+   * `null` means not loaded.
+   */
+  responseMemory: IndividualResponseMemory | null;
   evidence: readonly EvidenceReference[];
 }>;
 
@@ -454,6 +466,7 @@ export function buildAthleteTrainingDossier(
     sessions: readonly WorkoutSession[];
     generatedAt: string;
     interventionHistory?: InterventionHistory | null;
+    responseMemory?: IndividualResponseMemory | null;
   }>,
 ): AthleteTrainingDossier {
   const timezone = input.snapshot.profile?.timezone ?? "UTC";
@@ -586,6 +599,7 @@ export function buildAthleteTrainingDossier(
       items,
     },
     interventionHistory: input.interventionHistory ?? null,
+    responseMemory: input.responseMemory ?? null,
     evidence,
   };
 }

@@ -1,5 +1,6 @@
 import type { InterventionOutcomeEvaluation } from "@athlete-coach/domain";
-import { useLocalSearchParams } from "expo-router";
+import { responseMemoryGroupKeyForAction } from "@athlete-coach/domain";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -118,6 +119,24 @@ export function InterventionOutcomeScreen() {
                   ? formatPrescriptionValue(action.implementedValue)
                   : "ainda não ativado"}
               </Text>
+              {responseMemoryGroupKeyForAction(action) &&
+              outcome.activatedAt ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/response-memory/[key]",
+                      params: { key: responseMemoryGroupKeyForAction(action)! },
+                    } as never)
+                  }
+                >
+                  <Text
+                    style={{ color: theme.colors.accent, fontWeight: "700" }}
+                  >
+                    Ver histórico relacionado
+                  </Text>
+                </Pressable>
+              ) : null}
               {fidelity?.proposedValueImplemented === false ? (
                 <Text style={muted}>
                   A versão aplicada não corresponde exatamente à proposta.

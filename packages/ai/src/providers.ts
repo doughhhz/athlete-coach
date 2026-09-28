@@ -11,7 +11,7 @@ import type {
 import {
   COACH_POLICY_VERSION,
   COACH_PROMPT_VERSION,
-  COACH_SYSTEM_PROMPT_V2,
+  COACH_SYSTEM_PROMPT_V3,
 } from "./prompt.ts";
 
 export type GeminiCoachConfiguration = Readonly<{
@@ -64,7 +64,7 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
             "x-goog-api-key": this.config.apiKey,
           },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: COACH_SYSTEM_PROMPT_V2 }] },
+            systemInstruction: { parts: [{ text: COACH_SYSTEM_PROMPT_V3 }] },
             contents: [
               {
                 role: "user",

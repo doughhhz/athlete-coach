@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
-import { AnalyzeAthleteWithCoach, BuildAthleteTrainingDossier, BuildInterventionHistory, BuildInterventionOutcomes, CoachProviderError, EnsureCurrentAthlete, LoadCurrentAthleteProfile } from "../../../packages/application/src/index.ts";
+import { AnalyzeAthleteWithCoach, BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, CoachProviderError, EnsureCurrentAthlete, LoadCurrentAthleteProfile } from "../../../packages/application/src/index.ts";
 import { GeminiHttpCoachModelProvider, DeterministicCoachSafetyPolicy } from "../../../packages/ai/src/index.ts";
 import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachDecisionRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
 
@@ -31,8 +31,8 @@ Deno.serve(async (request) => {
     const bodyWeights = new SupabaseBodyWeightRepository(client), programs = new SupabaseTrainingProgramRepository(client), performance = new SupabasePerformanceReadRepository(client);
     const profile = new LoadCurrentAthleteProfile(athletes, new SupabaseAthleteProfileRepository(client), new SupabaseAthleteGoalRepository(client), new SupabaseTrainingContextRepository(client), bodyWeights);
     // Decision history is read with the caller JWT (RLS), never with the service role.
-    const interventionHistory = new BuildInterventionHistory(new BuildInterventionOutcomes(new SupabaseCoachDecisionRepository(client, auth.user.id), programs, performance, bodyWeights));
-    const dossier = new BuildAthleteTrainingDossier(profile, programs, new SupabaseWorkoutSessionRepository(client), performance, undefined, interventionHistory);
+    const interventionContext = new BuildInterventionContext(new BuildInterventionOutcomes(new SupabaseCoachDecisionRepository(client, auth.user.id), programs, performance, bodyWeights));
+    const dossier = new BuildAthleteTrainingDossier(profile, programs, new SupabaseWorkoutSessionRepository(client), performance, undefined, interventionContext);
     const provider = new GeminiHttpCoachModelProvider({ apiKey, model: Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash", temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "20000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "4096") });
     const analysis = await new AnalyzeAthleteWithCoach(dossier, provider, new DeterministicCoachSafetyPolicy(), () => requestId).execute({ userRequest: body.userRequest, analysisMode: body.analysisMode as "question", conversationContext: Array.isArray(body.conversationContext) ? body.conversationContext.slice(-6) : [] });
     console.log(JSON.stringify({ requestId, provider: analysis.metadata.provider, model: analysis.metadata.model, schemaVersion: analysis.schemaVersion, latencyMs: Date.now() - started, success: true }));

@@ -119,3 +119,7 @@ Contrato versionado, geração sob demanda, validator determinístico, Runtime C
 ## Phase 11 — Intervention Outcomes & Individual Response Evidence — complete
 
 Episode/activation semantics, fidelity proposta vs ativado, janelas por exposição, comparações factuais versionadas, individual response evidence acumulada, dossier v2, prompts v2, UI factual e correção do re-save de drafts (ADR-0055) foram implementados e validados. Fora de escopo e não implementados: adaptação/aprovação/ativação automática, inferência causal, previsão de volume/frequência ótimos, ML/RL/reward/fine-tuning, score oculto, readiness/fadiga, nutrição, HealthKit, benchmarking populacional, experimentação A/B e Coach autônomo. A antiga numeração “Phase 11 — Nutrition” permanece futura, como na nota da Phase 10.
+
+## Phase 12 — Athlete Response Memory & Coach Learning Policy — complete
+
+IRE v2, Response Memory v1 derivada e bounded, classificação strict/context-only, agregação observacional com contradições explícitas, dossier v3, Coach Learning Policy (prompts v3), UI factual e cenário integrado foram implementados sem tabela ou migration. Fora de escopo e não implementados: mutação/aceite/ativação automáticos, Coach autônomo, inferência ou estimativa causal, ML/RL/reward/bandits/treino de modelo, pesos aprendidos, valores ótimos, scoring muscular, readiness, nutrição, HealthKit, wearables, web/RAG/embeddings e multi-agentes. O nome antigo "Phase 12 — Athlete Dossier" já havia sido absorvido pela Phase 8 (ADR-0034).

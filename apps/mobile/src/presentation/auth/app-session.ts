@@ -29,6 +29,7 @@ import type {
   CoachConversationMessage,
   CoachDecision,
   CoachRejectionReason,
+  ComparableInterventionGroup,
   IndividualResponseEvidence,
   InterventionOutcomeEvaluation,
 } from "@athlete-coach/domain";
@@ -113,6 +114,9 @@ export type AppSessionValue = Readonly<{
   getIndividualResponseEvidence(): Promise<
     readonly IndividualResponseEvidence[]
   >;
+  getResponseMemoryGroup(
+    key: string,
+  ): Promise<ComparableInterventionGroup | null>;
   materializeCoachProposal(id: string): Promise<CoachDecision>;
   rejectCoachProposal(
     id: string,

@@ -13,6 +13,7 @@ const evidence = z.object({
     "body_weight_entry",
     "derived_calculation",
     "coach_decision",
+    "response_memory_group",
   ]),
   id: z.string().min(1).max(200),
   version: z.string().max(100).nullable(),

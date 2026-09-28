@@ -28,7 +28,7 @@ import type {
 export const INTERVENTION_OUTCOME_SCHEMA_VERSION =
   "intervention-outcome-v1" as const;
 export const INDIVIDUAL_RESPONSE_EVIDENCE_SCHEMA_VERSION =
-  "individual-response-evidence-v1" as const;
+  "individual-response-evidence-v2" as const;
 /** Maximum comparable exposures per side (baseline / post) and exercise. */
 export const OUTCOME_EXPOSURE_WINDOW = 3;
 export const INTERVENTION_HISTORY_LIMIT = 10;
@@ -1047,7 +1047,8 @@ function ratio(numerator: number, denominator: number): number | null {
   return denominator === 0 ? null : numerator / denominator;
 }
 
-const metricDimensions: Readonly<
+/** Which intervention dimensions each outcome metric is directly relevant to. */
+export const outcomeMetricDimensions: Readonly<
   Record<OutcomeMetric, readonly InterventionDimension[]>
 > = {
   completed_sets_per_exposure: [],
@@ -1200,8 +1201,8 @@ function compareWindows(
         metric,
         unit: a.unit,
         scope: { kind, exerciseId: baseline.exerciseId },
-        relevantDimensions: metricDimensions[metric].filter((dimension) =>
-          exerciseDimensions.includes(dimension),
+        relevantDimensions: outcomeMetricDimensions[metric].filter(
+          (dimension) => exerciseDimensions.includes(dimension),
         ),
         before: a.value,
         after: b.value,
@@ -1720,12 +1721,17 @@ export type IndividualResponsePrescriptionChange = Readonly<{
   sourcePath: PrescriptionPath | null;
   before: PrescriptionDimensionValue | null;
   proposed: PrescriptionDimensionValue;
+  /** Value actually activated; the factual intervention (ADR-0051). */
   implemented: PrescriptionDimensionValue | null;
   proposedValueImplemented: boolean | null;
 }>;
 export type IndividualResponseEpisode = Readonly<{
   decisionId: string;
+  proposalSummary: string;
+  proposedAt: string;
   activatedAt: string;
+  sourceProgram: ProgramReference;
+  interventionProgram: ProgramReference | null;
   outcomeStatus: OutcomeStatus;
   prescriptionChanges: readonly IndividualResponsePrescriptionChange[];
   concurrentActionCount: number;
@@ -1736,6 +1742,7 @@ export type IndividualResponseEpisode = Readonly<{
   postFacts: ObservedFacts | null;
   comparisons: readonly OutcomeComparison[];
   limitations: readonly OutcomeLimitation[];
+  bodyWeightContext: BodyWeightContext;
 }>;
 export type IndividualResponseEvidence = Readonly<{
   schemaVersion: typeof INDIVIDUAL_RESPONSE_EVIDENCE_SCHEMA_VERSION;
@@ -1743,15 +1750,25 @@ export type IndividualResponseEvidence = Readonly<{
   exerciseId: string;
   exerciseName: string;
   interventionDimension: InterventionDimension;
+  /** Only for `target`: reps, seconds and meters are never grouped together. */
+  targetMetric: TargetMetric | null;
   episodeCount: number;
   /** Episodes with at least one computable before/after comparison. */
   observationCount: number;
   episodes: readonly IndividualResponseEpisode[];
 }>;
 
+function actionTargetMetric(
+  action: InterventionActionSnapshot,
+): TargetMetric | null {
+  const value = action.implementedValue ?? action.proposedValue;
+  return value.dimension === "target" ? value.metric : null;
+}
+
 /**
- * Groups activated episodes by canonical exercise and changed dimension only.
- * Never averages across episodes and never produces a preference or score.
+ * Groups activated episodes by canonical exercise, changed dimension and,
+ * for targets, target metric (v2). Never averages across episodes and never
+ * produces a preference or score.
  */
 export function buildIndividualResponseEvidence(
   evaluations: readonly InterventionOutcomeEvaluation[],
@@ -1762,6 +1779,7 @@ export function buildIndividualResponseEvidence(
       exerciseId: string;
       exerciseName: string;
       dimension: InterventionDimension;
+      targetMetric: TargetMetric | null;
       episodes: IndividualResponseEpisode[];
     }
   >();
@@ -1777,16 +1795,23 @@ export function buildIndividualResponseEvidence(
       (action) => action.exerciseId !== null,
     );
     const keys = new Set(
-      actions.map((action) => `${action.exerciseId}|${action.dimension}`),
+      actions.map(
+        (action) =>
+          `${action.exerciseId}|${action.dimension}|${actionTargetMetric(action) ?? ""}`,
+      ),
     );
     for (const key of [...keys].sort()) {
-      const [exerciseId, dimension] = key.split("|") as [
+      const [exerciseId, dimension, metric] = key.split("|") as [
         string,
         InterventionDimension,
+        string,
       ];
+      const targetMetric = (metric || null) as TargetMetric | null;
       const matching = actions.filter(
         (action) =>
-          action.exerciseId === exerciseId && action.dimension === dimension,
+          action.exerciseId === exerciseId &&
+          action.dimension === dimension &&
+          actionTargetMetric(action) === targetMetric,
       );
       const fidelity = evaluation.interventionFidelity.actions;
       const baselineWindow = evaluation.baseline.find(
@@ -1799,11 +1824,21 @@ export function buildIndividualResponseEvidence(
         exerciseId,
         exerciseName: matching[0]!.exerciseName ?? exerciseId,
         dimension,
+        targetMetric,
         episodes: [],
       };
       group.episodes.push({
         decisionId: evaluation.decisionId,
+        proposalSummary: evaluation.episode.proposalSummary,
+        proposedAt: evaluation.episode.proposedAt,
         activatedAt: evaluation.activatedAt!,
+        sourceProgram: evaluation.sourceProgram,
+        interventionProgram: evaluation.interventionProgram
+          ? {
+              id: evaluation.interventionProgram.id,
+              revision: evaluation.interventionProgram.revision,
+            }
+          : null,
         outcomeStatus: evaluation.status,
         prescriptionChanges: matching.map((action) => ({
           sourcePath: action.sourcePath,
@@ -1826,6 +1861,7 @@ export function buildIndividualResponseEvidence(
         limitations: evaluation.limitations.filter(
           (item) => item.exerciseId === null || item.exerciseId === exerciseId,
         ),
+        bodyWeightContext: evaluation.bodyWeightContext,
       });
       groups.set(key, group);
     }
@@ -1837,6 +1873,7 @@ export function buildIndividualResponseEvidence(
       exerciseId: group.exerciseId,
       exerciseName: group.exerciseName,
       interventionDimension: group.dimension,
+      targetMetric: group.targetMetric,
       episodeCount: group.episodes.length,
       observationCount: group.episodes.filter((episode) =>
         episode.comparisons.some(
@@ -1850,7 +1887,8 @@ export function buildIndividualResponseEvidence(
         a.exerciseName.localeCompare(b.exerciseName) ||
         a.exerciseId.localeCompare(b.exerciseId) ||
         interventionDimensions.indexOf(a.interventionDimension) -
-          interventionDimensions.indexOf(b.interventionDimension),
+          interventionDimensions.indexOf(b.interventionDimension) ||
+        (a.targetMetric ?? "").localeCompare(b.targetMetric ?? ""),
     );
 }
 

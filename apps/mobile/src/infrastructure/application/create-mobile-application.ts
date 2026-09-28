@@ -39,7 +39,8 @@ import {
   BuildAthleteTrainingDossier,
   GetLongitudinalTrainingSignals,
   BuildInterventionOutcomes,
-  BuildInterventionHistory,
+  BuildInterventionContext,
+  GetResponseMemoryGroup,
   ListInterventionOutcomes,
   GetCoachDecisionOutcome,
   GetIndividualResponseEvidence,
@@ -96,7 +97,7 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     workouts,
     performance,
     undefined,
-    new BuildInterventionHistory(interventionOutcomes),
+    new BuildInterventionContext(interventionOutcomes),
   );
   return {
     authRepository,
@@ -156,6 +157,7 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     getIndividualResponseEvidence: new GetIndividualResponseEvidence(
       interventionOutcomes,
     ),
+    getResponseMemoryGroup: new GetResponseMemoryGroup(interventionOutcomes),
     materializeCoachProposal: (id: string) => coach.materialize(id),
     rejectCoachProposal: (
       id: string,

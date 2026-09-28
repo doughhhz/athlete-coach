@@ -1,4 +1,7 @@
 import type {
+  ChangeDirection,
+  ComparabilityReason,
+  DeltaSignPattern,
   InterventionDimension,
   OutcomeLimitationCode,
   OutcomeMetric,
@@ -112,4 +115,32 @@ export function formatDelta(value: number | null, unit: string): string {
   const sign = value > 0 ? "+" : "";
   if (unit === "ratio") return `${sign}${Math.round(value * 100)} p.p.`;
   return `${sign}${formatMetricValue(value, unit)}`;
+}
+
+// Response Memory: observations only. "Positiva" is arithmetic (depois − antes > 0).
+export const changeDirectionLabels: Readonly<Record<ChangeDirection, string>> =
+  {
+    increase: "aumento",
+    decrease: "redução",
+    unchanged: "sem mudança",
+    mixed: "faixa alterada nos dois sentidos",
+    not_comparable: "não comparável",
+  };
+
+export const signPatternLabels: Readonly<Record<DeltaSignPattern, string>> = {
+  no_observations: "sem variação observada",
+  single_observation: "uma única observação",
+  all_positive: "todas as variações positivas",
+  all_negative: "todas as variações negativas",
+  all_zero: "todas as variações iguais a zero",
+  zero_and_one_sign: "variações zero e de um único sinal",
+  opposite_signs: "variações em direções diferentes",
+};
+
+export function comparabilityReasonLabel(reason: ComparabilityReason): string {
+  if (reason === "activated_change_not_identifiable")
+    return "Alteração ativada não identificável";
+  if (reason === "no_relevant_comparison")
+    return "Sem comparação antes/depois para esta dimensão";
+  return limitationLabels[reason];
 }

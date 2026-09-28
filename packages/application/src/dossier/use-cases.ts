@@ -1,5 +1,6 @@
 import {
   buildAthleteTrainingDossier,
+  type IndividualResponseMemory,
   type InterventionHistory,
 } from "@athlete-coach/domain";
 import type { TrainingProgramRepository } from "../training/ports.ts";
@@ -12,8 +13,14 @@ export interface AthleteSnapshotLoader {
   >;
 }
 
-export interface InterventionHistoryLoader {
-  execute(): Promise<InterventionHistory>;
+/** Supplies dossier v3 intervention sections from one outcome computation. */
+export interface InterventionContextLoader {
+  execute(): Promise<
+    Readonly<{
+      interventionHistory: InterventionHistory;
+      responseMemory: IndividualResponseMemory;
+    }>
+  >;
 }
 
 export class BuildAthleteTrainingDossier {
@@ -22,30 +29,30 @@ export class BuildAthleteTrainingDossier {
   private readonly workouts: WorkoutSessionRepository;
   private readonly performance: PerformanceReadRepository;
   private readonly now: () => Date;
-  private readonly interventionHistory: InterventionHistoryLoader | null;
+  private readonly interventionContext: InterventionContextLoader | null;
   constructor(
     profile: AthleteSnapshotLoader,
     programs: TrainingProgramRepository,
     workouts: WorkoutSessionRepository,
     performance: PerformanceReadRepository,
     now: () => Date = () => new Date(),
-    interventionHistory: InterventionHistoryLoader | null = null,
+    interventionContext: InterventionContextLoader | null = null,
   ) {
     this.profile = profile;
     this.programs = programs;
     this.workouts = workouts;
     this.performance = performance;
     this.now = now;
-    this.interventionHistory = interventionHistory;
+    this.interventionContext = interventionContext;
   }
   async execute() {
-    const [snapshot, activeProgram, historical, inProgress, history] =
+    const [snapshot, activeProgram, historical, inProgress, context] =
       await Promise.all([
         this.profile.execute(),
         this.programs.getActive(),
         this.performance.listHistoricalSessions(),
         this.workouts.getInProgress(),
-        this.interventionHistory?.execute() ?? Promise.resolve(null),
+        this.interventionContext?.execute() ?? Promise.resolve(null),
       ]);
     const sessions = inProgress ? [...historical, inProgress] : historical;
     return buildAthleteTrainingDossier({
@@ -53,7 +60,8 @@ export class BuildAthleteTrainingDossier {
       activeProgram,
       sessions,
       generatedAt: this.now().toISOString(),
-      interventionHistory: history,
+      interventionHistory: context?.interventionHistory ?? null,
+      responseMemory: context?.responseMemory ?? null,
     });
   }
 }

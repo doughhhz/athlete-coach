@@ -888,7 +888,7 @@ test("intervention history is bounded, ordered and exposes truncation", () => {
   assert.equal(history.items[0].changes[0].proposedValueImplemented, true);
 });
 
-test("dossier v2 embeds bounded history and exposes its evidence for grounding", () => {
+test("dossier v3 embeds bounded history and exposes its evidence for grounding", () => {
   const history = buildInterventionHistory([build()]);
   const dossier = buildAthleteTrainingDossier({
     snapshot: {
@@ -904,7 +904,7 @@ test("dossier v2 embeds bounded history and exposes its evidence for grounding",
     generatedAt: "2026-09-20T00:00:00.000Z",
     interventionHistory: history,
   });
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v2");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v3");
   assert.equal(dossier.interventionHistory.included, 1);
   const ids = collectDossierEvidenceIds(dossier);
   assert.ok(ids.has("coach_decision:decision-1"));

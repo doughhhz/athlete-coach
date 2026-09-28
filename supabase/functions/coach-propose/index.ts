@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
-import { BuildAthleteTrainingDossier, BuildInterventionHistory, BuildInterventionOutcomes, GenerateCoachProposal, LoadCurrentAthleteProfile, coachAnalysisSchema } from "../../../packages/application/src/index.ts";
+import { BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GenerateCoachProposal, LoadCurrentAthleteProfile, coachAnalysisSchema } from "../../../packages/application/src/index.ts";
 import { GeminiHttpCoachProposalProvider } from "../../../packages/ai/src/index.ts";
 import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachDecisionRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
 const headers = { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type, x-client-info" };
@@ -23,8 +23,8 @@ Deno.serve(async (request) => {
     const bodyWeights = new SupabaseBodyWeightRepository(userClient);
     const profile = new LoadCurrentAthleteProfile(athletes, new SupabaseAthleteProfileRepository(userClient), new SupabaseAthleteGoalRepository(userClient), new SupabaseTrainingContextRepository(userClient), bodyWeights);
     // History reads use the caller JWT (RLS); the service client below is only for ledger writes.
-    const interventionHistory = new BuildInterventionHistory(new BuildInterventionOutcomes(new SupabaseCoachDecisionRepository(userClient, auth.user.id), programs, performance, bodyWeights));
-    const dossier = new BuildAthleteTrainingDossier(profile, programs, workouts, performance, undefined, interventionHistory);
+    const interventionContext = new BuildInterventionContext(new BuildInterventionOutcomes(new SupabaseCoachDecisionRepository(userClient, auth.user.id), programs, performance, bodyWeights));
+    const dossier = new BuildAthleteTrainingDossier(profile, programs, workouts, performance, undefined, interventionContext);
     const serviceClient = createClient(url, service, { auth: { persistSession: false } });
     const decisions = new SupabaseCoachDecisionRepository(serviceClient, auth.user.id);
     const provider = new GeminiHttpCoachProposalProvider({ apiKey, model: Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash", temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "20000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "4096") });

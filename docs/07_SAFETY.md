@@ -76,3 +76,7 @@ Uma análise com `blocksTrainingAdvice` não pode iniciar proposal de treinament
 ## Phase 11 — Outcomes sem causalidade
 
 Comparações antes/depois não são apresentadas como prova de que uma mudança “funcionou”. O contrato não contém score, sucesso/fracasso ou classificação qualitativa; peso corporal é contexto e não normaliza performance. Não há adaptação automática, RL, bandits ou experimentação com prescrições. A política de prompt proíbe afirmações causais, mas não existe filtro lexical determinístico de causalidade no output (limitação registrada na ADR-0054). Leituras de histórico de decisões usam o JWT do atleta e o domínio filtra novamente sessões, programas e pesos por `athleteId`.
+
+## Phase 12 — Memória não supera safety
+
+Histórico de performance nunca justifica continuar com dor ou sintomas; os gates da Phase 9/10 permanecem antes de qualquer uso da memória, e o prompt v3 reafirma isso. A memória é dado não confiável para fins de instrução (textos de programa/exercício não viram instruções). Leituras usam o JWT do atleta e o domínio refiltra por `athleteId`; mistura entre atletas é falha crítica e é testada. Não há ML, RL, pesos aprendidos ou adaptação automática.

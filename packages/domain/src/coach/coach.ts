@@ -107,6 +107,9 @@ export function collectDossierEvidenceIds(
     ...dossier.recentSessions.items.flatMap((session) => session.evidence),
     ...(dossier.interventionHistory?.items.flatMap((item) => item.evidence) ??
       []),
+    ...(dossier.responseMemory?.groups.items.flatMap(
+      (group) => group.evidence,
+    ) ?? []),
   ];
   return new Set(refs.map((reference) => `${reference.kind}:${reference.id}`));
 }
