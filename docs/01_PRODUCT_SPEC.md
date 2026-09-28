@@ -119,3 +119,7 @@ Depois que uma revisão criada a partir de uma proposta é **ativada**, o produt
 ## Phase 12 — Memória de resposta
 
 O produto passa a organizar, por exercício e tipo de alteração, todas as intervenções ativadas anteriores: o que foi realmente ativado, quantas eram comparáveis, quais tinham mudanças simultâneas, variações numéricas observadas (contagem de positivas, zero e negativas, com amostras) e quando os episódios apontaram em direções diferentes. **Response Memory remembers observations, not truths.** O Personal considera essa memória como evidência observacional; ela nunca vira regra automática, preferência aprendida, valor ideal ou classificação do atleta. Não há botão para "ensinar" o Personal nem marcação manual de causa; feedback subjetivo, se existir no futuro, será Raw Data separado.
+
+## Phase 13 — Quantidade de séries planejadas
+
+O Personal pode, opcionalmente, propor adicionar ou remover uma série de um exercício. A revisão mostra "Séries planejadas: 3 → 4" e a série nova (ou removida) com todos os alvos; aprovar cria apenas um novo rascunho, que o atleta pode editar (adicionar/remover séries) antes de ativar. A resposta observada e a memória distinguem séries planejadas de concluídas e usam o valor realmente ativado. **Set-count intervention changes the number of planned sets for a canonical Exercise; it does not represent muscle volume or training stimulus.** Mais ou menos séries não são melhores ou piores por si. Frequência, troca de exercício e volume muscular continuam futuros.

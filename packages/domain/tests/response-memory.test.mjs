@@ -289,7 +289,7 @@ test("group identity is a stable structured key, not a random ID", () => {
   assert.deepEqual(one.groups.items[0].evidence[0], {
     kind: "response_memory_group",
     id: `${BENCH}.planned_rir`,
-    version: "individual-response-memory-v1",
+    version: "individual-response-memory-v2",
   });
 });
 
@@ -683,7 +683,7 @@ test("dossier v3 carries bounded memory by reference without duplicating history
     interventionHistory: buildInterventionHistory(items),
     responseMemory: build(items),
   });
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v3");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v4");
   assert.equal(dossier.interventionHistory.included, 2);
   assert.equal(dossier.responseMemory.groups.included, 1);
   const episode = dossier.responseMemory.groups.items[0].episodes.items[0];
@@ -694,4 +694,167 @@ test("dossier v3 carries bounded memory by reference without duplicating history
   assert.ok(ids.has(`response_memory_group:${BENCH}.planned_rir`));
   assert.ok(ids.has("coach_decision:a"));
   assert.deepEqual(JSON.parse(JSON.stringify(dossier)), dossier);
+});
+
+// SET COUNT (Phase 13) ------------------------------------------------------
+
+const count = (value) => ({ dimension: "set_count", count: value });
+const setCountEvaluation = (change) =>
+  evaluation({
+    dimension: "set_count",
+    before: count(3),
+    proposed: count(4),
+    ...change,
+  });
+const withSetCountComparisons = (item, completedDelta, e1rmDelta) => ({
+  ...item,
+  comparisons: [
+    ...item.comparisons,
+    {
+      metric: "completed_sets_per_exposure",
+      unit: "sets",
+      scope: {
+        kind: "affected_prescription_sets",
+        exerciseId: item.episode.affectedExerciseIds[0],
+      },
+      relevantDimensions: ["set_count"],
+      before: 3,
+      after: 3 + completedDelta,
+      absoluteDelta: completedDelta,
+      relativeDelta: completedDelta / 3,
+      beforeSampleCount: 3,
+      afterSampleCount: 3,
+      evidence: [],
+    },
+  ].map((comparison) =>
+    comparison.metric === "best_estimated_one_rep_max_kg"
+      ? { ...comparison, absoluteDelta: e1rmDelta, after: 10 + e1rmDelta }
+      : comparison,
+  ),
+});
+
+test("set_count forms one group per exercise keyed without the set numbers", () => {
+  const memory = build(
+    [
+      withSetCountComparisons(
+        setCountEvaluation({
+          id: "a",
+          activatedAt: "2026-09-01T00:00:00.000Z",
+        }),
+        1,
+        2,
+      ),
+      withSetCountComparisons(
+        setCountEvaluation({
+          id: "b",
+          activatedAt: "2026-09-05T00:00:00.000Z",
+          before: count(5),
+          proposed: count(4),
+        }),
+        -1,
+        -1,
+      ),
+      withSetCountComparisons(
+        setCountEvaluation({
+          id: "c",
+          activatedAt: "2026-09-06T00:00:00.000Z",
+          exerciseId: ROW,
+        }),
+        0,
+        0,
+      ),
+    ],
+    { episodeDetailLimit: null },
+  );
+  const bench = memory.groups.items.find(
+    (group) => group.key === `${BENCH}.set_count`,
+  );
+  assert.ok(bench);
+  assert.ok(
+    memory.groups.items.some((group) => group.key === `${ROW}.set_count`),
+  );
+  assert.equal(bench.targetMetric, null);
+  assert.equal(bench.coverage.totalEpisodes, 2);
+  // 3→4 and 5→4 share the group but keep distinct signatures.
+  assert.deepEqual(
+    bench.episodes.items.map((episode) => [
+      episode.signature.changes[0].before.count,
+      episode.signature.changes[0].after.count,
+      episode.signature.direction,
+    ]),
+    [
+      [5, 4, "decrease"],
+      [3, 4, "increase"],
+    ],
+  );
+  assert.deepEqual(bench.directionsObserved, ["decrease", "increase"]);
+  const completed = bench.aggregates.find(
+    (item) =>
+      item.metric === "completed_sets_per_exposure" &&
+      item.scope === "affected_prescription_sets",
+  );
+  assert.equal(completed.positiveDeltaCount, 1);
+  assert.equal(completed.negativeDeltaCount, 1);
+  assert.equal(completed.contradictory, true);
+  assert.ok(
+    bench.aggregates.some(
+      (item) =>
+        item.metric === "planned_sets_per_exposure" &&
+        item.scope === "exercise",
+    ),
+  );
+  assert.equal(bench.hasMultipleComparableEpisodes, true);
+});
+
+test("set_count with a concurrent change is context-only; structural-only edit stays context", () => {
+  const group = build([
+    withSetCountComparisons(
+      setCountEvaluation({
+        id: "clean",
+        activatedAt: "2026-09-01T00:00:00.000Z",
+      }),
+      1,
+      1,
+    ),
+    withSetCountComparisons(
+      setCountEvaluation({
+        id: "mixed",
+        activatedAt: "2026-09-02T00:00:00.000Z",
+        limitations: ["multiple_variables_changed_concurrently"],
+      }),
+      1,
+      1,
+    ),
+  ]).groups.items[0];
+  const byId = Object.fromEntries(
+    group.episodes.items.map((episode) => [
+      episode.decisionId,
+      episode.comparability,
+    ]),
+  );
+  assert.equal(byId.clean.classification, "strict_comparable");
+  assert.equal(byId.mixed.classification, "context_only");
+  assert.ok(
+    byId.mixed.reasons.includes("multiple_variables_changed_concurrently"),
+  );
+  assert.deepEqual(deriveChangeDirection(count(4), count(4)), "unchanged");
+});
+
+test("set_count memory has no optimal, preferred or volume fields", () => {
+  const serialized = JSON.stringify(
+    build([
+      withSetCountComparisons(
+        setCountEvaluation({
+          id: "a",
+          activatedAt: "2026-09-01T00:00:00.000Z",
+        }),
+        1,
+        2,
+      ),
+    ]),
+  );
+  assert.doesNotMatch(
+    serialized,
+    /optimal|preferred|bestVolume|setCountEffect|muscle|effectiveSets|hardSets/i,
+  );
 });

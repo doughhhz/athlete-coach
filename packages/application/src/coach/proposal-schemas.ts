@@ -1,6 +1,8 @@
 import {
   COACH_PROPOSAL_SCHEMA_VERSION,
+  COACH_PROPOSAL_V1_SCHEMA_VERSION,
   coachRejectionReasons,
+  loadPrescriptionKinds,
   targetMetrics,
 } from "@athlete-coach/domain";
 import { z } from "zod";
@@ -27,7 +29,7 @@ const ids = {
   exercisePrescriptionId: z.uuid(),
   prescriptionSetId: z.uuid(),
 };
-export const coachProposalActionSchema = z.discriminatedUnion("kind", [
+const adjustActionSchemas = [
   z.object({
     kind: z.literal("adjust_prescription_target"),
     ...base,
@@ -56,9 +58,46 @@ export const coachProposalActionSchema = z.discriminatedUnion("kind", [
     ...ids,
     loadKg: z.number().positive(),
   }),
+] as const;
+/** v1 actions only; used for historical snapshots. */
+export const coachProposalV1ActionSchema = z.discriminatedUnion(
+  "kind",
+  adjustActionSchemas,
+);
+const plannedSetSchema = z.object({
+  targetMetric: z.enum(targetMetrics),
+  targetMin: z.number().positive(),
+  targetMax: z.number().positive(),
+  rirMin: z.number().int().min(0).max(10).nullable(),
+  rirMax: z.number().int().min(0).max(10).nullable(),
+  restMinSeconds: z.number().int().nonnegative().nullable(),
+  restMaxSeconds: z.number().int().nonnegative().nullable(),
+  tempo: z
+    .string()
+    .regex(/^[0-9X]-[0-9X]-[0-9X]-[0-9X]$/)
+    .nullable(),
+  loadKind: z.enum(loadPrescriptionKinds),
+  loadKg: z.number().positive().nullable(),
+});
+/** v2 = v1 + explicit set-count actions (no generic patch). */
+export const coachProposalActionSchema = z.discriminatedUnion("kind", [
+  ...adjustActionSchemas,
+  z.object({
+    kind: z.literal("add_prescription_set"),
+    ...base,
+    trainingDayId: z.uuid(),
+    exercisePrescriptionId: z.uuid(),
+    position: z.literal("end"),
+    copyFromPrescriptionSetId: z.uuid().nullable(),
+    plannedSet: plannedSetSchema,
+  }),
+  z.object({
+    kind: z.literal("remove_prescription_set"),
+    ...base,
+    ...ids,
+  }),
 ]);
-export const coachProposalSchema = z.object({
-  schemaVersion: z.literal(COACH_PROPOSAL_SCHEMA_VERSION),
+const proposalFields = {
   id: z.uuid(),
   analysisId: z.string().min(1).max(100),
   sourceProgramId: z.uuid(),
@@ -67,7 +106,6 @@ export const coachProposalSchema = z.object({
   summary: z.string().trim().min(1).max(500),
   rationale: z.string().trim().min(1).max(2000),
   evidenceReferences: z.array(evidence).min(1).max(30),
-  actions: z.array(coachProposalActionSchema).min(1).max(12),
   limitations: z.array(z.string().trim().min(1).max(500)).max(8),
   requiresHumanApproval: z.literal(true),
   analysisSnapshot: z.object({
@@ -78,7 +116,22 @@ export const coachProposalSchema = z.object({
     policyVersion: z.string().min(1).max(100),
     dossierSchemaVersion: z.string().min(1).max(100),
   }),
+};
+export const coachProposalV1Schema = z.object({
+  schemaVersion: z.literal(COACH_PROPOSAL_V1_SCHEMA_VERSION),
+  ...proposalFields,
+  actions: z.array(coachProposalV1ActionSchema).min(1).max(12),
 });
+export const coachProposalV2Schema = z.object({
+  schemaVersion: z.literal(COACH_PROPOSAL_SCHEMA_VERSION),
+  ...proposalFields,
+  actions: z.array(coachProposalActionSchema).min(1).max(12),
+});
+/** Version-dispatched: v1 snapshots are never parsed with v2 actions. */
+export const coachProposalSchema = z.discriminatedUnion("schemaVersion", [
+  coachProposalV1Schema,
+  coachProposalV2Schema,
+]);
 export const rejectCoachProposalSchema = z.object({
   reason: z.enum(coachRejectionReasons),
   notes: z.string().trim().min(1).max(500).nullable().optional(),

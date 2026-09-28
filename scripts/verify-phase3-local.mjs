@@ -406,7 +406,7 @@ assert.equal(performanceHistory.at(-1)?.isNewEstimatedOneRepMax, true);
 assert.equal((await reloaded.personalBests.execute())[0].maxLoggedLoadKg, 35);
 const overviewBeforeReload = await reloaded.performanceOverview.execute();
 const dossierBeforeReload = await reloaded.dossier.execute();
-assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v3");
+assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v4");
 assert.equal(dossierBeforeReload.activeProgram?.id, revision.id);
 assert.equal(dossierBeforeReload.windows.at(-1)?.sessionsStarted, 3);
 assert.equal(dossierBeforeReload.exerciseSignals.length, 1);
@@ -861,7 +861,7 @@ const memoryApi = () => {
 };
 let memoryUseCases = memoryApi();
 const memory = await memoryUseCases.memory.execute();
-assert.equal(memory.schemaVersion, "individual-response-memory-v1");
+assert.equal(memory.schemaVersion, "individual-response-memory-v2");
 assert.equal(memory.athleteId, identity.id);
 assert.equal(memory.groups.totalAvailable, 1);
 const rirGroup = memory.groups.items[0];
@@ -931,7 +931,7 @@ const dossierV3 = await new BuildAthleteTrainingDossier(
   outcomeClock,
   memoryUseCases.context,
 ).execute();
-assert.equal(dossierV3.schemaVersion, "athlete-training-dossier-v3");
+assert.equal(dossierV3.schemaVersion, "athlete-training-dossier-v4");
 assert.equal(dossierV3.interventionHistory.totalAvailable, 3);
 assert.equal(dossierV3.responseMemory.groups.included, 1);
 assert.equal(dossierV3.responseMemory.truncation.groupLimit, 10);
@@ -979,7 +979,7 @@ const learningAnalysis = await new AnalyzeAthleteWithCoach(
 });
 assert.equal(
   capturedRequest.dossier.schemaVersion,
-  "athlete-training-dossier-v3",
+  "athlete-training-dossier-v4",
 );
 assert.equal(
   capturedRequest.dossier.responseMemory.groups.items[0].key,
@@ -987,7 +987,7 @@ assert.equal(
 );
 assert.equal(
   learningAnalysis.metadata.dossierSchemaVersion,
-  "athlete-training-dossier-v3",
+  "athlete-training-dossier-v4",
 );
 assert.equal(
   (
@@ -1005,9 +1005,349 @@ await reloaded.signIn.execute(credentials);
 memoryUseCases = memoryApi();
 assert.deepEqual(await memoryUseCases.memory.execute(), memoryBeforeReload);
 
+// Phase 13 — set-count interventions.
+const exerciseX = sourcePrescription.exerciseId;
+const threeSetStructure = () => ({
+  blocks: [
+    {
+      sequence: 1,
+      name: "Base",
+      weeks: [
+        {
+          sequence: 1,
+          name: "Semana 1",
+          days: [
+            {
+              sequence: 1,
+              name: "Treino séries",
+              prescriptions: [
+                {
+                  sequence: 1,
+                  exerciseId: exerciseX,
+                  sets: [1, 2, 3].map((sequence) => ({
+                    sequence,
+                    targetMetric: "reps",
+                    targetMin: 8,
+                    targetMax: 10,
+                    rirMin: 2,
+                    rirMax: 2,
+                    restMinSeconds: 120,
+                    restMaxSeconds: 120,
+                    tempo: null,
+                    loadKind: "athlete_selected",
+                    loadKg: null,
+                  })),
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+});
+const draftE = await reloaded.createProgram.execute({
+  name: "Programa séries",
+});
+await reloaded.saveProgram.execute(draftE.id, threeSetStructure());
+const programE = await reloaded.activateProgram.execute(draftE.id);
+const dayE = programE.blocks[0].weeks[0].days[0];
+const allSets = (value) => [1, 2, 3, 4, 5, 6].map(() => value);
+await trainDay(
+  dayE,
+  allSets({ actualValue: 9, actualLoadKg: 30, actualRir: 2 }),
+);
+await trainDay(
+  dayE,
+  allSets({ actualValue: 8, actualLoadKg: 30, actualRir: 2 }),
+);
+async function proposeOn(programX, actions) {
+  const dossierNow = await reloaded.dossier.execute();
+  const programEvidence = dossierNow.evidence.find(
+    (item) => item.kind === "training_program" && item.id === programX.id,
+  );
+  assert.ok(programEvidence);
+  const generated = await new GenerateCoachProposal(
+    reloaded.dossier,
+    new SupabaseTrainingProgramRepository(reloadedClient),
+    new FixtureCoachProposalProvider({
+      ...proposalFixture,
+      schemaVersion: "coach-proposal-v2",
+      id: crypto.randomUUID(),
+      sourceProgramId: programX.id,
+      sourceProgramRevision: programX.revision,
+      evidenceReferences: [programEvidence],
+      actions: actions.map((action) => ({
+        rationale: "Considerar mudança de quantidade de séries.",
+        evidence: [programEvidence],
+        ...action,
+      })),
+    }),
+    decisions,
+  ).execute(coachFixture);
+  assert.equal(generated.proposal.schemaVersion, "coach-proposal-v2");
+  return generated;
+}
+const plannedCopy = (set) => ({
+  targetMetric: set.targetMetric,
+  targetMin: set.targetMin,
+  targetMax: set.targetMax,
+  rirMin: set.rirMin,
+  rirMax: set.rirMax,
+  restMinSeconds: set.restMinSeconds,
+  restMaxSeconds: set.restMaxSeconds,
+  tempo: set.tempo,
+  loadKind: set.loadKind,
+  loadKg: set.loadKg,
+});
+const prescriptionE = dayE.prescriptions[0];
+// Intervention S1: proposal adds one set (3 → 4).
+const decisionS1 = await proposeOn(programE, [
+  {
+    kind: "add_prescription_set",
+    trainingDayId: dayE.id,
+    exercisePrescriptionId: prescriptionE.id,
+    position: "end",
+    copyFromPrescriptionSetId: prescriptionE.sets[2].id,
+    plannedSet: plannedCopy(prescriptionE.sets[2]),
+  },
+]);
+const materializedS1 = await decisions.materialize(decisionS1.id);
+const draftF = await reloaded.getProgram.execute(
+  materializedS1.materializedProgramId,
+);
+assert.equal(draftF.status, "draft");
+assert.equal(draftF.blocks[0].weeks[0].days[0].prescriptions[0].sets.length, 4);
+assert.deepEqual(
+  draftF.blocks[0].weeks[0].days[0].prescriptions[0].sets.map(
+    (set) => set.sequence,
+  ),
+  [1, 2, 3, 4],
+);
+assert.equal(
+  (await reloaded.getProgram.execute(programE.id)).blocks[0].weeks[0].days[0]
+    .prescriptions[0].sets.length,
+  3,
+);
+assert.equal((await reloaded.activeProgram.execute())?.id, programE.id);
+assert.equal(
+  (await decisions.materialize(decisionS1.id)).materializedProgramId,
+  draftF.id,
+);
+// The athlete edits the draft to 5 sets before activating.
+const fiveSetStructure = toStructure(draftF);
+fiveSetStructure.blocks[0].weeks[0].days[0].prescriptions[0].sets.push({
+  ...fiveSetStructure.blocks[0].weeks[0].days[0].prescriptions[0].sets[3],
+  sequence: 5,
+});
+await reloaded.saveProgram.execute(draftF.id, fiveSetStructure);
+const programF = await reloaded.activateProgram.execute(draftF.id);
+const dayF = programF.blocks[0].weeks[0].days[0];
+assert.equal(dayF.prescriptions[0].sets.length, 5);
+await trainDay(dayF, [
+  { actualValue: 9, actualLoadKg: 30, actualRir: 2 },
+  { actualValue: 9, actualLoadKg: 30, actualRir: 2 },
+  { actualValue: 8, actualLoadKg: 30, actualRir: 2 },
+  { actualValue: 8, actualLoadKg: 30, actualRir: 2 },
+]);
+await trainDay(
+  dayF,
+  allSets({ actualValue: 8, actualLoadKg: 30, actualRir: 2 }),
+);
+api = outcomeApi();
+const outcomeS1 = await api.get.execute(materializedS1.id);
+const setCountS1 = outcomeS1.episode.actions.find(
+  (action) => action.dimension === "set_count",
+);
+assert.equal(outcomeS1.schemaVersion, "intervention-outcome-v2");
+assert.deepEqual(
+  [
+    setCountS1.sourceValue.count,
+    setCountS1.proposedValue.count,
+    setCountS1.implementedValue.count,
+  ],
+  [3, 4, 5],
+);
+assert.equal(
+  outcomeS1.interventionFidelity.actions[0].proposedValueImplemented,
+  false,
+);
+const plannedS1 = outcomeS1.comparisons.find(
+  (item) =>
+    item.metric === "planned_sets_per_exposure" &&
+    item.scope.kind === "affected_prescription_sets",
+);
+const completedS1 = outcomeS1.comparisons.find(
+  (item) =>
+    item.metric === "completed_sets_per_exposure" &&
+    item.scope.kind === "affected_prescription_sets",
+);
+assert.deepEqual([plannedS1.before, plannedS1.after], [3, 5]);
+assert.deepEqual([completedS1.before, completedS1.after], [3, 4.5]);
+assert.equal(
+  outcomeS1.postIntervention[0].affectedPrescriptionSets.skippedSetCount,
+  1,
+);
+// Intervention S2 (clean): remove one set (5 → 4).
+const decisionS2 = await proposeOn(programF, [
+  {
+    kind: "remove_prescription_set",
+    trainingDayId: dayF.id,
+    exercisePrescriptionId: dayF.prescriptions[0].id,
+    prescriptionSetId: dayF.prescriptions[0].sets[4].id,
+  },
+]);
+const materializedS2 = await decisions.materialize(decisionS2.id);
+const programG = await reloaded.activateProgram.execute(
+  materializedS2.materializedProgramId,
+);
+const dayG = programG.blocks[0].weeks[0].days[0];
+assert.equal(dayG.prescriptions[0].sets.length, 4);
+await trainDay(
+  dayG,
+  allSets({ actualValue: 10, actualLoadKg: 32.5, actualRir: 2 }),
+);
+// Intervention S3 (confounded): add one set and change RIR together.
+const decisionS3 = await proposeOn(programG, [
+  {
+    kind: "add_prescription_set",
+    trainingDayId: dayG.id,
+    exercisePrescriptionId: dayG.prescriptions[0].id,
+    position: "end",
+    copyFromPrescriptionSetId: null,
+    plannedSet: plannedCopy(dayG.prescriptions[0].sets[0]),
+  },
+  {
+    kind: "adjust_prescription_rir",
+    trainingDayId: dayG.id,
+    exercisePrescriptionId: dayG.prescriptions[0].id,
+    prescriptionSetId: dayG.prescriptions[0].sets[0].id,
+    rirMin: 1,
+    rirMax: 1,
+  },
+]);
+const materializedS3 = await decisions.materialize(decisionS3.id);
+const programH = await reloaded.activateProgram.execute(
+  materializedS3.materializedProgramId,
+);
+await trainDay(
+  programH.blocks[0].weeks[0].days[0],
+  allSets({ actualValue: 9, actualLoadKg: 32.5, actualRir: 1 }),
+);
+memoryUseCases = memoryApi();
+const setMemory = await memoryUseCases.memory.execute();
+assert.equal(setMemory.schemaVersion, "individual-response-memory-v2");
+const setGroup = setMemory.groups.items.find(
+  (group) => group.key === `${exerciseX}.set_count`,
+);
+assert.ok(setGroup);
+assert.equal(setGroup.coverage.totalEpisodes, 3);
+assert.equal(setGroup.coverage.strictComparableEpisodes, 1);
+assert.equal(setGroup.coverage.contextOnlyEpisodes, 2);
+const setEpisodes = Object.fromEntries(
+  setGroup.episodes.items.map((episode) => [episode.decisionId, episode]),
+);
+assert.deepEqual(setEpisodes[materializedS1.id].signature.changes[0].after, {
+  dimension: "set_count",
+  count: 5,
+});
+assert.equal(setEpisodes[materializedS1.id].signature.direction, "increase");
+assert.equal(
+  setEpisodes[materializedS1.id].comparability.classification,
+  "context_only",
+);
+assert.equal(setEpisodes[materializedS2.id].signature.direction, "decrease");
+assert.equal(
+  setEpisodes[materializedS2.id].comparability.classification,
+  "strict_comparable",
+);
+assert.ok(
+  setEpisodes[materializedS3.id].comparability.reasons.includes(
+    "multiple_variables_changed_concurrently",
+  ),
+);
+const plannedAggregate = setGroup.aggregates.find(
+  (item) =>
+    item.metric === "planned_sets_per_exposure" &&
+    item.scope === "affected_prescription_sets",
+);
+assert.equal(plannedAggregate.strictComparableEpisodeCount, 1);
+assert.equal(plannedAggregate.negativeDeltaCount, 1);
+assert.doesNotMatch(
+  JSON.stringify(setMemory),
+  /optimal|preferred|bestVolume|muscle|effectiveSet|hardSet|tonnage/i,
+);
+// Dossier v4 + fake Coach receives it; nothing is proposed or activated.
+const dossierV4 = await new BuildAthleteTrainingDossier(
+  reloaded.load,
+  new SupabaseTrainingProgramRepository(reloadedClient),
+  new SupabaseWorkoutSessionRepository(reloadedClient),
+  new SupabasePerformanceReadRepository(reloadedClient),
+  outcomeClock,
+  memoryUseCases.context,
+).execute();
+assert.equal(dossierV4.schemaVersion, "athlete-training-dossier-v4");
+assert.ok(
+  dossierV4.responseMemory.groups.items.some(
+    (group) => group.key === setGroup.key,
+  ),
+);
+const decisionsBeforeV4 = (
+  await new SupabaseCoachDecisionRepository(
+    reloadedClient,
+    identity.userId,
+  ).list()
+).length;
+let capturedV4 = null;
+await new AnalyzeAthleteWithCoach(
+  { execute: async () => dossierV4 },
+  {
+    async analyze(request, requestId) {
+      capturedV4 = request;
+      return {
+        analysis: {
+          ...coachFixture,
+          requestId,
+          observations: [
+            {
+              ...coachFixture.observations[0],
+              statement:
+                "Há uma intervenção comparável de quantidade de séries.",
+              evidence: [setGroup.evidence[0]],
+            },
+          ],
+          evidenceUsed: [setGroup.evidence[0]],
+        },
+        provider: "fixture",
+        model: "deterministic",
+        inputTokens: null,
+        outputTokens: null,
+      };
+    },
+  },
+  new DeterministicCoachSafetyPolicy(),
+  () => "phase13-request",
+).execute({ userRequest: "E as séries?", analysisMode: "question" });
+assert.equal(capturedV4.dossier.schemaVersion, "athlete-training-dossier-v4");
+assert.equal(
+  (
+    await new SupabaseCoachDecisionRepository(
+      reloadedClient,
+      identity.userId,
+    ).list()
+  ).length,
+  decisionsBeforeV4,
+);
+assert.equal((await reloaded.activeProgram.execute())?.id, programH.id);
+const setMemoryBeforeReload = await memoryUseCases.memory.execute();
+await reloaded.signOut.execute();
+await reloaded.signIn.execute(credentials);
+memoryUseCases = memoryApi();
+assert.deepEqual(await memoryUseCases.memory.execute(), setMemoryBeforeReload);
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count flow passed.",
 );

@@ -410,7 +410,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0043 — Structured Coach Proposal Contract
 
 - Data: 2026-09-27
-- Status: accepted
+- Status: accepted; vocabulário superseded pela ADR-0062 (coach-proposal-v2); v1 permanece válido para snapshots históricos
 - Decisão: `coach-proposal-v1` é separado de `CoachAnalysis` e aceita somente ajustes de target, RIR, descanso e carga absoluta. Não há JSON Patch, add/remove set ou replace exercise nesta fase.
 - Motivo: vocabulário pequeno permite validação completa e impede escolha de tabela/coluna pelo modelo.
 - Impacto: domain, application, AI provider, Edge e Personal.
@@ -460,7 +460,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0049 — Outcome evidence is non-causal (`intervention-outcome-v1`)
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; versão corrente intervention-outcome-v2 (ADR-0063/0065)
 - Decisão: **Post-intervention change is evidence, not proof of causation.** `InterventionOutcomeEvaluation` expõe antes, depois, `absoluteDelta`, `relativeDelta` (null com denominador zero ou valor ausente), amostras por métrica, cobertura, limitações e evidências. Proibidos: improved/worsened/success/failure/effective, score, tonnage, ajuste por peso corporal, resposta muscular. Eligibility factual: `not_materialized`, `awaiting_activation`, `never_activated`, `awaiting_post_exposure`, `limited_data`, `evaluable` (= computável para todo exercício afetado, não confiável clinicamente). Requisito técnico mínimo: ≥1 exposição antes e ≥1 depois.
 - Storage: nenhuma tabela, view ou cache. Projeção reconstruída sob demanda a partir de `coach_decisions`, programas/revisões, `activated_at` e workouts brutos (mesma política da ADR-0033).
 - Impacto: domain, application, docs, UI.
@@ -477,7 +477,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0051 — Proposal vs activated intervention fidelity
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; cálculo de mudanças adicionais refinado pela ADR-0065 (comparação com o draft materializado esperado)
 - Decisão: outcome avalia o programa **realmente ativado**. Cada action registra source, proposto, materializado (reconstruído: a RPC aplica a action literalmente e não há snapshot do draft) e ativado. A correspondência usa o caminho estrutural (sequências bloco/semana/dia/prescrição/set) com o mesmo exercício; fallback: única prescrição do mesmo exercício no mesmo dia. `InterventionFidelity` informa localização, identidade do exercício, igualdade do valor e diferenças adicionais (target, RIR, descanso, carga, tempo, número de sets, exercício) além de prescrições alteradas no resto do programa. Não existe fidelity score. Múltiplas actions ou edições manuais na prescrição geram `multiple_variables_changed_concurrently`.
 - Impacto: domain, UI e integração.
 
@@ -518,7 +518,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0056 — Individual Response Evidence v2
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; IRE corrente é v3 com set_count (ADR-0063)
 - Regra anterior (ADR-0052): `individual-response-evidence-v1` agrupava por `exercise_id` + dimensão.
 - Decisão: `individual-response-evidence-v2` agrupa por `exercise_id` + dimensão + (para `target`) métrica do valor ativado; reps, segundos e metros nunca se misturam. Cada episódio passa a carregar resumo/data da proposta, programa de origem e de intervenção (id/revisão) e o contexto de peso corporal do outcome. Continua sem médias, preferências ou scores.
 - Motivo: Response Memory precisa de grupos semanticamente compatíveis e de proveniência por episódio sem criar um segundo sistema paralelo.
@@ -527,7 +527,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0057 — Individual Response Memory contract
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; versão corrente individual-response-memory-v2 (ADR-0065)
 - Decisão: `individual-response-memory-v1` é uma projeção derivada e reconstruível de `coach_decisions` + lineage de programas + workouts + outcomes (Phase 11). Sem tabela, cache, `learned_preferences`, `response_scores` ou pesos. Contém `notices`, `summary`, `groups` (`totalAvailable/included/hasMore`), `totalEpisodes`, `includedEpisodeDetails`, `omittedEpisodeDetails` e `truncation`. **Response Memory remembers observations, not truths.** **Repeated observational evidence may inform future reasoning, but it must not become an automatic training rule.**
 - Bounding: até 10 grupos (alinhado ao histórico de 10 decisões) e até 5 episódios detalhados por grupo; agregados sempre usam todos os episódios do grupo. Drill-down (`GetResponseMemoryGroup`) não trunca.
 - Ordem determinística: grupos por última ativação desc, depois key; episódios por `activatedAt` desc, depois decision ID. Sem decay, pesos de recência ou ranking por LLM.
@@ -553,7 +553,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0060 — Athlete Training Dossier v3
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; v3 permanece histórico; corrente é v4 (ADR-0065)
 - Regra anterior (ADR-0053): v2 com `interventionHistory`.
 - Decisão: `athlete-training-dossier-v3` mantém v2 intacto e adiciona `responseMemory` bounded. Episódios da memória referenciam decisões (`coach_decision`) e trazem apenas observações compactas das métricas de resposta, sem fatos brutos por janela nem evidência inline, evitando duplicar `interventionHistory`. Novo evidence kind `response_memory_group` (id = key estável). `BuildInterventionContext` produz histórico e memória a partir de uma única computação de outcomes (antes: histórico isolado); a dívida de calcular todas as decisões antes de limitar permanece.
 - Impacto: domain, application, Edge Functions, mobile, schemas Zod, testes, integração.
@@ -561,7 +561,45 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0061 — Coach Learning Policy
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; prompts v3 permanecem históricos; correntes são v4 (ADR-0066)
 - Regra anterior (ADR-0054): `coach-system-v2` e `coach-proposal-prompt-v2`.
 - Decisão: `coach-system-v3` = v2 literal + Coach Learning Policy com 14 regras (evidência observacional, repetição ≠ causalidade, sem regra fixa, amostras, confounders, cobertura, alteração ativada, contradições explícitas, não descartar episódio contrário, sem "responde melhor" sem qualificação, sem garantia de repetição, conhecimento geral não apaga evidência individual, não é experimento, validator + aprovação humana obrigatórios) e reafirma que performance passada não supera safety. `coach-proposal-prompt-v3`: Response Memory nunca autoriza proposta por si; delta passado positivo sozinho não justifica repetir (nem negativo reverter). v1/v2 continuam exportados. Response Memory não altera prompts, proposals, programas ou modelos automaticamente.
 - Loop documentado: Response Memory → interpretação do Coach → proposta estruturada → validator → aprovação humana → revisão → outcome → Response Memory. É aprendizado com controle humano, não autonomia.
+
+### ADR-0062 — Proposal contract v2 and set-count actions
+
+- Data: 2026-09-28
+- Status: accepted
+- Regra anterior (ADR-0043): `coach-proposal-v1` só permite ajustes de target, RIR, descanso e carga; add/remove set postergados.
+- Decisão: `coach-proposal-v2` = ações v1 + `add_prescription_set` e `remove_prescription_set`. Add: `trainingDayId`, `exercisePrescriptionId`, `position: "end"` (sempre anexada ao fim), `copyFromPrescriptionSetId` opcional apenas como proveniência (mesma prescrição, não removido na mesma proposta) e `plannedSet` explícito com todos os campos (métrica, faixa, RIR, descanso, tempo, carga), validado por `assertPrescriptionSet` e com a mesma métrica das séries existentes. Remove: set existente da prescrição/dia/programa de origem. Rejeitados: remover o último set, remover/ajustar o mesmo set duas vezes, copiar de set removido, v1 contendo ações v2. Não há patch genérico, UUID gerado pelo modelo, replace exercise, frequência ou dias.
+- Compatibilidade: Zod despacha por `schemaVersion` (v1 nunca é lido com o parser v2); o ledger aceita as duas versões e exige `proposal_snapshot.schemaVersion = proposal_schema_version`. Nenhum snapshot histórico foi migrado.
+- Impacto: domain proposal, application schemas/validator, AI, RPC, UI de revisão.
+
+### ADR-0063 — Set count is not muscle volume
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: **Set-count intervention changes the number of planned sets for a canonical Exercise; it does not represent muscle volume or training stimulus.** **More sets and fewer sets are factual prescription changes, not inherently better or worse.** Nova dimensão `set_count` (contagem de sets planejados por `ExercisePrescription`) em episode, outcome (`intervention-outcome-v2`), IRE (v3) e Response Memory (v2). Sem sets por músculo, effective/hard sets, tonnage, landmarks, valor ótimo ou "volume response". Remove + add que mantém a contagem é edição estrutural, gera `set_structure_changed_without_count_change` (confounder estrutural) e não forma grupo `set_count`.
+- Impacto: domain, UI e prompts.
+
+### ADR-0064 — Set-count materialization
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: nova migration `20260929120000_coach_proposal_v2_set_count.sql` redefine `materialize_coach_decision` (mesmo lock, idempotência e staleness): sets removidos não são copiados, sobreviventes mantêm a ordem e são renumerados 1..n, ajustes v1 aplicam-se ao set de origem, sets adicionados são anexados na ordem das ações a partir do `plannedSet` (novos UUIDs só na materialização). A RPC revalida entidades, duplicidade, cópia de set removido e contagem ≥ 1 por prescrição; o draft nunca é ativado. `domain.materializeProposalPrescription` é o espelho puro usado pelo validator, pela revisão e pela fidelidade. O builder ganhou "Remover série" (nunca o último set) para revisão humana real do draft.
+- Impacto: DB (41 asserções pgTAP novas), domain, mobile.
+
+### ADR-0065 — Set-count outcome semantics, Response Memory v2 and Dossier v4
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: cada prescrição tocada por add/remove gera um snapshot `set_count` (antes/proposto/materializado/ativado + sets adicionados/removidos). O valor ativado é autoritativo (proposta 3→4 ativada com 5 = intervenção 3→5, fidelidade não exata). Fidelidade compara o programa ativado com o draft materializado esperado (espelho puro), então edições manuais aparecem como mudanças adicionais para todas as dimensões. Fatos passam a incluir sets planejados/pendentes e o número de exposições do escopo; métricas novas `planned_sets_per_exposure` e `actual_reps_per_exposure`, além de `completed_sets_per_exposure`, carga, e1RM, target, RIR e descanso relevantes a `set_count`. Contagens por exposição usam como denominador apenas as exposições que contêm sets do escopo (evita diluir o baseline com sessões de outros programas). Planejado ≠ concluído é sempre preservado; sem adherence score.
+- Response Memory v2: grupo `exerciseId.set_count` (sem número de sets na key); cada episódio mantém antes/depois e direção increase/decrease; mesmas regras strict/context-only e agregados. Dossier `athlete-training-dossier-v4` mantém a forma v3, com conteúdo que pode incluir `set_count`.
+- Impacto: domain outcomes/response-memory/dossier, application, UI, integração.
+
+### ADR-0066 — Coach prompts v4 for set count
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: `coach-system-v4` = v3 literal + política: set count não é volume muscular; mais/menos séries não são melhores/piores por si; distinguir planejado de concluído; resposta observada é evidência observacional; nunca inferir número ótimo de séries ou volume ótimo nem usar MEV/MAV/MRV. `coach-proposal-prompt-v4` é derivado do v3 substituindo explicitamente as frases de vocabulário v1 (sem anexar regra contraditória): gera `coach-proposal-v2`, add/remove apenas com suporte de evidência, mudanças pequenas, sem remover o último set, sem frequência/dias/replace, sem aumentar séries porque a performance melhorou nem reduzir porque caiu, proposta continua opcional (`{"proposal":null}`).
+- Impacto: packages/ai, application (fallback de safety), testes.

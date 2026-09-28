@@ -121,3 +121,10 @@ Uma `CoachProposal` nunca é um `ProgramRevision`. O validator reutiliza `assert
 - Strict comparable: alteração ativada identificável, exposições antes/depois, sem confounder estrutural, observação da dimensão presente e comparação relevante com delta. Não é experimento controlado.
 - Agregados sobre strict: contagens de sinais, ausentes, mín., máx., mediana (média par = média dos dois centrais), totais de amostras. Sem média, sem agregação de deltas relativos, sem pesos de recência.
 - Volume, frequência e seleção de exercício continuam sem grupos: faltam interventions add/remove set, scheduling e replace exercise.
+
+## Phase 13 — Set count
+
+- Add: série anexada ao fim com snapshot explícito; remove: set existente; sequências renumeradas 1..n; mínimo de 1 set por prescrição; remoções/ajustes duplicados e cópia de set removido são rejeitados.
+- Contagem líquida por prescrição: `beforeSetCount`, `afterSetCount`, `absoluteDelta`. Remove + add com contagem igual não é intervenção de `set_count`.
+- Outcome: séries planejadas, concluídas e reps por exposição (denominador = exposições que contêm sets do escopo), carga registrada, e1RM, target, RIR e descanso, sempre separando planejado de concluído.
+- Proibido: volume muscular, sets efetivos/hard sets, stimulus, tonnage, workload, MEV/MAV/MRV, número ótimo de séries, progressão automática.

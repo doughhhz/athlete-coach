@@ -119,6 +119,15 @@ export function InterventionOutcomeScreen() {
                   ? formatPrescriptionValue(action.implementedValue)
                   : "ainda não ativado"}
               </Text>
+              {action.dimension === "set_count" &&
+              action.sourceValue?.dimension === "set_count" &&
+              action.implementedValue?.dimension === "set_count" ? (
+                <Text style={text}>
+                  Séries planejadas: {action.sourceValue.count} →{" "}
+                  {action.implementedValue.count} (valor ativado; séries
+                  concluídas aparecem abaixo por sessão)
+                </Text>
+              ) : null}
               {responseMemoryGroupKeyForAction(action) &&
               outcome.activatedAt ? (
                 <Pressable

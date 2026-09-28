@@ -156,3 +156,7 @@ Próximo passo recomendado: revisão humana da Phase 11 antes de qualquer nova f
 As intervenções ativadas são organizadas deterministicamente por exercício e tipo de alteração (`individual-response-memory-v1`): o que foi realmente ativado, quantas eram comparáveis, confounders, variações numéricas observadas e contradições, sempre com amostras. Nada é persistido; o dossier passou a `athlete-training-dossier-v3` e o Personal usa `coach-system-v3` com a Coach Learning Policy. **Response Memory remembers observations, not truths.** Nenhuma regra, preferência ou adaptação automática é criada.
 
 Próximo passo recomendado: revisão humana da Phase 12.
+
+## Phase 13 — Intervenções de quantidade de séries
+
+O Personal pode propor adicionar ou remover séries de um exercício (`coach-proposal-v2`), sempre revisado por humano e materializado apenas em rascunho. Outcomes, memória de resposta e dossier (`athlete-training-dossier-v4`) passam a acompanhar `set_count` usando o valor realmente ativado e distinguindo séries planejadas de concluídas. **Set count is not muscle volume.** Próximo passo recomendado: revisão humana da Phase 13 e a tarefa separada para tornar as Edge Functions inicializáveis no runtime Deno.

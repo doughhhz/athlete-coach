@@ -79,3 +79,7 @@ Progresso ganha **Alterações acompanhadas**: proposta/data, status (aguardando
 ## Phase 12 — Memória de resposta
 
 Progresso ganha **Memória de resposta**: por exercício e alteração, intervenções registradas, comparáveis, com mudanças simultâneas ou dados limitados, contagem de variações do 1RM estimado (positivas/iguais/negativas) e aviso quando as observações apontam em direções diferentes, com truncamento declarado. O detalhe **Histórico observado** lista cada intervenção com data, revisão do programa, alteração ativada e direção, Antes/Depois/Variação numérica/Amostra e Limitações, marcando "Intervenção comparável" ou "Apenas contexto". O resultado observado de uma decisão oferece **Ver histórico relacionado**. Proibido: "Aprendeu que", "Funciona", "Ideal", "Ótimo", "Melhor estratégia", "O que funciona para você", classificações de responder.
+
+## Phase 13 — Séries na revisão, no builder e na memória
+
+A revisão da proposta mostra "Séries planejadas: X → Y", "Nova série" e "Série removida" com alvos factuais e aviso de que não representa volume muscular. O builder permite adicionar e remover séries individuais (nunca a última) ao revisar o rascunho. A resposta observada mostra séries planejadas (valor ativado) e, por sessão, séries planejadas e concluídas. A memória exibe "Quantidade de séries planejadas" com assinaturas "3 séries → 4 séries". Proibido: "volume ideal", "mais volume funcionou", "séries efetivas", séries por músculo.

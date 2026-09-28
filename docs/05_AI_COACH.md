@@ -111,3 +111,7 @@ O dossier v2 fornece `interventionHistory` (até 10 decisões) com status de out
 ## Phase 12 — Coach Learning Policy
 
 O dossier v3 envia `responseMemory` bounded; o Coach pode citar `response_memory_group` e `coach_decision` validados pelo grounding existente. `coach-system-v3` instrui: memória é observacional; repetição não é causalidade; nenhum padrão vira regra; considerar amostras, confounders, cobertura e o valor ativado; declarar observações contraditórias; não descartar episódios contrários; não dizer que o atleta "responde melhor" sem qualificação; não assumir repetição; conhecimento geral não apaga evidência individual; evidência individual não é experimento; toda recomendação segue validator e aprovação humana. `coach-proposal-prompt-v3`: a memória nunca autoriza proposta por si e um delta positivo passado não basta para repetir. Linguagem adequada: "Em duas intervenções comparáveis…", "Os episódios observados apontaram em direções diferentes", "Há apenas uma intervenção comparável". Sem web, RAG, embeddings, chain-of-thought ou multi-agentes.
+
+## Phase 13 — Prompts v4
+
+`coach-system-v4` acrescenta a política de quantidade de séries (não é volume muscular; mais/menos não é melhor/pior; planejado ≠ concluído; nunca volume ótimo). `coach-proposal-prompt-v4` gera `coach-proposal-v2` com add/remove estruturados, mudanças pequenas e opcionais, sem repetir/reverter mudanças por deltas passados. O modelo não gera UUIDs finais; a validação determinística e a aprovação humana continuam obrigatórias.

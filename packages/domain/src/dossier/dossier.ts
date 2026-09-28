@@ -16,12 +16,15 @@ import type { WorkoutSession, WorkoutSet } from "../workout/workout.ts";
 /**
  * v2 keeps every v1 field and meaning and adds `interventionHistory` (ADR-0053).
  * v3 keeps v2 unchanged and adds bounded `responseMemory` (ADR-0060).
+ * v4 keeps the v3 shape; its intervention sections may now carry the
+ * `set_count` dimension (outcome v2, memory v2, proposal v2) (ADR-0065).
  */
 export const ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION =
-  "athlete-training-dossier-v3" as const;
+  "athlete-training-dossier-v4" as const;
 export const athleteTrainingDossierSchemaVersions = [
   "athlete-training-dossier-v1",
   "athlete-training-dossier-v2",
+  "athlete-training-dossier-v3",
   ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION,
 ] as const;
 export const DOSSIER_RECENT_SESSION_LIMIT = 12;

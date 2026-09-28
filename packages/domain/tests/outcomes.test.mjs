@@ -904,9 +904,246 @@ test("dossier v3 embeds bounded history and exposes its evidence for grounding",
     generatedAt: "2026-09-20T00:00:00.000Z",
     interventionHistory: history,
   });
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v3");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v4");
   assert.equal(dossier.interventionHistory.included, 1);
   const ids = collectDossierEvidenceIds(dossier);
   assert.ok(ids.has("coach_decision:decision-1"));
   assert.ok(ids.has("workout_session:post-1"));
+});
+
+// SET COUNT (Phase 13) ------------------------------------------------------
+
+const addSetAction = (change = {}) => ({
+  kind: "add_prescription_set",
+  trainingDayId: "a-day",
+  exercisePrescriptionId: "a-bench",
+  position: "end",
+  copyFromPrescriptionSetId: "a-s2",
+  plannedSet: {
+    targetMetric: "reps",
+    targetMin: 8,
+    targetMax: 10,
+    rirMin: 2,
+    rirMax: 2,
+    restMinSeconds: 90,
+    restMaxSeconds: 120,
+    tempo: null,
+    loadKind: "athlete_selected",
+    loadKg: null,
+  },
+  rationale: "Uma série a mais",
+  evidence: [{ kind: "exercise", id: BENCH, version: null }],
+  ...change,
+});
+const setCountDecision = (actions) => {
+  const base = decision({ actions });
+  return {
+    ...base,
+    proposal: { ...base.proposal, schemaVersion: "coach-proposal-v2" },
+  };
+};
+const threeSetB = (extra = []) =>
+  programB({
+    benchSets: [
+      prescriptionSet("b-s1", 1),
+      prescriptionSet("b-s2", 2),
+      prescriptionSet("b-s3", 3),
+      ...extra,
+    ],
+  });
+const postSetSessions = [
+  session("sc-post-1", "2026-09-11T10:00:00.000Z", "b", [
+    workoutSet("", "b-s1", { actualValue: 9 }),
+    workoutSet("", "b-s2", { actualValue: 9 }),
+    workoutSet("", "b-s3", {
+      status: "skipped",
+      actualValue: null,
+      actualLoadKg: null,
+      actualRir: null,
+    }),
+  ]),
+  session("sc-post-2", "2026-09-13T10:00:00.000Z", "b", [
+    workoutSet("", "b-s1", { actualValue: 8 }),
+    workoutSet("", "b-s2", { actualValue: 8 }),
+    workoutSet("", "b-s3", { actualValue: 7 }),
+  ]),
+];
+const buildSetCount = (
+  actions,
+  interventionProgram,
+  sessions = postSetSessions,
+) =>
+  build({
+    decision: setCountDecision(actions),
+    interventionProgram,
+    sessions: [...baselineSessions, ...sessions],
+  });
+const setCountSnapshot = (result) =>
+  result.episode.actions.find((action) => action.dimension === "set_count");
+
+test("set count 2 → 3 activated is a single-variable set_count snapshot", () => {
+  const result = buildSetCount([addSetAction()], threeSetB());
+  const snapshot = setCountSnapshot(result);
+  assert.equal(result.schemaVersion, "intervention-outcome-v2");
+  assert.equal(snapshot.kind, "set_count_change");
+  assert.deepEqual(snapshot.sourceValue, { dimension: "set_count", count: 2 });
+  assert.deepEqual(snapshot.proposedValue, {
+    dimension: "set_count",
+    count: 3,
+  });
+  assert.deepEqual(snapshot.implementedValue, {
+    dimension: "set_count",
+    count: 3,
+  });
+  assert.equal(snapshot.setCountChange.addedSets.length, 1);
+  assert.deepEqual(snapshot.sourceScopeSetIds, ["a-s1", "a-s2"]);
+  assert.deepEqual(snapshot.implementedScopeSetIds, ["b-s1", "b-s2", "b-s3"]);
+  assert.equal(result.episode.concurrentActionCount, 1);
+  assert.deepEqual(result.episode.affectedDimensions, ["set_count"]);
+  assert.equal(
+    result.interventionFidelity.actions[0].proposedValueImplemented,
+    true,
+  );
+  assert.deepEqual(
+    result.interventionFidelity.actions[0]
+      .additionalChangesInAffectedPrescription,
+    [],
+  );
+  assert.doesNotMatch(codes(result).join(","), /multiple_variables|unproposed/);
+});
+
+test("proposal 2 → 3 but the athlete activates 4: the activated count is the intervention", () => {
+  const result = buildSetCount(
+    [addSetAction()],
+    threeSetB([prescriptionSet("b-s4", 4)]),
+  );
+  const snapshot = setCountSnapshot(result);
+  assert.equal(snapshot.proposedValue.count, 3);
+  assert.equal(snapshot.materializedValue.count, 3);
+  assert.equal(snapshot.implementedValue.count, 4);
+  assert.equal(
+    result.interventionFidelity.actions[0].proposedValueImplemented,
+    false,
+  );
+  assert.ok(
+    result.interventionFidelity.actions[0].additionalChangesInAffectedPrescription.some(
+      (item) => item.dimension === "set_count",
+    ),
+  );
+  assert.ok(codes(result).includes("proposed_value_differs_at_activation"));
+});
+
+test("planned sets and completed sets stay distinct per exposure", () => {
+  const result = buildSetCount([addSetAction()], threeSetB());
+  const post = result.postIntervention[0].affectedPrescriptionSets;
+  assert.equal(post.plannedSetCount, 6);
+  assert.equal(post.completedSetCount, 5);
+  assert.equal(post.skippedSetCount, 1);
+  const planned = comparison(result, "planned_sets_per_exposure");
+  const completed = comparison(result, "completed_sets_per_exposure");
+  assert.equal(planned.after, 3);
+  assert.equal(completed.after, 2.5);
+  assert.deepEqual(planned.relevantDimensions, ["set_count"]);
+  assert.ok(comparison(result, "actual_reps_per_exposure"));
+  assert.ok(comparison(result, "best_estimated_one_rep_max_kg", "exercise"));
+  assert.equal(
+    comparison(result, "best_logged_load_kg").relevantDimensions.includes(
+      "set_count",
+    ),
+    true,
+  );
+});
+
+test("set count plus another dimension is concurrent (confounded)", () => {
+  const result = buildSetCount(
+    [
+      addSetAction(),
+      {
+        kind: "adjust_prescription_rir",
+        trainingDayId: "a-day",
+        exercisePrescriptionId: "a-bench",
+        prescriptionSetId: "a-s1",
+        rirMin: 1,
+        rirMax: 1,
+        rationale: "RIR",
+        evidence: [{ kind: "exercise", id: BENCH, version: null }],
+      },
+    ],
+    programB({
+      benchSets: [
+        prescriptionSet("b-s1", 1, { rirMin: 1, rirMax: 1 }),
+        prescriptionSet("b-s2", 2),
+        prescriptionSet("b-s3", 3),
+      ],
+    }),
+  );
+  assert.deepEqual(result.episode.affectedDimensions, [
+    "planned_rir",
+    "set_count",
+  ]);
+  assert.ok(codes(result).includes("multiple_variables_changed_concurrently"));
+  assert.ok(
+    result.interventionFidelity.actions.every(
+      (item) => item.proposedValueImplemented,
+    ),
+  );
+});
+
+test("remove + add keeping the count is a structural edit, not a set-count intervention", () => {
+  const result = buildSetCount(
+    [
+      {
+        kind: "remove_prescription_set",
+        trainingDayId: "a-day",
+        exercisePrescriptionId: "a-bench",
+        prescriptionSetId: "a-s2",
+        rationale: "r",
+        evidence: [{ kind: "exercise", id: BENCH, version: null }],
+      },
+      addSetAction({ copyFromPrescriptionSetId: null }),
+    ],
+    programB({
+      benchSets: [
+        prescriptionSet("b-s1", 1),
+        prescriptionSet("b-s2", 2, { restMinSeconds: 90, restMaxSeconds: 120 }),
+      ],
+    }),
+  );
+  const snapshot = setCountSnapshot(result);
+  assert.equal(snapshot.sourceValue.count, snapshot.implementedValue.count);
+  assert.ok(
+    codes(result).includes("set_structure_changed_without_count_change"),
+  );
+  assert.deepEqual(buildIndividualResponseEvidence([result]), []);
+});
+
+test("set-count outcomes carry no muscle-volume or optimal fields", () => {
+  const serialized = JSON.stringify(
+    buildSetCount([addSetAction()], threeSetB()),
+  );
+  assert.doesNotMatch(
+    serialized,
+    /muscle|effective|hardSet|stimul|tonnage|workload|volumeLoad|optimal|improved|success/i,
+  );
+  assert.doesNotMatch(serialized, /(MEV|MAV|MRV)/);
+});
+
+test("changed-set per-exposure counts divide only by exposures containing those sets", () => {
+  const otherProgram = session("other-pre", "2026-09-09T10:00:00.000Z", "z", [
+    workoutSet("", "z-s1", { actualValue: 9 }),
+  ]);
+  const result = build({
+    decision: setCountDecision([addSetAction()]),
+    interventionProgram: threeSetB(),
+    sessions: [...baselineSessions, otherProgram, ...postSetSessions],
+  });
+  const baselineScope = result.baseline[0].affectedPrescriptionSets;
+  assert.equal(result.baseline[0].exposures.length, 3);
+  assert.equal(baselineScope.exposureCount, 2);
+  assert.equal(comparison(result, "planned_sets_per_exposure").before, 3 / 2);
+  assert.equal(
+    comparison(result, "planned_sets_per_exposure", "exercise").before,
+    4 / 3,
+  );
+  assert.ok(codes(result).includes("baseline_includes_other_programs"));
 });

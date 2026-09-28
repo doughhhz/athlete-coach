@@ -1,8 +1,13 @@
 import type { BodyWeightEntry } from "../athlete/athlete.ts";
-import type {
-  CoachDecision,
-  CoachProposalAction,
-  CoachProposalStatus,
+import {
+  isSetCountAction,
+  materializeProposalPrescription,
+  type AddPrescriptionSetAction,
+  type CoachDecision,
+  type CoachProposalAdjustAction,
+  type CoachProposalStatus,
+  type PlannedPrescriptionSet,
+  type RemovePrescriptionSetAction,
 } from "../coach/proposal.ts";
 import type { EvidenceReference } from "../dossier/dossier.ts";
 import {
@@ -26,9 +31,9 @@ import type {
 } from "../workout/workout.ts";
 
 export const INTERVENTION_OUTCOME_SCHEMA_VERSION =
-  "intervention-outcome-v1" as const;
+  "intervention-outcome-v2" as const;
 export const INDIVIDUAL_RESPONSE_EVIDENCE_SCHEMA_VERSION =
-  "individual-response-evidence-v2" as const;
+  "individual-response-evidence-v3" as const;
 /** Maximum comparable exposures per side (baseline / post) and exercise. */
 export const OUTCOME_EXPOSURE_WINDOW = 3;
 export const INTERVENTION_HISTORY_LIMIT = 10;
@@ -37,13 +42,26 @@ export const OUTCOME_INTERPRETATION_NOTICE =
 export const INDIVIDUAL_RESPONSE_NOTICE =
   "Individual response is learned as accumulated evidence across comparable exposures, not as a single causal conclusion." as const;
 
+/**
+ * `set_count` (v2, ADR-0063) is the number of planned sets of one
+ * ExercisePrescription. It is not muscle volume or training stimulus.
+ */
 export const interventionDimensions = [
   "target",
   "planned_rir",
   "planned_rest",
   "absolute_load",
+  "set_count",
 ] as const;
 export type InterventionDimension = (typeof interventionDimensions)[number];
+/** Dimensions that describe a single planned set. */
+export const setLevelDimensions = [
+  "target",
+  "planned_rir",
+  "planned_rest",
+  "absolute_load",
+] as const;
+export type SetLevelDimension = (typeof setLevelDimensions)[number];
 
 export const outcomeStatuses = [
   "not_materialized",
@@ -81,6 +99,7 @@ export const outcomeLimitationCodes = [
   "rest_observations_missing",
   "rest_observations_partial",
   "load_observations_missing",
+  "set_structure_changed_without_count_change",
   "body_weight_unavailable",
   "body_weight_changed",
 ] as const;
@@ -111,24 +130,39 @@ export type PrescriptionDimensionValue =
       dimension: "absolute_load";
       loadKind: LoadPrescriptionKind;
       loadKg: number | null;
-    }>;
+    }>
+  | Readonly<{ dimension: "set_count"; count: number }>;
 
 export type PrescriptionPath = Readonly<{
   blockSequence: number;
   weekSequence: number;
   daySequence: number;
   prescriptionSequence: number;
-  setSequence: number;
+  /** `null` for prescription-level (set_count) snapshots. */
+  setSequence: number | null;
+}>;
+
+/** Set-count content: which sets the proposal added and removed. */
+export type SetCountChangeSnapshot = Readonly<{
+  addedSets: readonly PlannedPrescriptionSet[];
+  removedSets: readonly PrescriptionSet[];
 }>;
 
 export type InterventionActionSnapshot = Readonly<{
+  /** Position of this snapshot in the episode (adjust actions, then set_count). */
   actionIndex: number;
-  kind: CoachProposalAction["kind"];
+  /** Indexes of the proposal actions this snapshot represents. */
+  proposalActionIndexes: readonly number[];
+  kind: CoachProposalAdjustAction["kind"] | "set_count_change";
   dimension: InterventionDimension;
   exerciseId: string | null;
   exerciseName: string | null;
   sourcePath: PrescriptionPath | null;
-  sourcePrescriptionSetId: string;
+  sourcePrescriptionSetId: string | null;
+  /** Source/implemented sets whose raw performance forms the changed-set scope. */
+  sourceScopeSetIds: readonly string[];
+  implementedScopeSetIds: readonly string[];
+  setCountChange: SetCountChangeSnapshot | null;
   sourceValue: PrescriptionDimensionValue | null;
   proposedValue: PrescriptionDimensionValue;
   /** materialize_coach_decision applies the action verbatim; no draft snapshot exists. */
@@ -234,7 +268,15 @@ export type PlannedValueObservation = Readonly<{
   completedSetCount: number;
 }>;
 export type ObservedFacts = Readonly<{
+  /**
+   * Exposures that contain at least one set of this scope; the denominator of
+   * per-exposure counts. `null` when facts are derived outside a window.
+   */
+  exposureCount: number | null;
+  /** Every planned set snapshot in scope (completed, skipped or pending). */
+  plannedSetCount: number;
   completedSetCount: number;
+  pendingSetCount: number;
   skippedSetCount: number;
   actualReps: ValueSummary;
   actualSeconds: ValueSummary;
@@ -273,7 +315,9 @@ export type ExercisePostOutcomeWindow = ExerciseOutcomeWindow &
   }>;
 
 export const outcomeMetrics = [
+  "planned_sets_per_exposure",
   "completed_sets_per_exposure",
+  "actual_reps_per_exposure",
   "mean_actual_reps_per_set",
   "mean_actual_seconds_per_set",
   "mean_actual_meters_per_set",
@@ -349,7 +393,7 @@ export type InterventionOutcomeEvaluation = Readonly<{
 // Prescription values
 
 const dimensionByKind: Readonly<
-  Record<CoachProposalAction["kind"], InterventionDimension>
+  Record<CoachProposalAdjustAction["kind"], SetLevelDimension>
 > = {
   adjust_prescription_target: "target",
   adjust_prescription_rir: "planned_rir",
@@ -370,7 +414,7 @@ export function prescriptionDimensionValue(
     | "loadKind"
     | "loadKg"
   >,
-  dimension: InterventionDimension,
+  dimension: SetLevelDimension,
 ): PrescriptionDimensionValue {
   if (dimension === "target")
     return {
@@ -391,7 +435,7 @@ export function prescriptionDimensionValue(
 }
 
 export function proposedDimensionValue(
-  action: CoachProposalAction,
+  action: CoachProposalAdjustAction,
 ): PrescriptionDimensionValue {
   if (action.kind === "adjust_prescription_target")
     return {
@@ -458,22 +502,20 @@ function flattenPrescriptions(
   );
 }
 
-function locateSourceAction(
+function locateSourcePrescription(
   program: TrainingProgram | null,
-  action: CoachProposalAction,
-): (LocatedPrescription & Readonly<{ set: PrescriptionSet }>) | null {
+  trainingDayId: string,
+  exercisePrescriptionId: string,
+): LocatedPrescription | null {
   if (!program) return null;
   for (const block of program.blocks)
     for (const week of block.weeks)
       for (const day of week.days) {
-        if (day.id !== action.trainingDayId) continue;
+        if (day.id !== trainingDayId) continue;
         const prescription = day.prescriptions.find(
-          (item) => item.id === action.exercisePrescriptionId,
+          (item) => item.id === exercisePrescriptionId,
         );
-        const set = prescription?.sets.find(
-          (item) => item.id === action.prescriptionSetId,
-        );
-        if (prescription && set)
+        if (prescription)
           return {
             path: {
               blockSequence: block.sequence,
@@ -482,7 +524,6 @@ function locateSourceAction(
               prescriptionSequence: prescription.sequence,
             },
             prescription,
-            set,
           };
       }
   return null;
@@ -521,7 +562,6 @@ function locateCorrespondingPrescription(
 function diffPrescription(
   source: ExercisePrescription,
   implemented: ExercisePrescription,
-  explained: ReadonlyMap<number, ReadonlySet<InterventionDimension>>,
 ): readonly FidelityDifference[] {
   const differences: FidelityDifference[] = [];
   if (source.exerciseId !== implemented.exerciseId)
@@ -533,8 +573,7 @@ function diffPrescription(
       (item) => item.sequence === sourceSet.sequence,
     );
     if (!implementedSet) continue;
-    for (const dimension of interventionDimensions) {
-      if (explained.get(sourceSet.sequence)?.has(dimension)) continue;
+    for (const dimension of setLevelDimensions) {
       if (
         !samePrescriptionValue(
           prescriptionDimensionValue(sourceSet, dimension),
@@ -571,8 +610,10 @@ function interventionProgramReference(
 type ResolvedAction = Readonly<{
   snapshot: InterventionActionSnapshot;
   fidelity: InterventionActionFidelity;
-  source: (LocatedPrescription & Readonly<{ set: PrescriptionSet }>) | null;
+  source: LocatedPrescription | null;
   implemented: LocatedPrescription | null;
+  /** Structural edit that kept the planned set count (not a set-count change). */
+  countUnchangedStructuralEdit: boolean;
 }>;
 
 function uniqueEvidence(
@@ -587,30 +628,59 @@ function uniqueEvidence(
   );
 }
 
+/**
+ * Fidelity compares the ACTIVATED (or current draft) prescription with the
+ * expected materialized prescription (pure mirror of the RPC). Differences
+ * are manual edits or proposal values that were not kept.
+ */
 function resolveActions(
   decision: CoachDecision,
   sourceProgram: TrainingProgram | null,
   implementedProgram: TrainingProgram | null,
 ): readonly ResolvedAction[] {
+  const actions = decision.proposal.actions;
   const implementedPrescriptions = implementedProgram
     ? flattenPrescriptions(implementedProgram)
     : [];
-  const proposed = decision.proposal.actions.map((action) => ({
-    action,
-    source: locateSourceAction(sourceProgram, action),
-  }));
-  const explainedByPrescription = new Map<
-    string,
-    Map<number, Set<InterventionDimension>>
-  >();
-  const located = proposed.map(({ action, source }) => {
-    const correspondence = source
+  const correspondenceFor = (source: LocatedPrescription | null) =>
+    source
       ? locateCorrespondingPrescription(implementedPrescriptions, source)
       : { match: null, exerciseIdentityPreserved: null };
+  const expectedFor = (source: LocatedPrescription) =>
+    materializeProposalPrescription(source.prescription, actions);
+  const additionalFor = (
+    source: LocatedPrescription | null,
+    match: LocatedPrescription | null,
+  ) =>
+    source && match
+      ? diffPrescription(expectedFor(source), match.prescription)
+      : [];
+  const resolved: Omit<ResolvedAction, "snapshot" | "fidelity">[] = [];
+  const snapshots: InterventionActionSnapshot[] = [];
+  const fidelities: InterventionActionFidelity[] = [];
+
+  actions.forEach((action, proposalIndex) => {
+    if (isSetCountAction(action)) return;
+    const source = locateSourcePrescription(
+      sourceProgram,
+      action.trainingDayId,
+      action.exercisePrescriptionId,
+    );
+    const sourceSet =
+      source?.prescription.sets.find(
+        (item) => item.id === action.prescriptionSetId,
+      ) ?? null;
+    const located = sourceSet ? source : null;
+    const correspondence = correspondenceFor(located);
+    const expectedSet =
+      located && sourceSet
+        ? (expectedFor(located).sets.find((item) => item.id === sourceSet.id) ??
+          null)
+        : null;
     const implementedSet =
-      source && correspondence.match
+      expectedSet && correspondence.match
         ? (correspondence.match.prescription.sets.find(
-            (item) => item.sequence === source.set.sequence,
+            (item) => item.sequence === expectedSet.sequence,
           ) ?? null)
         : null;
     const dimension = dimensionByKind[action.kind];
@@ -618,79 +688,179 @@ function resolveActions(
     const implementedValue = implementedSet
       ? prescriptionDimensionValue(implementedSet, dimension)
       : null;
-    if (
-      source &&
-      correspondence.match &&
-      samePrescriptionValue(proposedValue, implementedValue)
-    ) {
-      const key = prescriptionKey(source.path);
-      const bySet = explainedByPrescription.get(key) ?? new Map();
-      bySet.set(
-        source.set.sequence,
-        new Set([...(bySet.get(source.set.sequence) ?? []), dimension]),
-      );
-      explainedByPrescription.set(key, bySet);
-    }
-    return {
-      action,
-      source,
-      match: correspondence.match,
-      exerciseIdentityPreserved: correspondence.exerciseIdentityPreserved,
-      implementedSet,
+    const actionIndex = snapshots.length;
+    snapshots.push({
+      actionIndex,
+      proposalActionIndexes: [proposalIndex],
+      kind: action.kind,
       dimension,
+      exerciseId: located?.prescription.exerciseId ?? null,
+      exerciseName: located?.prescription.exerciseName ?? null,
+      sourcePath:
+        located && sourceSet
+          ? { ...located.path, setSequence: sourceSet.sequence }
+          : null,
+      sourcePrescriptionSetId: action.prescriptionSetId,
+      sourceScopeSetIds: [action.prescriptionSetId],
+      implementedScopeSetIds: implementedSet ? [implementedSet.id] : [],
+      setCountChange: null,
+      sourceValue: sourceSet
+        ? prescriptionDimensionValue(sourceSet, dimension)
+        : null,
       proposedValue,
+      materializedValue: proposedValue,
+      materializedValueProvenance: "reconstructed_from_source_and_action",
+      implementedPrescriptionSetId: implementedSet?.id ?? null,
       implementedValue,
-    };
+      rationale: action.rationale,
+      evidence: action.evidence,
+    });
+    fidelities.push({
+      actionIndex,
+      locatedInImplementedProgram: implementedSet !== null,
+      exerciseIdentityPreserved: implementedProgram
+        ? correspondence.exerciseIdentityPreserved
+        : null,
+      proposedValueImplemented: implementedSet
+        ? samePrescriptionValue(proposedValue, implementedValue)
+        : implementedProgram
+          ? false
+          : null,
+      additionalChangesInAffectedPrescription: additionalFor(
+        located,
+        correspondence.match,
+      ),
+    });
+    resolved.push({
+      source: located,
+      implemented: correspondence.match,
+      countUnchangedStructuralEdit: false,
+    });
   });
-  return located.map((item, actionIndex) => {
-    const additional =
-      item.source && item.match
-        ? diffPrescription(
-            item.source.prescription,
-            item.match.prescription,
-            explainedByPrescription.get(prescriptionKey(item.source.path)) ??
-              new Map(),
+
+  // One set_count snapshot per prescription touched by add/remove actions.
+  const structural = actions
+    .map((action, index) => ({ action, index }))
+    .filter(
+      (
+        item,
+      ): item is {
+        action: AddPrescriptionSetAction | RemovePrescriptionSetAction;
+        index: number;
+      } => isSetCountAction(item.action),
+    );
+  const keys = [
+    ...new Set(
+      structural.map(
+        ({ action }) =>
+          `${action.trainingDayId}|${action.exercisePrescriptionId}`,
+      ),
+    ),
+  ];
+  for (const key of keys) {
+    const [dayId, prescriptionId] = key.split("|") as [string, string];
+    const items = structural.filter(
+      ({ action }) =>
+        action.trainingDayId === dayId &&
+        action.exercisePrescriptionId === prescriptionId,
+    );
+    const source = locateSourcePrescription(
+      sourceProgram,
+      dayId,
+      prescriptionId,
+    );
+    const correspondence = correspondenceFor(source);
+    const expected = source ? expectedFor(source) : null;
+    const implementedSets = correspondence.match?.prescription.sets ?? null;
+    const sourceValue = source
+      ? {
+          dimension: "set_count" as const,
+          count: source.prescription.sets.length,
+        }
+      : null;
+    const proposedCount =
+      expected?.sets.length ??
+      items.filter(({ action }) => action.kind === "add_prescription_set")
+        .length -
+        items.filter(({ action }) => action.kind === "remove_prescription_set")
+          .length;
+    const proposedValue = {
+      dimension: "set_count" as const,
+      count: proposedCount,
+    };
+    const implementedValue = implementedSets
+      ? { dimension: "set_count" as const, count: implementedSets.length }
+      : null;
+    const removedIds = new Set(
+      items
+        .map(({ action }) => action)
+        .filter(
+          (action): action is RemovePrescriptionSetAction =>
+            action.kind === "remove_prescription_set",
+        )
+        .map((action) => action.prescriptionSetId),
+    );
+    const actionIndex = snapshots.length;
+    snapshots.push({
+      actionIndex,
+      proposalActionIndexes: items.map(({ index }) => index),
+      kind: "set_count_change",
+      dimension: "set_count",
+      exerciseId: source?.prescription.exerciseId ?? null,
+      exerciseName: source?.prescription.exerciseName ?? null,
+      sourcePath: source ? { ...source.path, setSequence: null } : null,
+      sourcePrescriptionSetId: null,
+      sourceScopeSetIds: source?.prescription.sets.map((set) => set.id) ?? [],
+      implementedScopeSetIds: implementedSets?.map((set) => set.id) ?? [],
+      setCountChange: {
+        addedSets: items
+          .map(({ action }) => action)
+          .filter(
+            (action): action is AddPrescriptionSetAction =>
+              action.kind === "add_prescription_set",
           )
-        : [];
-    return {
-      source: item.source,
-      implemented: item.match,
-      snapshot: {
-        actionIndex,
-        kind: item.action.kind,
-        dimension: item.dimension,
-        exerciseId: item.source?.prescription.exerciseId ?? null,
-        exerciseName: item.source?.prescription.exerciseName ?? null,
-        sourcePath: item.source
-          ? { ...item.source.path, setSequence: item.source.set.sequence }
-          : null,
-        sourcePrescriptionSetId: item.action.prescriptionSetId,
-        sourceValue: item.source
-          ? prescriptionDimensionValue(item.source.set, item.dimension)
-          : null,
-        proposedValue: item.proposedValue,
-        materializedValue: item.proposedValue,
-        materializedValueProvenance: "reconstructed_from_source_and_action",
-        implementedPrescriptionSetId: item.implementedSet?.id ?? null,
-        implementedValue: item.implementedValue,
-        rationale: item.action.rationale,
-        evidence: item.action.evidence,
+          .map((action) => action.plannedSet),
+        removedSets:
+          source?.prescription.sets.filter((set) => removedIds.has(set.id)) ??
+          [],
       },
-      fidelity: {
-        actionIndex,
-        locatedInImplementedProgram: item.implementedSet !== null,
-        exerciseIdentityPreserved: implementedProgram
-          ? item.exerciseIdentityPreserved
+      sourceValue,
+      proposedValue,
+      materializedValue: proposedValue,
+      materializedValueProvenance: "reconstructed_from_source_and_action",
+      implementedPrescriptionSetId: null,
+      implementedValue,
+      rationale: items.map(({ action }) => action.rationale).join(" "),
+      evidence: items.flatMap(({ action }) => action.evidence),
+    });
+    fidelities.push({
+      actionIndex,
+      locatedInImplementedProgram: implementedSets !== null,
+      exerciseIdentityPreserved: implementedProgram
+        ? correspondence.exerciseIdentityPreserved
+        : null,
+      proposedValueImplemented: implementedValue
+        ? samePrescriptionValue(proposedValue, implementedValue)
+        : implementedProgram
+          ? false
           : null,
-        proposedValueImplemented: item.implementedSet
-          ? samePrescriptionValue(item.proposedValue, item.implementedValue)
-          : implementedProgram
-            ? false
-            : null,
-        additionalChangesInAffectedPrescription: additional,
-      },
-    };
-  });
+      additionalChangesInAffectedPrescription: additionalFor(
+        source,
+        correspondence.match,
+      ),
+    });
+    resolved.push({
+      source,
+      implemented: correspondence.match,
+      countUnchangedStructuralEdit:
+        sourceValue !== null && sourceValue.count === proposedCount,
+    });
+  }
+  return resolved.map((item, index) => ({
+    ...item,
+    snapshot: snapshots[index]!,
+    fidelity: fidelities[index]!,
+  }));
 }
 
 function programWideChanges(
@@ -727,8 +897,7 @@ function programWideChanges(
     );
     if (
       !counterpart ||
-      diffPrescription(item.prescription, counterpart.prescription, new Map())
-        .length > 0
+      diffPrescription(item.prescription, counterpart.prescription).length > 0
     )
       changed += 1;
   }
@@ -841,7 +1010,7 @@ function rangeCounts(
 
 function plannedWorkoutValue(
   set: WorkoutSet,
-  dimension: InterventionDimension,
+  dimension: SetLevelDimension,
 ): PrescriptionDimensionValue {
   return prescriptionDimensionValue(
     {
@@ -899,7 +1068,9 @@ export function deriveObservedFacts(
     );
   const planned = new Map<string, PlannedValueObservation>();
   for (const set of completed)
-    for (const dimension of dimensions) {
+    for (const dimension of setLevelDimensions.filter((item) =>
+      dimensions.includes(item),
+    )) {
       const value = plannedWorkoutValue(set, dimension);
       const key = JSON.stringify(value);
       planned.set(key, {
@@ -908,7 +1079,10 @@ export function deriveObservedFacts(
       });
     }
   return {
+    exposureCount: null,
+    plannedSetCount: sets.length,
     completedSetCount: completed.length,
+    pendingSetCount: sets.filter((set) => set.status === "pending").length,
     skippedSetCount: sets.filter((set) => set.status === "skipped").length,
     actualReps: summarize(values("reps")),
     actualSeconds: summarize(values("seconds")),
@@ -1021,11 +1195,23 @@ function windowFacts(
     exerciseName,
     exposureLimit: OUTCOME_EXPOSURE_WINDOW,
     exposures: candidates.map(toExposure),
-    exercise: deriveObservedFacts(sets, dimensions),
-    affectedPrescriptionSets: deriveObservedFacts(
-      sets.filter((set) => affectedSetIds.has(set.sourcePrescriptionSetId)),
-      dimensions,
-    ),
+    exercise: {
+      ...deriveObservedFacts(sets, dimensions),
+      exposureCount: candidates.length,
+    },
+    affectedPrescriptionSets: {
+      ...deriveObservedFacts(
+        sets.filter((set) => affectedSetIds.has(set.sourcePrescriptionSetId)),
+        dimensions,
+      ),
+      exposureCount: candidates.filter((candidate) =>
+        candidate.exercises.some((exercise) =>
+          exercise.sets.some((set) =>
+            affectedSetIds.has(set.sourcePrescriptionSetId),
+          ),
+        ),
+      ).length,
+    },
   };
 }
 
@@ -1051,19 +1237,21 @@ function ratio(numerator: number, denominator: number): number | null {
 export const outcomeMetricDimensions: Readonly<
   Record<OutcomeMetric, readonly InterventionDimension[]>
 > = {
-  completed_sets_per_exposure: [],
+  planned_sets_per_exposure: ["set_count"],
+  completed_sets_per_exposure: ["set_count"],
+  actual_reps_per_exposure: ["set_count"],
   mean_actual_reps_per_set: ["target", "absolute_load"],
   mean_actual_seconds_per_set: ["target"],
   mean_actual_meters_per_set: ["target"],
-  best_logged_load_kg: ["target", "absolute_load"],
-  best_estimated_one_rep_max_kg: ["target", "absolute_load"],
-  target_within_range_rate: ["target", "absolute_load"],
+  best_logged_load_kg: ["target", "absolute_load", "set_count"],
+  best_estimated_one_rep_max_kg: ["target", "absolute_load", "set_count"],
+  target_within_range_rate: ["target", "absolute_load", "set_count"],
   load_coverage_rate: ["absolute_load"],
-  rir_coverage_rate: ["planned_rir"],
-  rir_within_planned_rate: ["planned_rir"],
+  rir_coverage_rate: ["planned_rir", "set_count"],
+  rir_within_planned_rate: ["planned_rir", "set_count"],
   mean_actual_rir: ["planned_rir", "absolute_load"],
-  rest_coverage_rate: ["planned_rest"],
-  rest_within_planned_rate: ["planned_rest"],
+  rest_coverage_rate: ["planned_rest", "set_count"],
+  rest_within_planned_rate: ["planned_rest", "set_count"],
   mean_measured_rest_seconds: ["planned_rest"],
 };
 
@@ -1078,6 +1266,18 @@ function readMetric(
   exposureCount: number,
 ): MetricReading {
   switch (metric) {
+    case "planned_sets_per_exposure":
+      return {
+        unit: "sets",
+        value: ratio(facts.plannedSetCount, exposureCount),
+        sampleCount: exposureCount,
+      };
+    case "actual_reps_per_exposure":
+      return {
+        unit: "reps",
+        value: ratio(facts.actualReps.total, exposureCount),
+        sampleCount: exposureCount,
+      };
     case "completed_sets_per_exposure":
       return {
         unit: "sets",
@@ -1165,6 +1365,13 @@ function readMetric(
   }
 }
 
+/** Per-session counts only make sense for the changed-set scope of set_count. */
+const perExposureMetrics: ReadonlySet<OutcomeMetric> = new Set([
+  "planned_sets_per_exposure",
+  "completed_sets_per_exposure",
+  "actual_reps_per_exposure",
+]);
+
 function compareWindows(
   baseline: ExerciseOutcomeWindow,
   post: ExerciseOutcomeWindow,
@@ -1189,11 +1396,21 @@ function compareWindows(
     outcomeMetrics
       .filter(
         (metric) =>
-          kind === "exercise" || metric !== "completed_sets_per_exposure",
+          kind === "exercise" ||
+          !perExposureMetrics.has(metric) ||
+          exerciseDimensions.includes("set_count"),
       )
       .map((metric) => {
-        const a = readMetric(metric, before, baseline.exposures.length);
-        const b = readMetric(metric, after, post.exposures.length);
+        const a = readMetric(
+          metric,
+          before,
+          before.exposureCount ?? baseline.exposures.length,
+        );
+        const b = readMetric(
+          metric,
+          after,
+          after.exposureCount ?? post.exposures.length,
+        );
         return { metric, a, b };
       })
       .filter(({ a, b }) => a.value !== null || b.value !== null)
@@ -1472,6 +1689,11 @@ export function buildInterventionOutcome(
       });
     if (item.fidelity.exerciseIdentityPreserved === false)
       limitations.push({ code: "exercise_identity_changed", exerciseId });
+    if (item.countUnchangedStructuralEdit)
+      limitations.push({
+        code: "set_structure_changed_without_count_change",
+        exerciseId,
+      });
     if (item.fidelity.additionalChangesInAffectedPrescription.length > 0)
       limitations.push({
         code: "unproposed_changes_in_affected_prescription",
@@ -1490,12 +1712,10 @@ export function buildInterventionOutcome(
         items.some((item) => item.snapshot.dimension === dimension),
       ),
       sourceSetIds: new Set(
-        items.map((item) => item.snapshot.sourcePrescriptionSetId),
+        items.flatMap((item) => item.snapshot.sourceScopeSetIds),
       ),
       implementedSetIds: new Set(
-        items
-          .map((item) => item.snapshot.implementedPrescriptionSetId)
-          .filter((id): id is string => id !== null),
+        items.flatMap((item) => item.snapshot.implementedScopeSetIds),
       ),
     };
   });
@@ -1758,6 +1978,23 @@ export type IndividualResponseEvidence = Readonly<{
   episodes: readonly IndividualResponseEpisode[];
 }>;
 
+/**
+ * A set_count snapshot whose activated count equals the source count is a
+ * structural edit, not a set-count intervention (ADR-0063).
+ */
+export function isUnchangedSetCount(
+  action: InterventionActionSnapshot,
+): boolean {
+  if (action.dimension !== "set_count" || action.sourceValue === null)
+    return false;
+  const after = action.implementedValue ?? action.proposedValue;
+  return (
+    after.dimension === "set_count" &&
+    action.sourceValue.dimension === "set_count" &&
+    after.count === action.sourceValue.count
+  );
+}
+
 function actionTargetMetric(
   action: InterventionActionSnapshot,
 ): TargetMetric | null {
@@ -1792,7 +2029,7 @@ export function buildIndividualResponseEvidence(
     );
   for (const evaluation of activated) {
     const actions = evaluation.episode.actions.filter(
-      (action) => action.exerciseId !== null,
+      (action) => action.exerciseId !== null && !isUnchangedSetCount(action),
     );
     const keys = new Set(
       actions.map(

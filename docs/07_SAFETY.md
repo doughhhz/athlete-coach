@@ -80,3 +80,7 @@ Comparações antes/depois não são apresentadas como prova de que uma mudança
 ## Phase 12 — Memória não supera safety
 
 Histórico de performance nunca justifica continuar com dor ou sintomas; os gates da Phase 9/10 permanecem antes de qualquer uso da memória, e o prompt v3 reafirma isso. A memória é dado não confiável para fins de instrução (textos de programa/exercício não viram instruções). Leituras usam o JWT do atleta e o domínio refiltra por `athleteId`; mistura entre atletas é falha crítica e é testada. Não há ML, RL, pesos aprendidos ou adaptação automática.
+
+## Phase 13 — Mudanças de séries
+
+Adicionar ou remover séries é proposta revisada por humano, materializada apenas em draft e nunca ativada automaticamente. Safety da Phase 9/10 continua bloqueando propostas quando há sinais de dor, lesão ou sintomas; histórico de séries não supera essas regras. Não há inferência de volume ideal nem adaptação automática.

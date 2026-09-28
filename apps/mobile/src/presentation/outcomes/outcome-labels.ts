@@ -26,10 +26,13 @@ export const dimensionLabels: Readonly<Record<InterventionDimension, string>> =
     planned_rir: "RIR planejado",
     planned_rest: "Descanso planejado",
     absolute_load: "Carga absoluta planejada",
+    set_count: "Quantidade de séries planejadas",
   };
 
 export const metricLabels: Readonly<Record<OutcomeMetric, string>> = {
-  completed_sets_per_exposure: "Séries realizadas por sessão",
+  planned_sets_per_exposure: "Séries planejadas por sessão",
+  completed_sets_per_exposure: "Séries concluídas por sessão",
+  actual_reps_per_exposure: "Reps registradas por sessão",
   mean_actual_reps_per_set: "Reps registradas por série (média)",
   mean_actual_seconds_per_set: "Segundos registrados por série (média)",
   mean_actual_meters_per_set: "Metros registrados por série (média)",
@@ -77,6 +80,8 @@ export const limitationLabels: Readonly<Record<OutcomeLimitationCode, string>> =
     rest_observations_missing: "Descanso não medido",
     rest_observations_partial: "Descanso medido só em parte das séries",
     load_observations_missing: "Carga não registrada",
+    set_structure_changed_without_count_change:
+      "Séries trocadas sem mudar a quantidade planejada",
     body_weight_unavailable: "Peso corporal indisponível no período",
     body_weight_changed: "O peso corporal registrado mudou no período",
   };
@@ -96,6 +101,8 @@ export function formatPrescriptionValue(
     return `RIR ${range(value.min, value.max, "")}`;
   if (value.dimension === "planned_rest")
     return range(value.minSeconds, value.maxSeconds, " s");
+  if (value.dimension === "set_count")
+    return `${value.count} ${value.count === 1 ? "série" : "séries"}`;
   return value.loadKind === "absolute" && value.loadKg !== null
     ? `${value.loadKg} kg`
     : "sem carga absoluta";
@@ -143,4 +150,38 @@ export function comparabilityReasonLabel(reason: ComparabilityReason): string {
   if (reason === "no_relevant_comparison")
     return "Sem comparação antes/depois para esta dimensão";
   return limitationLabels[reason];
+}
+
+/** Factual one-line description of a planned set (targets as planned). */
+export function formatPlannedSet(
+  set: Readonly<{
+    targetMetric: string;
+    targetMin: number;
+    targetMax: number;
+    rirMin: number | null;
+    rirMax: number | null;
+    restMinSeconds: number | null;
+    restMaxSeconds: number | null;
+    tempo: string | null;
+    loadKind: string;
+    loadKg: number | null;
+  }>,
+): string {
+  return [
+    range(set.targetMin, set.targetMax, ` ${set.targetMetric}`),
+    set.rirMin === null
+      ? "sem RIR planejado"
+      : `RIR ${range(set.rirMin, set.rirMax, "")}`,
+    set.restMinSeconds === null
+      ? "sem descanso planejado"
+      : `${range(set.restMinSeconds, set.restMaxSeconds, " s")} de descanso`,
+    set.tempo ? `tempo ${set.tempo}` : null,
+    set.loadKind === "absolute" && set.loadKg !== null
+      ? `${set.loadKg} kg`
+      : set.loadKind === "athlete_selected"
+        ? "carga escolhida pelo atleta"
+        : "carga não prescrita",
+  ]
+    .filter((item): item is string => item !== null)
+    .join(" · ");
 }

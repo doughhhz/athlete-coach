@@ -8,11 +8,15 @@ import {
   Text,
   View,
 } from "react-native";
-import type {
-  CoachDecision,
-  PrescriptionSet,
-  TrainingProgram,
+import {
+  isSetCountAction,
+  summarizeSetCountChanges,
+  type CoachDecision,
+  type CoachProposalAdjustAction,
+  type PrescriptionSet,
+  type TrainingProgram,
 } from "@athlete-coach/domain";
+import { formatPlannedSet } from "@/presentation/outcomes/outcome-labels";
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 
@@ -22,7 +26,7 @@ const labels = {
   adjust_prescription_rest: "Descanso planejado",
   adjust_absolute_load_target: "Carga absoluta planejada",
 } as const;
-type ProposalAction = CoachDecision["proposal"]["actions"][number];
+type ProposalAction = CoachProposalAdjustAction;
 
 function findSourceSet(
   program: TrainingProgram | null,
@@ -119,31 +123,73 @@ export default function CoachProposalReview() {
       <Text style={{ color: theme.colors.text }}>
         {decision.proposal.rationale}
       </Text>
-      {decision.proposal.actions.map((action, index) => (
-        <View
-          key={`${action.kind}-${index}`}
-          style={[
-            styles.card,
-            {
-              borderColor: theme.colors.border,
-              backgroundColor: theme.colors.surface,
-            },
-          ]}
-        >
-          <Text style={[styles.heading, { color: theme.colors.text }]}>
-            {labels[action.kind]}
-          </Text>
-          <Text style={{ color: theme.colors.text }}>
-            Antes: {formatBefore(findSourceSet(sourceProgram, action), action)}
-          </Text>
-          <Text style={{ color: theme.colors.text }}>
-            Proposto: {formatAfter(action)}
-          </Text>
-          <Text style={{ color: theme.colors.textMuted }}>
-            {action.rationale} · {action.evidence.length} evidência(s)
-          </Text>
-        </View>
-      ))}
+      {summarizeSetCountChanges(decision.proposal, sourceProgram).map(
+        (change) => (
+          <View
+            key={change.exercisePrescriptionId}
+            style={[
+              styles.card,
+              {
+                borderColor: theme.colors.border,
+                backgroundColor: theme.colors.surface,
+              },
+            ]}
+          >
+            <Text style={[styles.heading, { color: theme.colors.text }]}>
+              {change.exerciseName}
+            </Text>
+            <Text style={{ color: theme.colors.text }}>
+              Séries planejadas: {change.beforeSetCount} →{" "}
+              {change.afterSetCount}
+            </Text>
+            {change.addedSets.map((set, index) => (
+              <Text key={`add-${index}`} style={{ color: theme.colors.text }}>
+                Nova série: {formatPlannedSet(set)}
+              </Text>
+            ))}
+            {change.removedSets.map((set) => (
+              <Text key={set.id} style={{ color: theme.colors.text }}>
+                Série removida: Série {set.sequence} · {formatPlannedSet(set)}
+              </Text>
+            ))}
+            <Text style={{ color: theme.colors.textMuted }}>
+              Quantidade de séries planejadas desta prescrição; não representa
+              volume muscular.
+            </Text>
+          </View>
+        ),
+      )}
+      {decision.proposal.actions
+        .filter(
+          (action): action is CoachProposalAdjustAction =>
+            !isSetCountAction(action),
+        )
+        .map((action, index) => (
+          <View
+            key={`${action.kind}-${index}`}
+            style={[
+              styles.card,
+              {
+                borderColor: theme.colors.border,
+                backgroundColor: theme.colors.surface,
+              },
+            ]}
+          >
+            <Text style={[styles.heading, { color: theme.colors.text }]}>
+              {labels[action.kind]}
+            </Text>
+            <Text style={{ color: theme.colors.text }}>
+              Antes:{" "}
+              {formatBefore(findSourceSet(sourceProgram, action), action)}
+            </Text>
+            <Text style={{ color: theme.colors.text }}>
+              Proposto: {formatAfter(action)}
+            </Text>
+            <Text style={{ color: theme.colors.textMuted }}>
+              {action.rationale} · {action.evidence.length} evidência(s)
+            </Text>
+          </View>
+        ))}
       <Text style={{ color: theme.colors.textMuted }}>
         A proposta será aplicada a uma nova revisão do programa. Seu programa
         ativo não será alterado até você revisar e ativar a nova versão.

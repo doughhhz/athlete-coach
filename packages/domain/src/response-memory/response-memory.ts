@@ -21,7 +21,7 @@ import {
 import type { TargetMetric } from "../training/training.ts";
 
 export const INDIVIDUAL_RESPONSE_MEMORY_SCHEMA_VERSION =
-  "individual-response-memory-v1" as const;
+  "individual-response-memory-v2" as const;
 export const RESPONSE_MEMORY_NOTICE =
   "Response Memory remembers observations, not truths." as const;
 export const RESPONSE_MEMORY_POLICY_NOTICE =
@@ -108,6 +108,8 @@ export function deriveChangeDirection(
       after.minSeconds,
       after.maxSeconds,
     );
+  if (before.dimension === "set_count" && after.dimension === "set_count")
+    return numericDirection(before.count, after.count);
   if (
     before.dimension === "absolute_load" &&
     after.dimension === "absolute_load"
@@ -163,6 +165,7 @@ export const structuralConfounderCodes = [
   "program_revision_changed_other_prescriptions",
   "exercise_identity_changed",
   "proposed_action_not_present_at_activation",
+  "set_structure_changed_without_count_change",
 ] as const satisfies readonly OutcomeLimitationCode[];
 
 const missingObservationCode: Readonly<
@@ -207,7 +210,13 @@ export function responseMetricsFor(
       scope: "affected_prescription_sets" as const,
     }));
   const exercise: readonly OutcomeMetric[] = [
+    ...(dimension === "set_count"
+      ? (["planned_sets_per_exposure"] as const)
+      : []),
     "completed_sets_per_exposure",
+    ...(dimension === "set_count"
+      ? (["actual_reps_per_exposure"] as const)
+      : []),
     "best_logged_load_kg",
     "best_estimated_one_rep_max_kg",
   ];

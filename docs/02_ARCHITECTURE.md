@@ -164,3 +164,11 @@ Loop com controle humano (não autonomia):
 Response Memory → Coach Interpretation → Structured Proposal → Validator
   → Human Approval → Program Revision → Outcome → Response Memory
 ```
+
+## Phase 13 set-count boundary
+
+`coach-proposal-v2` adiciona ações estruturadas de séries; o validator e o espelho puro `materializeProposalPrescription` vivem no domínio, a materialização autoritativa na RPC transacional (`20260929120000`). O mobile nunca aplica edições derivadas do modelo. Outcome v2, IRE v3, Response Memory v2 e Dossier v4 incorporam a dimensão `set_count` sem novas tabelas.
+
+Roadmap separado (não implementado): atual = intervenção de quantidade de séries por Exercise; futuro = intervenção de frequência; futuro = troca de exercício; futuro = modelagem de volume por músculo.
+
+Validação local das Edge Functions: além da falha ambiental de TLS já conhecida, o runtime Deno não resolve imports sem extensão em `packages/data-access/src/index.ts` nem especificadores `@athlete-coach/*` (sem import map). A falha existe no baseline da Phase 12 e em `coach-decide` inalterada; registrada como dívida para tarefa separada.

@@ -245,9 +245,30 @@ export function ProgramBuilderScreen() {
           </View>
           {p.sets.map((set, si) => (
             <View key={si} style={s.set}>
-              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
-                Série {si + 1}
-              </Text>
+              <View style={s.row}>
+                <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
+                  Série {si + 1}
+                </Text>
+                {p.sets.length > 1 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remover série ${si + 1} de ${p.exercise.namePt}`}
+                    onPress={() =>
+                      setPicked((v) =>
+                        v.map((x, i) =>
+                          i === pi
+                            ? { ...x, sets: x.sets.filter((_, j) => j !== si) }
+                            : x,
+                        ),
+                      )
+                    }
+                  >
+                    <Text style={{ color: theme.colors.danger }}>
+                      Remover série
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <View style={s.row}>
                 <Select
                   label="Reps"

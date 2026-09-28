@@ -157,3 +157,7 @@ Sem novas tabelas, views ou índices. `InterventionEpisode`, `InterventionFideli
 ## Individual Response Memory — Phase 12
 
 Sem persistência: `individual-response-memory-v1` é reconstruída de `coach_decisions`, lineage/ativação de programas, workouts e peso corporal via outcomes da Phase 11. Três conceitos distintos: `docs/09_DECISION_LEDGER.md` (decisões do projeto), `coach_decisions` (runtime ledger do atleta) e Response Memory (projeção derivada sobre esse histórico). Não existem `athlete_response_memory`, `learned_preferences`, `response_scores` nem pesos. `IndividualResponseEvidence` passou a v2 (agrupamento com métrica de target). `AthleteTrainingDossier v3` adiciona `responseMemory` (≤10 grupos, ≤5 episódios detalhados por grupo) e o evidence kind `response_memory_group`. Correções futuras legítimas de Raw Data ou programa aparecem automaticamente no rebuild; o usuário não edita a memória.
+
+## Phase 13 — Proposal v2 e set_count
+
+`coach_decisions.proposal_schema_version` aceita `coach-proposal-v1` e `coach-proposal-v2`, com o snapshot obrigatoriamente na mesma versão. Snapshots v1 permanecem intactos. Sem novas tabelas: `set_count` é derivado de `prescription_sets` do programa de origem e do ativado; o conteúdo de sets adicionados vive no snapshot da proposta e, após materialização, como linhas normais do draft. `PrescriptionSet.sequence` continua positivo, único e contíguo após add/remove. Uma prescrição mantém pelo menos um set.
