@@ -1,5 +1,6 @@
 import {
   COACH_ANALYSIS_SCHEMA_VERSION,
+  athleteTrainingDossierSchemaVersions,
   coachConfidenceLevels,
   coachRecommendationCategories,
   coachSafetyFlagKinds,
@@ -14,6 +15,7 @@ const evidence = z.object({
     "exercise",
     "body_weight_entry",
     "derived_calculation",
+    "coach_decision",
   ]),
   id: z.string().min(1).max(200),
   version: z.string().max(100).nullable(),
@@ -71,7 +73,7 @@ export const coachAnalysisSchema = z.object({
     )
     .max(10),
   metadata: z.object({
-    dossierSchemaVersion: z.literal("athlete-training-dossier-v1"),
+    dossierSchemaVersion: z.enum(athleteTrainingDossierSchemaVersions),
     promptVersion: z.string().min(1).max(100),
     policyVersion: z.string().min(1).max(100),
     provider: z.string().min(1).max(100),

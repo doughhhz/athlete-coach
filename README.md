@@ -142,3 +142,11 @@ O Personal usa o backend autenticado `coach-analyze`: constrói o dossier corren
 ## Phase 10 — Propostas revisadas do Personal
 
 Uma recomendação elegível pode gerar, sob demanda, um `coach-proposal-v1`. O backend aceita somente ajustes de target, RIR, descanso e carga absoluta sobre IDs canônicos, valida e persiste a proposta no Runtime Coaching Decision Ledger. A aprovação cria uma revisão em rascunho em uma única transação; o programa ativo permanece intacto e a ativação continua sendo uma ação humana separada.
+
+## Phase 11 — Resposta observada a intervenções
+
+Decisões materializadas cujo programa foi **ativado** viram episódios de intervenção. O sistema compara deterministicamente até 3 sessões do mesmo exercício antes e depois da ativação (`intervention-outcome-v1`), registra o que foi proposto vs. realmente ativado, expõe amostras, cobertura e limitações, e acumula `individual-response-evidence-v1` por exercício e dimensão. Tudo é recalculado sob demanda; não há tabelas novas. O dossier passou a `athlete-training-dossier-v2` com `interventionHistory` bounded, e o Personal usa `coach-system-v2`. **Post-intervention change is evidence, not proof of causation.** Nada disso adapta programas automaticamente.
+
+Uma migration corretiva (`20260928120000`) permite salvar novamente a estrutura de drafts já preenchidos (ADR-0055).
+
+Próximo passo recomendado: revisão humana da Phase 11 antes de qualquer nova fase.

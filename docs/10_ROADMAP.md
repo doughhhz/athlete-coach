@@ -115,3 +115,7 @@ Gateway autenticado, provider boundary, Gemini HTTP server-side, contratos estru
 ## Phase 10 — Structured Coach Proposals — complete
 
 Contrato versionado, geração sob demanda, validator determinístico, Runtime Coaching Decision Ledger, rejeição humana e materialização transacional draft-only foram implementados. O roadmap antigo que chamava Phase 10 de Recovery/Readiness está superseded por esta entrega; Recovery/Readiness permanece futuro. Ativação automática, outcome scoring, causal attribution e aprendizagem/autonomia permanecem explicitamente fora de escopo.
+
+## Phase 11 — Intervention Outcomes & Individual Response Evidence — complete
+
+Episode/activation semantics, fidelity proposta vs ativado, janelas por exposição, comparações factuais versionadas, individual response evidence acumulada, dossier v2, prompts v2, UI factual e correção do re-save de drafts (ADR-0055) foram implementados e validados. Fora de escopo e não implementados: adaptação/aprovação/ativação automática, inferência causal, previsão de volume/frequência ótimos, ML/RL/reward/fine-tuning, score oculto, readiness/fadiga, nutrição, HealthKit, benchmarking populacional, experimentação A/B e Coach autônomo. A antiga numeração “Phase 11 — Nutrition” permanece futura, como na nota da Phase 10.

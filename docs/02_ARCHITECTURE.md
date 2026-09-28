@@ -147,3 +147,9 @@ O gateway limita corpo a 16 KiB, contexto a seis mensagens, dez requests/minuto 
 `coach-propose` recompõe Dossier e programa ativo sob o JWT, chama o provider separado de proposals, valida schema/evidence/IDs/invariantes e persiste via backend. `coach-decide` aceita apenas intenção de rejeitar ou materializar. Materialização ocorre na RPC transacional `materialize_coach_decision`: lock do ledger, rechecagem de ownership/status/revision, clone com novos UUIDs, aplicação das actions suportadas e vínculo ao draft. Mobile nunca envia patch nem chama Gemini/SQL diretamente.
 
 Fluxo: `CoachAnalysis → GenerateCoachProposal (opcional) → validator determinístico → ledger proposed → decisão humana → RPC atômica → ProgramRevision draft`. Application/domain não importam Gemini ou Supabase; `packages/ai` não aplica programas.
+
+## Phase 11 outcome projection boundary
+
+`packages/domain/src/outcomes` contém funções puras: episode, fidelity, janelas por exposição, comparações, individual response e histórico bounded. `packages/application/src/outcomes` orquestra `BuildInterventionOutcomes`, `ListInterventionOutcomes`, `GetCoachDecisionOutcome`, `GetIndividualResponseEvidence` e `BuildInterventionHistory` sobre portas existentes (`CoachDecisionReader`, `TrainingProgramRepository.get`, `PerformanceReadRepository`) mais `BodyWeightHistoryReader` (read-only). Não há repository genérico, tabela ou cache.
+
+`coach-analyze` e `coach-propose` montam `athlete-training-dossier-v2` com `interventionHistory` lendo decisões pelo cliente com o JWT do atleta (RLS); o service role continua restrito às escritas do ledger. No mobile, decisões chegam pelo gateway autenticado `coach-decide list`. Nada nesta camada altera programas, prompts, proposals ou pesos de modelo.

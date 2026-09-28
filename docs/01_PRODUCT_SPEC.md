@@ -111,3 +111,7 @@ A tab Personal aceita perguntas e renderiza análise estruturada. A conversa man
 ## Phase 10 — Propostas e decisão humana
 
 Após uma análise, o atleta pode pedir opcionalmente uma proposta concreta. Toda proposta mostra mudança, motivo, evidência, limitações e programa/revisão de origem. O atleta pode rejeitar ou revisar; somente a ação explícita **Criar revisão em rascunho** materializa uma nova revisão. Não há aprovação, aplicação ou ativação automática. O histórico de decisões preserva proposed, rejected, stale e materialized; rejeição não treina o modelo.
+
+## Phase 11 — Resposta observada a alterações
+
+Depois que uma revisão criada a partir de uma proposta é **ativada**, o produto acompanha as primeiras sessões do mesmo exercício e mostra a comparação antes/depois com amostras, cobertura e limitações. Proposta sem ativação não é intervenção. A tela usa “Resposta observada”, “Comparação antes/depois”, “Evidência disponível” e “Poucos dados após a alteração”; nunca “funcionou”, sucesso ou efetividade. **Post-intervention change is evidence, not proof of causation.** O histórico acumulado por exercício e dimensão é contexto factual para o Personal, sem adaptação automática, score ou aprendizado de máquina. O objetivo anterior “entender se funcionou” permanece como intenção de produto, agora explicitamente limitado a evidência observacional.

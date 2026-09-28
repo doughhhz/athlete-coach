@@ -71,3 +71,7 @@ Personal oferece pergunta e estados de loading, sucesso estruturado, erro seguro
 ## Phase 10 — Revisão de proposta
 
 Recomendações elegíveis oferecem **Ver proposta de ajuste** sob demanda. A card mostra origem, rationale, evidence count e limitações; ações são **Rejeitar proposta** e **Revisar proposta**. A tela de revisão resolve o baseline e mostra diff factual Antes/Proposto. O CTA é **Criar revisão em rascunho**, acompanhado de aviso de que o ativo não muda até revisão e ativação posteriores. Sucesso oferece **Revisar rascunho**. Estados stale, loading, error/retry e histórico de decisões permanecem explícitos; não existe “Aplicar automaticamente”.
+
+## Phase 11 — Resposta observada
+
+Progresso ganha **Alterações acompanhadas**: proposta/data, status (aguardando ativação, coletando dados, poucos dados, comparação disponível, não ativada), exercício, alteração antes → aplicada, sessões observadas antes/depois, deltas numéricos e amostras, com estado vazio. No histórico do Personal, decisões com dados oferecem **Ver resposta observada**, que mostra ANTES, DEPOIS, DIFERENÇA, AMOSTRA e LIMITAÇÕES, proposto vs aplicado e o aviso de que mudança não é prova de causa. Loading, erro e retry são explícitos. Proibido: “Funcionou”, “Não funcionou”, sucesso, fracasso, efetividade, “Resultado da estratégia”.

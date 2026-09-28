@@ -241,3 +241,55 @@ test("propagates normalized provider timeout and unavailable errors", async () =
       (error) => error.code === code,
     );
 });
+test("v2 dossier: coach_decision evidence from intervention history grounds analysis and metadata records the real dossier version", async () => {
+  const decisionRef = {
+    kind: "coach_decision",
+    id: "decision-1",
+    version: "coach-proposal-v1",
+  };
+  const v2 = {
+    ...dossier,
+    schemaVersion: "athlete-training-dossier-v2",
+    interventionHistory: {
+      outcomeSchemaVersion: "intervention-outcome-v1",
+      interpretationNotice:
+        "Post-intervention change is evidence, not proof of causation.",
+      totalAvailable: 1,
+      included: 1,
+      hasMore: false,
+      items: [{ decisionId: "decision-1", evidence: [decisionRef] }],
+    },
+  };
+  const provider = {
+    analyze: async () => ({
+      analysis: analysis([decisionRef]),
+      provider: "fixture",
+      model: "deterministic",
+      inputTokens: null,
+      outputTokens: null,
+    }),
+  };
+  const result = await new AnalyzeAthleteWithCoach(
+    { execute: async () => v2 },
+    provider,
+    safety,
+    () => "request-1",
+  ).execute({
+    userRequest: "Já tentamos algo parecido?",
+    analysisMode: "question",
+  });
+  assert.equal(
+    result.metadata.dossierSchemaVersion,
+    "athlete-training-dossier-v2",
+  );
+  assert.deepEqual(result.evidenceUsed, [decisionRef]);
+  await assert.rejects(
+    () =>
+      new AnalyzeAthleteWithCoach(
+        { execute: async () => dossier },
+        provider,
+        safety,
+      ).execute({ userRequest: "x", analysisMode: "question" }),
+    InvalidCoachEvidenceError,
+  );
+});

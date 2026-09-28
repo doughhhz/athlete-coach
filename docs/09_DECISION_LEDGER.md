@@ -446,3 +446,71 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Decisão: source program/revision precisa continuar ativo na aprovação; caso contrário a decisão vira stale sem draft. Row lock, estado terminal, lineage única e retorno do mesmo registro materializado tornam retries idempotentes.
 - Motivo: impedir aplicação em baseline diferente e revisões duplicadas por double tap/retry.
 - Impacto: RPC transacional, testes e UX.
+
+### ADR-0048 — Intervention Episode semantics
+
+- Data: 2026-09-28
+- Status: accepted
+- Contexto: Phase 11 relaciona decisões do Coach a treino posterior.
+- Regra anterior: `coach_decisions` registrava proposta/decisão; não havia noção de intervenção executada.
+- Decisão: proposal ≠ materialized draft ≠ intervenção. `InterventionEpisode` é derivado de `CoachDecision` + programa materializado + `activated_at`. Outcome só começa quando o programa materializado foi efetivamente ativado; draft nunca ativado (`draft` → `awaiting_activation`; arquivado sem `activated_at` → `never_activated`) não é intervenção. `coach_decisions.status` não recebe `successful/failed/worked`; outcome é camada separada.
+- Motivo/evidência: `activated_at` é preservado ao arquivar/concluir (constraint da Phase 5); `materialized_program_id` é `on delete restrict`, logo o draft não pode ser apagado.
+- Impacto: domain `outcomes`, application, dossier, UI.
+
+### ADR-0049 — Outcome evidence is non-causal (`intervention-outcome-v1`)
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: **Post-intervention change is evidence, not proof of causation.** `InterventionOutcomeEvaluation` expõe antes, depois, `absoluteDelta`, `relativeDelta` (null com denominador zero ou valor ausente), amostras por métrica, cobertura, limitações e evidências. Proibidos: improved/worsened/success/failure/effective, score, tonnage, ajuste por peso corporal, resposta muscular. Eligibility factual: `not_materialized`, `awaiting_activation`, `never_activated`, `awaiting_post_exposure`, `limited_data`, `evaluable` (= computável para todo exercício afetado, não confiável clinicamente). Requisito técnico mínimo: ≥1 exposição antes e ≥1 depois.
+- Storage: nenhuma tabela, view ou cache. Projeção reconstruída sob demanda a partir de `coach_decisions`, programas/revisões, `activated_at` e workouts brutos (mesma política da ADR-0033).
+- Impacto: domain, application, docs, UI.
+
+### ADR-0050 — Exposure-based before/after windows
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: exposição = sessão terminal (completed/abandoned) com ≥1 série completed do mesmo `exercise_id` canônico; skipped/pending não criam exposição; sessões em andamento são ignoradas. Baseline = até 3 exposições mais recentes com `started_at` < `activated_at` (qualquer programa; `baseline_includes_other_programs` quando aplicável). Post = até 3 primeiras exposições com `started_at` ≥ `activated_at` **e** proveniência (training day → programa) igual ao programa de intervenção. Dois escopos: todas as séries do exercício e séries da prescrição alterada (source set ID antes; set correspondente ativado depois).
+- Stop condition: a janela pós fecha ao atingir 3 exposições ou quando o programa de intervenção deixa de estar ativo (substituição/arquivo/conclusão). É determinística via proveniência imutável, mas mais conservadora que "revisão que altera o mesmo exercício": qualquer nova ativação encerra a janela (limitação documentada).
+- Motivo: calendário mistura frequência, semanas sem treino e exercícios ausentes. Janelas civis de 7/28 dias do Dossier continuam como contexto separado.
+- Impacto: domain e documentação.
+
+### ADR-0051 — Proposal vs activated intervention fidelity
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: outcome avalia o programa **realmente ativado**. Cada action registra source, proposto, materializado (reconstruído: a RPC aplica a action literalmente e não há snapshot do draft) e ativado. A correspondência usa o caminho estrutural (sequências bloco/semana/dia/prescrição/set) com o mesmo exercício; fallback: única prescrição do mesmo exercício no mesmo dia. `InterventionFidelity` informa localização, identidade do exercício, igualdade do valor e diferenças adicionais (target, RIR, descanso, carga, tempo, número de sets, exercício) além de prescrições alteradas no resto do programa. Não existe fidelity score. Múltiplas actions ou edições manuais na prescrição geram `multiple_variables_changed_concurrently`.
+- Impacto: domain, UI e integração.
+
+### ADR-0052 — Individual Response Evidence contract
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: `individual-response-evidence-v1` agrupa episódios ativados apenas por `exercise_id` + dimensão (`target`, `planned_rir`, `planned_rest`, `absolute_load`). Cada episódio mantém prescrição antes/proposta/ativada, fatos, comparações, amostras e limitações próprios; não há média entre episódios, preferência, reward, bandit, RL ou alteração automática de prompts/proposals/programas. **Individual response is learned as accumulated evidence across comparable exposures, not as a single causal conclusion.** Volume/frequência exigem futuras interventions add/remove set e scheduling antes de qualquer aprendizado legítimo.
+- Impacto: domain/application.
+
+### ADR-0053 — Athlete Training Dossier v2
+
+- Data: 2026-09-28
+- Status: accepted
+- Regra anterior: `athlete-training-dossier-v1` (ADR-0034) sem histórico de intervenções.
+- Decisão: `athlete-training-dossier-v2` mantém todos os campos e significados de v1 e adiciona `interventionHistory` (até 10 decisões mais recentes por `proposedAt` desc/ID, com `totalAvailable/included/hasMore`, status de outcome, mudanças, amostras, comparações sem evidência inline, limitações e evidências). `null` significa não carregado. Evidence vocabulary ganha `coach_decision`. Metadata de `CoachAnalysis` aceita v1 (histórico) e v2 e passa a registrar a versão real do dossier enviado. v1 não é alterado silenciosamente: permanece em snapshots históricos.
+- Motivo: adicionar seção muda o contrato enviado ao provider; bump explícito evita quebra silenciosa.
+- Impacto: domain, application schemas, Edge Functions, mobile, testes e integração.
+
+### ADR-0054 — Coach prompt policy for prior interventions
+
+- Data: 2026-09-28
+- Status: accepted
+- Regra anterior: `coach-system-v1` e prompt de proposal sem política sobre outcomes.
+- Decisão: `coach-system-v2` = v1 literal + política: outcomes anteriores são evidência observacional com confounding; respeitar amostras; citar limitações; não afirmar causalidade; não assumir que delta passado garante resposta futura; não repetir/reverter mudança só pelo sinal do delta. Proposal prompt `coach-proposal-prompt-v2` (versão de prompt, distinta do schema `coach-proposal-v1`) proíbe repetição automática. v1 continua exportado como histórico. Nenhuma regra lexical determinística de causalidade foi adicionada ao output safety (limitação).
+- Impacto: packages/ai, application (fallback de safety), testes.
+
+### ADR-0055 — Corrective: re-saving draft structure
+
+- Data: 2026-09-28
+- Status: accepted
+- Contexto: a integração da Phase 11 (editar o draft materializado antes de ativar) revelou defeito da Phase 5.
+- Regra anterior: `replace_training_program_structure` apagava `training_blocks` e dependia de `ON DELETE CASCADE`.
+- Evidência: durante o cascade o pai já foi removido e `assert_program_structure_mutable()` não resolve o programa, lançando `Only draft program structure can be changed`. Qualquer draft com estrutura (salvo antes, clone de revisão, draft materializado pelo Coach) não podia ser salvo novamente. Reproduzido no banco local.
+- Decisão: migration nova `20260928120000_correct_draft_structure_replacement.sql` substitui somente a função, removendo filhos leaf-first. Guard, grants, ownership e semântica do draft inalterados; nenhuma migration anterior reescrita.
+- Impacto: DB (12 asserções pgTAP novas), Program Builder e fluxo de revisão de proposals.

@@ -4,6 +4,7 @@ import type {
   PerformanceOverview,
   AthleteTrainingDossier,
 } from "@athlete-coach/domain";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,6 +16,14 @@ import {
 } from "react-native";
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
+import {
+  dimensionLabels,
+  formatDelta,
+  formatMetricValue,
+  formatPrescriptionValue,
+  metricLabels,
+  outcomeStatusLabels,
+} from "@/presentation/outcomes/outcome-labels";
 function number(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
@@ -105,7 +114,11 @@ export function ProgressScreen() {
     ),
     selectedSignal = dossier?.exerciseSignals.find(
       (signal) => signal.exerciseId === selected,
-    );
+    ),
+    trackedChanges =
+      dossier?.interventionHistory?.items.filter(
+        (item) => item.outcomeStatus !== "not_materialized",
+      ) ?? [];
   return (
     <ScrollView contentContainerStyle={s.page}>
       <Text
@@ -170,6 +183,93 @@ export function ProgressScreen() {
           </Text>
         </View>
       ) : null}
+      <Text style={[s.heading, { color: theme.colors.text }]}>
+        Alterações acompanhadas
+      </Text>
+      {!trackedChanges.length ? (
+        <Text style={{ color: theme.colors.textMuted }}>
+          Nenhuma revisão criada a partir de uma proposta do Personal.
+        </Text>
+      ) : (
+        <>
+          <Text style={{ color: theme.colors.textMuted }}>
+            Comparação antes/depois das primeiras sessões após a ativação.
+            Evidência disponível, não prova de causa.
+          </Text>
+          {trackedChanges.map((item) => (
+            <Pressable
+              key={item.decisionId}
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({
+                  pathname: "/coach-decisions/[id]",
+                  params: { id: item.decisionId },
+                } as never)
+              }
+              style={[s.card, { borderColor: theme.colors.border }]}
+            >
+              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
+                {item.proposalSummary}
+              </Text>
+              <Text style={{ color: theme.colors.accent }}>
+                {outcomeStatusLabels[item.outcomeStatus]}
+              </Text>
+              <Text style={{ color: theme.colors.textMuted }}>
+                Proposta em {new Date(item.proposedAt).toLocaleDateString()}
+                {item.activatedAt
+                  ? ` · ativada em ${new Date(item.activatedAt).toLocaleDateString()}`
+                  : ""}
+              </Text>
+              {item.changes.map((change, index) => (
+                <Text
+                  key={`${item.decisionId}-${index}`}
+                  style={{ color: theme.colors.textMuted }}
+                >
+                  {change.exerciseName ?? "Exercício"} ·{" "}
+                  {dimensionLabels[change.dimension]}:{" "}
+                  {formatPrescriptionValue(change.before)} →{" "}
+                  {formatPrescriptionValue(
+                    change.implemented ?? change.proposed,
+                  )}
+                </Text>
+              ))}
+              {item.exposureCounts.map((coverage) => (
+                <Text
+                  key={`${item.decisionId}-${coverage.exerciseId}`}
+                  style={{ color: theme.colors.textMuted }}
+                >
+                  Sessões observadas: {coverage.baselineExposureCount} antes ·{" "}
+                  {coverage.postExposureCount} depois
+                </Text>
+              ))}
+              {item.comparisons
+                .filter(
+                  (comparison) =>
+                    comparison.scope.kind === "affected_prescription_sets" &&
+                    comparison.relevantDimensions.length > 0,
+                )
+                .map((comparison) => (
+                  <Text
+                    key={`${item.decisionId}-${comparison.scope.exerciseId}-${comparison.metric}`}
+                    style={{ color: theme.colors.textMuted }}
+                  >
+                    {metricLabels[comparison.metric]}:{" "}
+                    {formatMetricValue(comparison.before, comparison.unit)} →{" "}
+                    {formatMetricValue(comparison.after, comparison.unit)} (
+                    {formatDelta(comparison.absoluteDelta, comparison.unit)} ·
+                    amostras {comparison.beforeSampleCount}/
+                    {comparison.afterSampleCount})
+                  </Text>
+                ))}
+              {item.limitations.length ? (
+                <Text style={{ color: theme.colors.textMuted }}>
+                  Limitações: {item.limitations.length}
+                </Text>
+              ) : null}
+            </Pressable>
+          ))}
+        </>
+      )}
       <Text style={[s.heading, { color: theme.colors.text }]}>
         Melhores marcas
       </Text>

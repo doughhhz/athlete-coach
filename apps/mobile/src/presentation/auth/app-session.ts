@@ -29,6 +29,8 @@ import type {
   CoachConversationMessage,
   CoachDecision,
   CoachRejectionReason,
+  IndividualResponseEvidence,
+  InterventionOutcomeEvaluation,
 } from "@athlete-coach/domain";
 import { createContext, useContext } from "react";
 
@@ -104,6 +106,13 @@ export type AppSessionValue = Readonly<{
   ): Promise<CoachAnalysis>;
   generateCoachProposal(analysis: CoachAnalysis): Promise<CoachDecision | null>;
   listCoachDecisions(): Promise<readonly CoachDecision[]>;
+  listInterventionOutcomes(): Promise<readonly InterventionOutcomeEvaluation[]>;
+  getCoachDecisionOutcome(
+    decisionId: string,
+  ): Promise<InterventionOutcomeEvaluation | null>;
+  getIndividualResponseEvidence(): Promise<
+    readonly IndividualResponseEvidence[]
+  >;
   materializeCoachProposal(id: string): Promise<CoachDecision>;
   rejectCoachProposal(
     id: string,

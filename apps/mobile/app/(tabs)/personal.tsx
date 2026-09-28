@@ -13,9 +13,11 @@ import type {
   CoachAnalysis,
   CoachConversationMessage,
   CoachDecision,
+  InterventionOutcomeEvaluation,
 } from "@athlete-coach/domain";
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
+import { outcomeStatusLabels } from "@/presentation/outcomes/outcome-labels";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const theme = useAppTheme();
@@ -101,6 +103,7 @@ export default function CoachScreen() {
       analyzeWithCoach,
       generateCoachProposal,
       listCoachDecisions,
+      listInterventionOutcomes,
       rejectCoachProposal,
     } = useAppSession();
   const [question, setQuestion] = useState(""),
@@ -110,12 +113,18 @@ export default function CoachScreen() {
     [error, setError] = useState<string | null>(null),
     [proposalLoading, setProposalLoading] = useState(false),
     [decision, setDecision] = useState<CoachDecision | null>(null),
-    [decisions, setDecisions] = useState<readonly CoachDecision[]>([]);
+    [decisions, setDecisions] = useState<readonly CoachDecision[]>([]),
+    [outcomes, setOutcomes] = useState<
+      readonly InterventionOutcomeEvaluation[]
+    >([]);
   useEffect(() => {
     void listCoachDecisions()
       .then(setDecisions)
       .catch(() => undefined);
-  }, [listCoachDecisions]);
+    void listInterventionOutcomes()
+      .then(setOutcomes)
+      .catch(() => undefined);
+  }, [listCoachDecisions, listInterventionOutcomes]);
   async function send() {
     const text = question.trim();
     if (!text || loading) return;
@@ -293,11 +302,48 @@ export default function CoachScreen() {
         </Section>
       )}
       <Section title="Histórico de decisões">
-        <Lines
-          values={decisions.map(
-            (item) => `${item.proposal.summary} — ${item.status}`,
-          )}
-        />
+        {decisions.length === 0 ? (
+          <Lines values={[]} />
+        ) : (
+          decisions.map((item) => {
+            const outcome = outcomes.find(
+              (value) => value.decisionId === item.id,
+            );
+            return (
+              <View key={item.id} style={styles.historyItem}>
+                <Text style={[styles.item, { color: theme.colors.text }]}>
+                  • {item.proposal.summary} — {item.status}
+                </Text>
+                {outcome ? (
+                  <Text
+                    style={[styles.muted, { color: theme.colors.textMuted }]}
+                  >
+                    {outcomeStatusLabels[outcome.status]}
+                  </Text>
+                ) : null}
+                {outcome &&
+                (outcome.status === "evaluable" ||
+                  outcome.status === "limited_data") ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/coach-decisions/[id]",
+                        params: { id: item.id },
+                      } as never)
+                    }
+                  >
+                    <Text
+                      style={{ color: theme.colors.accent, fontWeight: "700" }}
+                    >
+                      Ver resposta observada
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            );
+          })
+        )}
       </Section>
     </ScrollView>
   );
@@ -328,6 +374,7 @@ const styles = StyleSheet.create({
   item: { lineHeight: 22 },
   muted: { lineHeight: 22 },
   retry: { fontWeight: "700", marginTop: 10 },
+  historyItem: { gap: 4 },
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",

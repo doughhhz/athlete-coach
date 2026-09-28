@@ -38,6 +38,11 @@ import {
   GetWorkoutDerivedSummary,
   BuildAthleteTrainingDossier,
   GetLongitudinalTrainingSignals,
+  BuildInterventionOutcomes,
+  BuildInterventionHistory,
+  ListInterventionOutcomes,
+  GetCoachDecisionOutcome,
+  GetIndividualResponseEvidence,
 } from "@athlete-coach/application";
 import {
   SupabaseAthleteGoalRepository,
@@ -78,11 +83,20 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     trainingRepository,
     weightRepository,
   );
+  // Decisions are read through the authenticated coach gateway (RLS-scoped).
+  const interventionOutcomes = new BuildInterventionOutcomes(
+    { list: () => coach.listDecisions() },
+    programs,
+    performance,
+    weightRepository,
+  );
   const buildTrainingDossier = new BuildAthleteTrainingDossier(
     loadProfile,
     programs,
     workouts,
     performance,
+    undefined,
+    new BuildInterventionHistory(interventionOutcomes),
   );
   return {
     authRepository,
@@ -135,6 +149,13 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
       analysis: Parameters<SupabaseCoachGateway["propose"]>[0],
     ) => coach.propose(analysis),
     listCoachDecisions: () => coach.listDecisions(),
+    listInterventionOutcomes: new ListInterventionOutcomes(
+      interventionOutcomes,
+    ),
+    getCoachDecisionOutcome: new GetCoachDecisionOutcome(interventionOutcomes),
+    getIndividualResponseEvidence: new GetIndividualResponseEvidence(
+      interventionOutcomes,
+    ),
     materializeCoachProposal: (id: string) => coach.materialize(id),
     rejectCoachProposal: (
       id: string,

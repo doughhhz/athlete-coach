@@ -4,6 +4,7 @@ import type {
   AthleteRepository,
   AuthRepository,
   AuthSession,
+  BodyWeightHistoryReader,
   BodyWeightRepository,
   OnboardingRepository,
   SignUpResult,
@@ -357,7 +358,9 @@ export class SupabaseTrainingContextRepository implements TrainingContextReposit
   }
 }
 
-export class SupabaseBodyWeightRepository implements BodyWeightRepository {
+export class SupabaseBodyWeightRepository
+  implements BodyWeightRepository, BodyWeightHistoryReader
+{
   private readonly client: AthleteCoachSupabaseClient;
   constructor(client: AthleteCoachSupabaseClient) {
     this.client = client;
@@ -372,6 +375,16 @@ export class SupabaseBodyWeightRepository implements BodyWeightRepository {
       .maybeSingle();
     if (error) fail("Não foi possível carregar o peso mais recente.", error);
     return data ? mapWeight(data) : null;
+  }
+  async list(): Promise<readonly BodyWeightEntry[]> {
+    const { data, error } = await this.client
+      .from("body_weight_entries")
+      .select("*")
+      .order("measured_at", { ascending: true })
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) fail("Não foi possível carregar o histórico de peso.", error);
+    return (data ?? []).map(mapWeight);
   }
   async record(input: BodyWeightInput): Promise<BodyWeightEntry> {
     const athleteId = await currentAthleteId(this.client);

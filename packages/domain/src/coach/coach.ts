@@ -1,6 +1,7 @@
 import type {
   AthleteTrainingDossier,
   EvidenceReference,
+  athleteTrainingDossierSchemaVersions,
 } from "../dossier/dossier.ts";
 
 export const COACH_ANALYSIS_SCHEMA_VERSION = "coach-analysis-v1" as const;
@@ -86,7 +87,7 @@ export type CoachAnalysis = Readonly<{
   evidenceUsed: readonly EvidenceReference[];
   safetyFlags: readonly CoachSafetyFlag[];
   metadata: Readonly<{
-    dossierSchemaVersion: AthleteTrainingDossier["schemaVersion"];
+    dossierSchemaVersion: (typeof athleteTrainingDossierSchemaVersions)[number];
     promptVersion: string;
     policyVersion: string;
     provider: string;
@@ -104,6 +105,8 @@ export function collectDossierEvidenceIds(
     ...dossier.last28DaysExerciseExposure.flatMap((item) => item.evidence),
     ...dossier.personalBests.flatMap((item) => item.evidence),
     ...dossier.recentSessions.items.flatMap((session) => session.evidence),
+    ...(dossier.interventionHistory?.items.flatMap((item) => item.evidence) ??
+      []),
   ];
   return new Set(refs.map((reference) => `${reference.kind}:${reference.id}`));
 }

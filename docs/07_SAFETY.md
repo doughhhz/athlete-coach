@@ -72,3 +72,7 @@ Safety é código fora do prompt e atua antes/depois do provider. O pre-check bl
 ## Phase 10 — Safety de proposals
 
 Uma análise com `blocksTrainingAdvice` não pode iniciar proposal de treinamento. O modelo não converte dor aguda, possível lesão, medicação ou perda extrema de peso em redução de carga, troca de exercício ou retorno terapêutico. Mesmo uma proposta schema-valid é inerte até validação determinística e decisão humana. O sistema não classifica magnitude como ciência fisiológica sem regra canônica; não foram inventados thresholds pseudocientíficos.
+
+## Phase 11 — Outcomes sem causalidade
+
+Comparações antes/depois não são apresentadas como prova de que uma mudança “funcionou”. O contrato não contém score, sucesso/fracasso ou classificação qualitativa; peso corporal é contexto e não normaliza performance. Não há adaptação automática, RL, bandits ou experimentação com prescrições. A política de prompt proíbe afirmações causais, mas não existe filtro lexical determinístico de causalidade no output (limitação registrada na ADR-0054). Leituras de histórico de decisões usam o JWT do atleta e o domínio filtra novamente sessões, programas e pesos por `athleteId`.

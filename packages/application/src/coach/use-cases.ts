@@ -84,7 +84,7 @@ export class AnalyzeAthleteWithCoach {
         safetyFlags: pre.flags,
         metadata: {
           dossierSchemaVersion: dossier.schemaVersion,
-          promptVersion: "coach-system-v1",
+          promptVersion: "coach-system-v2",
           policyVersion: "coach-safety-v1",
           provider: "safety-policy",
           model: "deterministic",
@@ -108,6 +108,7 @@ export class AnalyzeAthleteWithCoach {
       requestId,
       metadata: {
         ...result.analysis.metadata,
+        dossierSchemaVersion: dossier.schemaVersion,
         provider: result.provider,
         model: result.model,
         inputTokens: result.inputTokens,

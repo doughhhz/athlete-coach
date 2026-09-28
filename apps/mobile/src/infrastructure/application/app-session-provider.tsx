@@ -294,6 +294,18 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
       return application.generateCoachProposal(analysis);
     },
     listCoachDecisions: async () => application?.listCoachDecisions() ?? [],
+    listInterventionOutcomes: async () => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.listInterventionOutcomes.execute();
+    },
+    getCoachDecisionOutcome: async (decisionId) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.getCoachDecisionOutcome.execute(decisionId);
+    },
+    getIndividualResponseEvidence: async () => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.getIndividualResponseEvidence.execute();
+    },
     materializeCoachProposal: async (id) => {
       if (!application)
         throw new Error("O Personal está temporariamente indisponível.");

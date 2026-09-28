@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   COACH_PROPOSAL_PROMPT_V1,
+  COACH_PROPOSAL_PROMPT_V2,
   FixtureCoachProposalProvider,
   GeminiHttpCoachProposalProvider,
 } from "../src/index.ts";
@@ -17,7 +18,15 @@ for (const invariant of [
   "requiresHumanApproval",
 ])
   test(`proposal prompt preserves ${invariant}`, () =>
-    assert.match(COACH_PROPOSAL_PROMPT_V1, new RegExp(invariant, "i")));
+    assert.match(COACH_PROPOSAL_PROMPT_V2, new RegExp(invariant, "i")));
+test("proposal prompt v2 forbids automatic repetition of past changes", () => {
+  assert.ok(COACH_PROPOSAL_PROMPT_V2.startsWith(COACH_PROPOSAL_PROMPT_V1));
+  assert.match(COACH_PROPOSAL_PROMPT_V2, /not proof of causation/);
+  assert.match(
+    COACH_PROPOSAL_PROMPT_V2,
+    /never propose repeating or reversing a past change only because/,
+  );
+});
 test("fixture supports no-change and provider failures", async () => {
   assert.equal(
     await new FixtureCoachProposalProvider(null).generate({}, "id"),
@@ -61,6 +70,6 @@ test("Gemini proposal adapter separates policy and rejects malformed output", as
       ),
     (error) => error.code === "invalid_response",
   );
-  assert.equal(body.systemInstruction.parts[0].text, COACH_PROPOSAL_PROMPT_V1);
+  assert.equal(body.systemInstruction.parts[0].text, COACH_PROPOSAL_PROMPT_V2);
   assert.match(body.contents[0].parts[0].text, /"dataTrust":"untrusted"/);
 });

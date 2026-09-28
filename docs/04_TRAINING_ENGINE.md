@@ -102,3 +102,14 @@ O Coach recebe métricas calculadas e pode interpretá-las, mas não recalcula p
 ## Phase 10 — Materialização controlada
 
 Uma `CoachProposal` nunca é um `ProgramRevision`. O validator reutiliza `assertPrescriptionSet` para target, RIR, descanso e carga e proíbe mudança de métrica, IDs pendentes e operations não suportadas. Na aprovação, o baseline deve continuar ativo na mesma revisão. A RPC cria novos IDs e revision/lineage pelo mesmo modelo de clone da Phase 5, altera somente sets-alvo no novo draft, preserva a origem e não ativa. Retry de decisão materializada retorna o mesmo ledger/draft.
+
+## Phase 11 — Intervention outcomes (`intervention-outcome-v1`)
+
+- Exposição: sessão completed/abandoned com ≥1 série completed do mesmo exercício canônico; skipped/pending/in_progress não contam.
+- Baseline: até 3 exposições mais recentes antes de `activated_at`. Post: até 3 primeiras exposições do programa de intervenção após `activated_at`; a janela fecha ao completar 3 ou quando o programa deixa de estar ativo.
+- Escopos: todas as séries do exercício e séries da prescrição alterada.
+- Métricas por escopo: séries por exposição (só exercício), média de reps/segundos/metros por série, maior carga registrada, melhor e1RM `epley-v1`, taxa dentro do alvo, cobertura de carga, cobertura/atingimento/média de RIR, cobertura/atingimento/média do descanso medido. Médias são fatos descritivos da janela, não tendência.
+- `absoluteDelta = after − before`; `relativeDelta = (after − before)/|before|`, null se before for 0 ou valor ausente. Arredondamento pertence à apresentação.
+- e1RM e carga só são comparados dentro do mesmo `exercise_id`; troca de exercício é limitação e não comparação.
+- Limitações determinísticas incluem ações concorrentes, edição manual, valor ativado diferente, exercício trocado, exposições ausentes/insuficientes/desiguais, janela aberta ou encerrada cedo, baseline de outros programas ou de intervenção anterior, RIR/descanso/carga ausentes ou parciais e peso corporal indisponível/alterado (apenas contexto, sem ajuste de performance).
+- Add/remove set e frequência não são interventions suportadas; aprendizado de volume/frequência permanece futuro.

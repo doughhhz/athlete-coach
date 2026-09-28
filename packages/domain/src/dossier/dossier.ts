@@ -8,11 +8,17 @@ import {
   deriveTargetAttainment,
   estimateOneRepMaxKg,
 } from "../performance/performance.ts";
+import type { InterventionHistory } from "../outcomes/outcomes.ts";
 import type { TrainingProgram } from "../training/training.ts";
 import type { WorkoutSession, WorkoutSet } from "../workout/workout.ts";
 
+/** v2 keeps every v1 field and meaning and adds `interventionHistory` (ADR-0053). */
 export const ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION =
-  "athlete-training-dossier-v1" as const;
+  "athlete-training-dossier-v2" as const;
+export const athleteTrainingDossierSchemaVersions = [
+  "athlete-training-dossier-v1",
+  ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION,
+] as const;
 export const DOSSIER_RECENT_SESSION_LIMIT = 12;
 
 export type TimeWindowKey =
@@ -28,7 +34,8 @@ export type EvidenceReference = Readonly<{
     | "training_program"
     | "exercise"
     | "body_weight_entry"
-    | "derived_calculation";
+    | "derived_calculation"
+    | "coach_decision";
   id: string;
   version: string | null;
 }>;
@@ -155,6 +162,11 @@ export type AthleteTrainingDossier = Readonly<{
       evidence: readonly EvidenceReference[];
     }>[];
   }>;
+  /**
+   * Latest runtime Coach decisions with factual, non-causal outcome
+   * projections. `null` means the caller did not load intervention history.
+   */
+  interventionHistory: InterventionHistory | null;
   evidence: readonly EvidenceReference[];
 }>;
 
@@ -441,6 +453,7 @@ export function buildAthleteTrainingDossier(
     activeProgram: TrainingProgram | null;
     sessions: readonly WorkoutSession[];
     generatedAt: string;
+    interventionHistory?: InterventionHistory | null;
   }>,
 ): AthleteTrainingDossier {
   const timezone = input.snapshot.profile?.timezone ?? "UTC";
@@ -572,6 +585,7 @@ export function buildAthleteTrainingDossier(
       hasMore: stableSessions.length > items.length,
       items,
     },
+    interventionHistory: input.interventionHistory ?? null,
     evidence,
   };
 }
