@@ -172,3 +172,7 @@ Response Memory → Coach Interpretation → Structured Proposal → Validator
 Roadmap separado (não implementado): atual = intervenção de quantidade de séries por Exercise; futuro = intervenção de frequência; futuro = troca de exercício; futuro = modelagem de volume por músculo.
 
 Validação local das Edge Functions: além da falha ambiental de TLS já conhecida, o runtime Deno não resolve imports sem extensão em `packages/data-access/src/index.ts` nem especificadores `@athlete-coach/*` (sem import map). A falha existe no baseline da Phase 12 e em `coach-decide` inalterada; registrada como dívida para tarefa separada.
+
+## Edge Functions no runtime Deno (ADR-0067)
+
+As Edge Functions reutilizam os packages canônicos diretamente. O Deno resolve especificadores de workspace pelo import map `supabase/functions/deno.json`, ligado por `import_map` em `supabase/config.toml` para cada function; imports relativos dos packages usam sempre extensão `.ts`. Não há bundler nem cópia de lógica em `supabase/functions`. A dívida "Edge Functions não inicializam no runtime Deno local" registrada na Phase 13 foi resolvida.

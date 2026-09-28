@@ -115,3 +115,7 @@ O dossier v3 envia `responseMemory` bounded; o Coach pode citar `response_memory
 ## Phase 13 — Prompts v4
 
 `coach-system-v4` acrescenta a política de quantidade de séries (não é volume muscular; mais/menos não é melhor/pior; planejado ≠ concluído; nunca volume ótimo). `coach-proposal-prompt-v4` gera `coach-proposal-v2` com add/remove estruturados, mudanças pequenas e opcionais, sem repetir/reverter mudanças por deltas passados. O modelo não gera UUIDs finais; a validação determinística e a aprovação humana continuam obrigatórias.
+
+## Runtime das Edge Functions
+
+`coach-analyze`, `coach-propose` e `coach-decide` inicializam no runtime Deno local do Supabase (ADR-0067). Sem `GEMINI_API_KEY`, as functions de IA respondem de forma normalizada (`503 coach_unavailable`) após a autenticação; nenhuma chave vai ao cliente. A chamada real ao Gemini não faz parte da validação local.

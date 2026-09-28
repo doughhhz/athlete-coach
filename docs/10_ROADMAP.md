@@ -127,3 +127,7 @@ IRE v2, Response Memory v1 derivada e bounded, classificação strict/context-on
 ## Phase 13 — Set-Count Interventions & Response Learning Expansion — complete
 
 Proposal v2 com add/remove set, validator e espelho puro, RPC transacional, compatibilidade v1, outcome v2 com `set_count`, IRE v3, Response Memory v2, Dossier v4, prompts v4, UI de revisão/builder/outcome/memória e cenário integrado foram implementados. Futuro separado e não implementado: intervenção de frequência, troca de exercício e modelagem de volume por músculo. Fora de escopo: effective/hard sets, landmarks, número ótimo de séries, progressão, aprovação/ativação automáticas, Coach autônomo, causalidade, ML/RL, HealthKit, readiness, nutrição, web/RAG, embeddings e multi-agentes. Dívida registrada: Edge Functions não inicializam no runtime Deno local por resolução de módulos (pré-existente).
+
+## Correção pós-Phase 13 — Edge Functions bootáveis no Deno
+
+Import map versionado e extensões `.ts` explícitas tornaram as três Edge Functions inicializáveis no runtime local, com smoke HTTP. Sem nova funcionalidade nem alteração de regra de negócio; nenhuma Phase 14 iniciada.

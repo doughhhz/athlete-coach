@@ -160,3 +160,7 @@ Próximo passo recomendado: revisão humana da Phase 12.
 ## Phase 13 — Intervenções de quantidade de séries
 
 O Personal pode propor adicionar ou remover séries de um exercício (`coach-proposal-v2`), sempre revisado por humano e materializado apenas em rascunho. Outcomes, memória de resposta e dossier (`athlete-training-dossier-v4`) passam a acompanhar `set_count` usando o valor realmente ativado e distinguindo séries planejadas de concluídas. **Set count is not muscle volume.** Próximo passo recomendado: revisão humana da Phase 13 e a tarefa separada para tornar as Edge Functions inicializáveis no runtime Deno.
+
+## Correção — Edge Functions no Deno
+
+As Edge Functions do Personal agora inicializam no runtime Deno local do Supabase: imports relativos dos packages usam extensão `.ts` e `supabase/functions/deno.json` mapeia os packages do workspace (ADR-0067). Para testar localmente: `node scripts/run-supabase.mjs functions serve`.

@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "@athlete-coach/domain": "../../packages/domain/src/index.ts",
+    "@athlete-coach/application": "../../packages/application/src/index.ts",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.117.1",
+    "zod": "npm:zod@4.6.5"
+  }
+}

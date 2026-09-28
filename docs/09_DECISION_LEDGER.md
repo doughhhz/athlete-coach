@@ -603,3 +603,13 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Status: accepted
 - Decisão: `coach-system-v4` = v3 literal + política: set count não é volume muscular; mais/menos séries não são melhores/piores por si; distinguir planejado de concluído; resposta observada é evidência observacional; nunca inferir número ótimo de séries ou volume ótimo nem usar MEV/MAV/MRV. `coach-proposal-prompt-v4` é derivado do v3 substituindo explicitamente as frases de vocabulário v1 (sem anexar regra contraditória): gera `coach-proposal-v2`, add/remove apenas com suporte de evidência, mudanças pequenas, sem remover o último set, sem frequência/dias/replace, sem aumentar séries porque a performance melhorou nem reduzir porque caiu, proposta continua opcional (`{"proposal":null}`).
 - Impacto: packages/ai, application (fallback de safety), testes.
+
+### ADR-0067 — Deno-compatible shared package resolution for Edge Functions
+
+- Data: 2026-09-28
+- Status: accepted
+- Contexto: após a Phase 13, o runtime local (`supabase-edge-runtime-1.74.3`, Deno 2.1.4) passou do erro ambiental de TLS e revelou que nenhuma Edge Function inicializava: `coach-decide` falhava em `Module not found …/create-athlete-coach-supabase-client` (imports relativos sem extensão em `packages/data-access`) e `coach-analyze`/`coach-propose` em `Relative import path "@athlete-coach/domain"` (especificadores de workspace sem mapeamento). Defeito reproduzido também no código anterior à Phase 13.
+- Regra anterior: as functions importavam `packages/*/src/index.ts` por caminho relativo e dependiam implicitamente da resolução do npm workspace, que não existe no Deno.
+- Decisão: uma única estratégia runtime-native. (1) Todos os imports relativos dos packages usam extensão `.ts` explícita (convenção já adotada por domain, application e ai; `allowImportingTsExtensions` já habilitado; Node, TypeScript e Metro continuam funcionando). (2) Um import map versionado, `supabase/functions/deno.json`, mapeia apenas `@athlete-coach/domain`, `@athlete-coach/application`, `@supabase/supabase-js` e `zod` (mesmas versões fixadas nos package.json), ligado explicitamente a cada function por `import_map` em `supabase/config.toml`. Sem bundler, sem cópia de código, sem alteração de regra de negócio, auth, JWT, service role, secrets ou TLS.
+- Evidência: boot real das três functions no runtime local e smoke HTTP (401 sem usuário, 400 para `athleteId` do cliente, 503 `coach_unavailable` sem `GEMINI_API_KEY`, 200 em `list`, 400/409 em erros de decisão).
+- Impacto: packages/data-access, supabase/functions, supabase/config.toml, documentação. Novos especificadores de workspace usados pelas functions exigem entrada no import map.

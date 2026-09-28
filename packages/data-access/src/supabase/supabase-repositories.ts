@@ -32,7 +32,7 @@ import {
 } from "@athlete-coach/domain";
 import { z } from "zod";
 
-import type { AthleteCoachSupabaseClient } from "./create-athlete-coach-supabase-client";
+import type { AthleteCoachSupabaseClient } from "./create-athlete-coach-supabase-client.ts";
 
 export class DataAccessError extends Error {
   constructor(message: string, options?: ErrorOptions) {
