@@ -3,7 +3,6 @@ import type {
   TrainingProgramSummary,
 } from "@athlete-coach/domain";
 import type {
-  CreateProgramDraftInput,
   CreateProgramWithStructureInput,
   ProgramStructureInput,
 } from "./schemas.ts";
@@ -25,7 +24,6 @@ export interface TrainingProgramRepository {
   list(): Promise<readonly TrainingProgramSummary[]>;
   get(id: string): Promise<TrainingProgram | null>;
   getActive(): Promise<TrainingProgram | null>;
-  createDraft(input: CreateProgramDraftInput): Promise<TrainingProgram>;
   /** Atomic and idempotent: zero programs or one complete draft. */
   createWithStructure(
     input: CreateProgramWithStructureInput,

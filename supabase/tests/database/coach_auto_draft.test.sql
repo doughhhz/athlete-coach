@@ -1,10 +1,16 @@
 begin; create extension if not exists pgtap with schema extensions; select no_plan();
+-- Test-only privileged seeding (ADR-0103): clients can no longer insert program
+-- rows; fixtures that only need an existing root bypass the product flow on
+-- purpose here. Rolled back with the test transaction; never in production.
+create function public.test_seed_program_root(p_id uuid, p_name text, p_athlete uuid default null, p_goal uuid default null) returns void language sql security definer set search_path='' as $seed$
+  insert into public.training_programs(id,athlete_id,athlete_goal_id,name) values(p_id,coalesce(p_athlete,public.current_athlete_id()),p_goal,p_name) $seed$;
+grant execute on function public.test_seed_program_root(uuid,text,uuid,uuid) to authenticated;
 -- Implementation Phase 16 (ADR-0082..0086): Conservative Auto-Draft and request fingerprints.
 insert into auth.users(id,email) values('81111111-1111-4111-8111-111111111111','draft-a@example.invalid'),('82222222-2222-4222-8222-222222222222','draft-b@example.invalid');
 insert into public.athletes(id,user_id) values('8aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','81111111-1111-4111-8111-111111111111'),('8bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','82222222-2222-4222-8222-222222222222');
 
 create function public.t17_program(p_id uuid) returns void language plpgsql as $$ begin
-  insert into public.training_programs(id,athlete_id,name) values(p_id,public.current_athlete_id(),'Base');
+  perform public.test_seed_program_root(p_id,'Base');
   perform public.replace_training_program_structure(p_id,'{"blocks":[{"sequence":1,"name":"B","weeks":[{"sequence":1,"days":[{"sequence":1,"name":"A","prescriptions":[{"sequence":1,"exerciseId":"50000000-0000-4000-8000-000000000001","sets":[{"sequence":1,"targetMetric":"reps","targetMin":8,"targetMax":10,"rirMin":2,"rirMax":2,"restMinSeconds":120,"restMaxSeconds":120,"tempo":null,"loadKind":"absolute","loadKg":60},{"sequence":2,"targetMetric":"reps","targetMin":8,"targetMax":10,"rirMin":2,"rirMax":2,"restMinSeconds":120,"restMaxSeconds":120,"tempo":null,"loadKind":"absolute","loadKg":60}]}]}]}]}]}'::jsonb);
   perform public.activate_training_program(p_id);
 end $$;

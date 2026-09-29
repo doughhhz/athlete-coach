@@ -1,4 +1,10 @@
 begin; create extension if not exists pgtap with schema extensions; select no_plan();
+-- Test-only privileged seeding (ADR-0103): clients can no longer insert program
+-- rows; fixtures that only need an existing root bypass the product flow on
+-- purpose here. Rolled back with the test transaction; never in production.
+create function public.test_seed_program_root(p_id uuid, p_name text, p_athlete uuid default null, p_goal uuid default null) returns void language sql security definer set search_path='' as $seed$
+  insert into public.training_programs(id,athlete_id,athlete_goal_id,name) values(p_id,coalesce(p_athlete,public.current_athlete_id()),p_goal,p_name) $seed$;
+grant execute on function public.test_seed_program_root(uuid,text,uuid,uuid) to authenticated;
 select has_table('public','workout_sessions','sessions table'); select has_table('public','workout_exercises','exercises table'); select has_table('public','workout_sets','sets table');
 select has_column('public','workout_sets','planned_metric','planned metric'); select has_column('public','workout_sets','actual_value','actual value'); select has_column('public','workout_sets','actual_load_kg','actual load'); select has_column('public','workout_sets','actual_rir','actual RIR');
 select ok(exists(select 1 from pg_indexes where indexname='workout_sessions_one_in_progress_per_athlete'),'one active workout index');
@@ -7,7 +13,7 @@ select ok(not has_table_privilege('anon','public.workout_sessions','select'),'an
 insert into auth.users(id,email) values('61111111-1111-4111-8111-111111111111','runner-a@example.invalid'),('62222222-2222-4222-8222-222222222222','runner-b@example.invalid');
 insert into public.athletes(id,user_id) values('6aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','61111111-1111-4111-8111-111111111111'),('6bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','62222222-2222-4222-8222-222222222222');
 set local request.jwt.claim.sub='61111111-1111-4111-8111-111111111111';set local role authenticated;
-insert into public.training_programs(id,athlete_id,name) values('62000000-0000-4000-8000-000000000001',public.current_athlete_id(),'Programa Runner');
+select public.test_seed_program_root('62000000-0000-4000-8000-000000000001','Programa Runner');
 select lives_ok($$select public.replace_training_program_structure('62000000-0000-4000-8000-000000000001','{"blocks":[{"sequence":1,"name":"Base","weeks":[{"sequence":1,"days":[{"sequence":1,"name":"Treino A","prescriptions":[{"sequence":1,"exerciseId":"50000000-0000-4000-8000-000000000001","sets":[{"sequence":1,"targetMetric":"reps","targetMin":8,"targetMax":10,"rirMin":2,"rirMax":2,"restMinSeconds":120,"restMaxSeconds":120,"tempo":null,"loadKind":"absolute","loadKg":30},{"sequence":2,"targetMetric":"reps","targetMin":8,"targetMax":10,"rirMin":2,"rirMax":2,"restMinSeconds":120,"restMaxSeconds":120,"tempo":null,"loadKind":"absolute","loadKg":30},{"sequence":3,"targetMetric":"reps","targetMin":8,"targetMax":10,"rirMin":2,"rirMax":2,"restMinSeconds":120,"restMaxSeconds":120,"tempo":null,"loadKind":"absolute","loadKg":30}]}]}]}]}]}'::jsonb)$$);
 select lives_ok($$select public.activate_training_program('62000000-0000-4000-8000-000000000001')$$); select lives_ok($$select public.start_workout_session((select id from public.training_days limit 1))$$,'active day starts');
 select is((select count(*) from public.workout_sessions),1::bigint,'session created');select is((select count(*) from public.workout_exercises),1::bigint,'exercise copied');select is((select count(*) from public.workout_sets),3::bigint,'sets copied');

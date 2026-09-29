@@ -1,9 +1,15 @@
 begin; create extension if not exists pgtap with schema extensions; select no_plan();
+-- Test-only privileged seeding (ADR-0103): clients can no longer insert program
+-- rows; fixtures that only need an existing root bypass the product flow on
+-- purpose here. Rolled back with the test transaction; never in production.
+create function public.test_seed_program_root(p_id uuid, p_name text, p_athlete uuid default null, p_goal uuid default null) returns void language sql security definer set search_path='' as $seed$
+  insert into public.training_programs(id,athlete_id,athlete_goal_id,name) values(p_id,coalesce(p_athlete,public.current_athlete_id()),p_goal,p_name) $seed$;
+grant execute on function public.test_seed_program_root(uuid,text,uuid,uuid) to authenticated;
 -- ADR-0055: drafts that already have structure can be saved again; non-drafts stay immutable.
 insert into auth.users(id,email) values('d1111111-1111-4111-8111-111111111111','resave-a@example.invalid'),('d2222222-2222-4222-8222-222222222222','resave-b@example.invalid');
 insert into public.athletes(id,user_id) values('daaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','d1111111-1111-4111-8111-111111111111'),('dbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','d2222222-2222-4222-8222-222222222222');
 set local request.jwt.claim.sub='d1111111-1111-4111-8111-111111111111'; set local role authenticated;
-insert into public.training_programs(id,athlete_id,name) values('d3000000-0000-4000-8000-000000000001',public.current_athlete_id(),'Draft');
+select public.test_seed_program_root('d3000000-0000-4000-8000-000000000001','Draft');
 select lives_ok($$select public.replace_training_program_structure('d3000000-0000-4000-8000-000000000001','{"blocks":[{"sequence":1,"name":"B","weeks":[{"sequence":1,"days":[{"sequence":1,"name":"A","prescriptions":[{"sequence":1,"exerciseId":"50000000-0000-4000-8000-000000000001","sets":[{"sequence":1,"targetMetric":"reps","targetMin":8,"targetMax":10,"loadKind":"athlete_selected"},{"sequence":2,"targetMetric":"reps","targetMin":8,"targetMax":10,"loadKind":"athlete_selected"}]}]}]}]}]}'::jsonb)$$,'first structure saved');
 create temporary table old_sets on commit drop as select ps.id from public.prescription_sets ps join public.exercise_prescriptions ep on ep.id=ps.exercise_prescription_id join public.training_days d on d.id=ep.training_day_id join public.training_weeks w on w.id=d.training_week_id join public.training_blocks b on b.id=w.training_block_id where b.training_program_id='d3000000-0000-4000-8000-000000000001';
 select lives_ok($$select public.replace_training_program_structure('d3000000-0000-4000-8000-000000000001','{"blocks":[{"sequence":1,"name":"B2","weeks":[{"sequence":1,"days":[{"sequence":1,"name":"A","prescriptions":[{"sequence":1,"exerciseId":"50000000-0000-4000-8000-000000000001","sets":[{"sequence":1,"targetMetric":"reps","targetMin":6,"targetMax":8,"loadKind":"athlete_selected"},{"sequence":2,"targetMetric":"reps","targetMin":6,"targetMax":8,"loadKind":"athlete_selected"},{"sequence":3,"targetMetric":"reps","targetMin":6,"targetMax":8,"loadKind":"athlete_selected"}]}]}]}]}]}'::jsonb)$$,'draft with existing structure can be saved again');

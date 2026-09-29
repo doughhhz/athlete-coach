@@ -1,4 +1,10 @@
 begin; create extension if not exists pgtap with schema extensions; select no_plan();
+-- Test-only privileged seeding (ADR-0103): clients can no longer insert program
+-- rows; fixtures that only need an existing root bypass the product flow on
+-- purpose here. Rolled back with the test transaction; never in production.
+create function public.test_seed_program_root(p_id uuid, p_name text, p_athlete uuid default null, p_goal uuid default null) returns void language sql security definer set search_path='' as $seed$
+  insert into public.training_programs(id,athlete_id,athlete_goal_id,name) values(p_id,coalesce(p_athlete,public.current_athlete_id()),p_goal,p_name) $seed$;
+grant execute on function public.test_seed_program_root(uuid,text,uuid,uuid) to authenticated;
 select has_table('public','coach_decisions','runtime coaching ledger exists');
 select has_column('public','coach_decisions','proposal_snapshot','versioned proposal snapshot exists');
 select ok((select relrowsecurity from pg_class where oid='public.coach_decisions'::regclass),'ledger has RLS');
@@ -10,7 +16,7 @@ select ok(not has_function_privilege('authenticated','public.materialize_coach_d
 insert into auth.users(id,email) values('31111111-1111-4111-8111-111111111111','coach-a@example.invalid'),('32222222-2222-4222-8222-222222222222','coach-b@example.invalid');
 insert into public.athletes(id,user_id) values('3aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','31111111-1111-4111-8111-111111111111'),('3bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','32222222-2222-4222-8222-222222222222');
 set local request.jwt.claim.sub='31111111-1111-4111-8111-111111111111'; set local role authenticated;
-insert into public.training_programs(id,athlete_id,name) values('32000000-0000-4000-8000-000000000001',public.current_athlete_id(),'Base');
+select public.test_seed_program_root('32000000-0000-4000-8000-000000000001','Base');
 select lives_ok($$select public.replace_training_program_structure('32000000-0000-4000-8000-000000000001','{"blocks":[{"sequence":1,"name":"Base","weeks":[{"sequence":1,"days":[{"sequence":1,"name":"A","prescriptions":[{"sequence":1,"exerciseId":"50000000-0000-4000-8000-000000000001","sets":[{"sequence":1,"targetMetric":"reps","targetMin":8,"targetMax":10,"rirMin":2,"rirMax":2,"restMinSeconds":120,"restMaxSeconds":120,"tempo":null,"loadKind":"absolute","loadKg":30}]}]}]}]}]}'::jsonb)$$,'baseline hierarchy created');
 select lives_ok($$select public.activate_training_program('32000000-0000-4000-8000-000000000001')$$,'baseline activated');
 reset role; set local role service_role;
@@ -36,7 +42,7 @@ select lives_ok($$select public.reject_coach_decision('31111111-1111-4111-8111-1
 select is((select status from public.coach_decisions where id='33000000-0000-4000-8000-000000000002'),'rejected','rejection is terminal without program change');
 select lives_ok($$select public.create_coach_decision('31111111-1111-4111-8111-111111111111',jsonb_set((select proposal_snapshot from public.coach_decisions where id='33000000-0000-4000-8000-000000000001'),'{id}','"33000000-0000-4000-8000-000000000003"'))$$,'proposal created before baseline changes');
 reset role; set local request.jwt.claim.sub='31111111-1111-4111-8111-111111111111'; set local role authenticated;
-insert into public.training_programs(id,athlete_id,name) values('32000000-0000-4000-8000-000000000009',public.current_athlete_id(),'Replacement');
+select public.test_seed_program_root('32000000-0000-4000-8000-000000000009','Replacement');
 select lives_ok($$select public.replace_training_program_structure('32000000-0000-4000-8000-000000000009','{"blocks":[{"sequence":1,"name":"B","weeks":[{"sequence":1,"days":[{"sequence":1,"name":"D","prescriptions":[{"sequence":1,"exerciseId":"50000000-0000-4000-8000-000000000001","sets":[{"sequence":1,"targetMetric":"reps","targetMin":8,"targetMax":10,"rirMin":2,"rirMax":2,"restMinSeconds":120,"restMaxSeconds":120,"tempo":null,"loadKind":"absolute","loadKg":30}]}]}]}]}]}'::jsonb)$$,'replacement draft created');
 select lives_ok($$select public.activate_training_program('32000000-0000-4000-8000-000000000009')$$,'baseline changes before approval');
 reset role; set local role service_role;

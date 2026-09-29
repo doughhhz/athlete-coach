@@ -1,4 +1,10 @@
 begin; create extension if not exists pgtap with schema extensions; select no_plan();
+-- Test-only privileged seeding (ADR-0103): clients can no longer insert program
+-- rows; fixtures that only need an existing root bypass the product flow on
+-- purpose here. Rolled back with the test transaction; never in production.
+create function public.test_seed_program_root(p_id uuid, p_name text, p_athlete uuid default null, p_goal uuid default null) returns void language sql security definer set search_path='' as $seed$
+  insert into public.training_programs(id,athlete_id,athlete_goal_id,name) values(p_id,coalesce(p_athlete,public.current_athlete_id()),p_goal,p_name) $seed$;
+grant execute on function public.test_seed_program_root(uuid,text,uuid,uuid) to authenticated;
 -- Phase 14 (ADR-0068..0071): coach-proposal-v3 exercise replacement.
 -- Seed catalog: 0001 barbell bench, 0002 dumbbell bench ("0002 variation_of 0001", one-way),
 -- 0003 incline dumbbell (no relation to 0001), 0004 push-up (equipment_alternative both ways with 0001).
@@ -8,7 +14,7 @@ insert into public.athletes(id,user_id) values('5aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa
 create function public.t14_program(p_id uuid,p_load_kind text default 'absolute') returns void language plpgsql as $$
 declare load1 text := case when p_load_kind='absolute' then '60' else 'null' end; load2 text := case when p_load_kind='absolute' then '62.5' else 'null' end;
 begin
-  insert into public.training_programs(id,athlete_id,name) values(p_id,public.current_athlete_id(),'Base');
+  perform public.test_seed_program_root(p_id,'Base');
   perform public.replace_training_program_structure(p_id,format('{"blocks":[{"sequence":1,"name":"B","weeks":[{"sequence":1,"days":[{"sequence":1,"name":"A","prescriptions":[{"sequence":1,"exerciseId":"50000000-0000-4000-8000-000000000001","sets":[
     {"sequence":1,"targetMetric":"reps","targetMin":8,"targetMax":10,"rirMin":2,"rirMax":2,"restMinSeconds":120,"restMaxSeconds":120,"tempo":"3-1-X-0","loadKind":"%1$s","loadKg":%2$s},
     {"sequence":2,"targetMetric":"reps","targetMin":6,"targetMax":8,"rirMin":1,"rirMax":1,"restMinSeconds":150,"restMaxSeconds":150,"tempo":null,"loadKind":"%1$s","loadKg":%3$s}]}]}]}]}]}',p_load_kind,load1,load2)::jsonb);

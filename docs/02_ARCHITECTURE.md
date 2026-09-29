@@ -216,3 +216,21 @@ Programa novo: `CreateTrainingProgramWithStructure` (aplicação) → `TrainingP
 O `creationRequestId` é gerado uma vez por visita ao builder (`newIdempotencyKey`, gerador compartilhado com o `analysisRequestId` do Coach) e reutilizado em toda nova tentativa. Sair do builder abandona a intenção; uma nova visita gera uma nova intenção.
 
 Conflito: `ProgramCreationConflictError`, com `existingProgramId`, normalizado a partir do erro `23505 program_creation_conflict` (HTTP 409 pelo PostgREST). Guardas de arquitetura: `program-creation-boundary.test.mjs`.
+
+## Correção pós-criação atômica — Fronteira imposta pelo servidor
+
+A atomicidade da criação agora é garantida pelo banco, não só pelo app.
+
+**Caminhos que criam linhas em `training_programs`:**
+
+| Classe                                                     | Caminho                                                          | Modo             | Quem executa                       |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- | ---------------- | ---------------------------------- |
+| A — raiz                                                   | `create_training_program_with_structure`                         | SECURITY DEFINER | `authenticated`                    |
+| B — revisão manual                                         | `clone_training_program_as_draft`                                | SECURITY DEFINER | `authenticated`                    |
+| B — materialização de Coach, set-count, troca de exercício | `materialize_coach_decision`                                     | SECURITY DEFINER | `service_role`                     |
+| B — auto-draft                                             | `auto_draft_coach_decision`                                      | SECURITY DEFINER | `service_role`                     |
+| C — fixtures                                               | `test_seed_program_root` (helper privilegiado por arquivo pgTAP) | —                | só em testes, desfeito no rollback |
+
+**API removida:** `CreateTrainingProgramDraft`, `createProgramDraftInputSchema`/`CreateProgramDraftInput` e `TrainingProgramRepository.createDraft`, que faziam insert direto. Os helpers de integração passaram a usar `createProgramWithStructure`.
+
+**Guardas de arquitetura:** nenhum código de produção faz `.from("training_programs").insert/upsert`, e a migration revoga o INSERT e mantém os criadores controlados.

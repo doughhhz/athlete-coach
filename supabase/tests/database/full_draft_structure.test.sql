@@ -1,4 +1,10 @@
 begin; create extension if not exists pgtap with schema extensions; select no_plan();
+-- Test-only privileged seeding (ADR-0103): clients can no longer insert program
+-- rows; fixtures that only need an existing root bypass the product flow on
+-- purpose here. Rolled back with the test transaction; never in production.
+create function public.test_seed_program_root(p_id uuid, p_name text, p_athlete uuid default null, p_goal uuid default null) returns void language sql security definer set search_path='' as $seed$
+  insert into public.training_programs(id,athlete_id,athlete_goal_id,name) values(p_id,coalesce(p_athlete,public.current_athlete_id()),p_goal,p_name) $seed$;
+grant execute on function public.test_seed_program_root(uuid,text,uuid,uuid) to authenticated;
 -- Corrective pass after Implementation Phase 18 (ADR-0095/0096): whole-tree saves.
 insert into auth.users(id,email) values('a1111111-1111-4111-8111-111111111111','full-a@example.invalid');
 insert into public.athletes(id,user_id) values('aaaaaaaa-1111-4aaa-8aaa-aaaaaaaaaaaa','a1111111-1111-4111-8111-111111111111');
@@ -39,7 +45,7 @@ grant execute on function public.tfs_set(int), public.tfs_day(int,text,text), pu
 
 select set_config('request.jwt.claim.sub','a1111111-1111-4111-8111-111111111111',true);
 set local role authenticated;
-insert into public.training_programs(id,athlete_id,name) values('a3000000-0000-4000-8000-000000000001','aaaaaaaa-1111-4aaa-8aaa-aaaaaaaaaaaa','Full');
+select public.test_seed_program_root('a3000000-0000-4000-8000-000000000001','Full','aaaaaaaa-1111-4aaa-8aaa-aaaaaaaaaaaa');
 select lives_ok($$select public.replace_training_program_structure('a3000000-0000-4000-8000-000000000001',public.tfs_tree())$$,'multi-block/week/day draft saved');
 select is((select count(*) from public.tfs_snapshot('a3000000-0000-4000-8000-000000000001') where path like 'day:%'),4::bigint,'4 days across 2 blocks and 3 weeks');
 create temp table tfs_before as select * from public.tfs_snapshot('a3000000-0000-4000-8000-000000000001');

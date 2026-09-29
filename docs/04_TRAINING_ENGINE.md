@@ -176,3 +176,12 @@ Programa criado pelo usuário é uma raiz nova:
 - toda a estrutura recebe linhagem nova do servidor, e linhagem enviada pelo cliente é rejeitada (não há continuidade estrutural anterior);
 - as mesmas invariantes do salvamento de rascunho: ≥1 bloco, semana, dia, exercício e série, além das validações de série;
 - ativação continua exclusivamente humana.
+
+## Correção pós-criação atômica — Raiz versus revisão
+
+Criar uma raiz e criar uma revisão são autoridades diferentes.
+
+- **Raiz:** só `create_training_program_with_structure` (atômica e idempotente).
+- **Revisão:** clone manual, materialização de Coach, set-count, troca de exercício e auto-draft, pelos seus caminhos controlados, sem passar pela RPC de raiz.
+
+Nenhum cliente consegue criar um rascunho vazio por inserção direta.

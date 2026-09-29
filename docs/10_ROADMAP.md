@@ -178,3 +178,9 @@ Continuam fora de escopo: calendário, drag-and-drop, duplicar bloco/semana, des
 Corrige o risco registrado no relatório da Implementation Phase 19 (retentativa após falha da criação em duas etapas criava rascunho duplicado ou órfão). Inclui criação atômica, idempotência por intenção, conflito explícito, linhagem nova, isolamento entre atletas e um cenário integrado de 25 passos com retentativas concorrentes.
 
 Sem mudança em Coach, Auto-Draft, Review Evidence, outcomes, dossier, prompts ou Edge. Sem limpeza em background.
+
+## Correção pós-criação atômica — Program Creation Boundary Enforcement — complete
+
+A dívida registrada na correção de criação atômica (INSERT direto via RLS) foi fechada. Criar uma raiz agora só é possível pela RPC atômica, e as revisões continuam pelos caminhos controlados.
+
+Nada mudou em UX, Coach, Auto-Draft, prompts, dossier ou Edge.

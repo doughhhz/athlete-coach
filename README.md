@@ -200,3 +200,7 @@ O builder agora permite adicionar, remover (com confirmação) e reordenar bloco
 ## Correção pós-Implementation Phase 19 — Criação de programa atômica
 
 Criar um programa novo agora é uma única operação: o programa e toda a sua estrutura são salvos juntos ou nada é salvo. Antes, o app criava o rascunho e só depois salvava a estrutura; se a segunda etapa falhasse e o atleta tentasse de novo, surgiam rascunhos duplicados ou vazios. Cada tentativa de criação usa um identificador estável: repetir a mesma tentativa (por exemplo, após falha de rede) devolve o mesmo rascunho. Repetir com conteúdo diferente é recusado sem alterar nada, e a tela oferece abrir o programa já criado. Em caso de falha, a estrutura montada continua na tela e o aviso de alterações não salvas permanece.
+
+## Correção pós-criação atômica — Criação de programa só pela fronteira atômica
+
+O banco agora impede que qualquer cliente crie um programa inserindo uma linha diretamente em `training_programs`: não existe mais permissão de INSERT para `authenticated` nem `anon`. Programa novo só nasce pela operação atômica `create_training_program_with_structure`, e revisões só pelas operações controladas de revisão e materialização. O app já usava esse caminho; nada muda para o atleta.

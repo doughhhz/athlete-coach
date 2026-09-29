@@ -865,3 +865,20 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Data: 2026-10-08
 - Status: accepted
 - Decisão: o mesmo atleta, com o mesmo `creationRequestId` e um payload semântico diferente, recebe `program_creation_conflict` (SQLSTATE 23505, HTTP 409). Não sobrescreve, não devolve silenciosamente o existente e não cria outro. A aplicação normaliza para `ProgramCreationConflictError` com `existingProgramId` (lido via RLS, do próprio atleta), e a UI oferece abrir o programa já criado.
+
+### ADR-0103 — TrainingProgram Root Creation Is RPC-Only
+
+- Data: 2026-10-09
+- Status: accepted
+- Complementa as ADR-0100 e ADR-0101, sem substituí-las.
+- Regra anterior (ADR-0100, limitação declarada): o INSERT direto em `training_programs` via RLS continuava permitido para clientes fora do app. Reproduzido: um cliente `authenticated` criou um rascunho raiz com 0 blocos.
+- Regra nova: **"Initial TrainingProgram creation is only permitted through the atomic creation boundary."** **"RLS ownership is not sufficient authority to create a TrainingProgram root."**
+  - O INSERT é revogado de `authenticated` e `anon`.
+  - A policy `for all` é dividida em select, update e delete.
+  - A RPC de raiz e o clone de revisão passam a SECURITY DEFINER (search_path travado, atleta só da sessão, sem parâmetro de atleta, sem SQL dinâmico).
+  - A API de rascunho vazio (`CreateTrainingProgramDraft`/`createDraft`) foi removida.
+  - Os fixtures pgTAP usam um helper privilegiado só de teste, em vez de manter a permissão de produção aberta.
+- Evidência:
+  - pgTAP `program_creation_boundary` (privilégios, policies, definer e search_path, negação direta, RPC, idempotência, rollback, revisão, isolamento entre atletas, `anon`);
+  - integração completa, com clone, materialização e auto-draft executados depois da revogação.
+- Afetados: migration `20261007120000`; 13 arquivos pgTAP; aplicação; data-access; integração; testes de arquitetura; docs 00/02/03/04/10.

@@ -14,7 +14,6 @@ import {
   SignOutCurrentSession,
   SignUpWithEmail,
   UpdateAthleteProfile,
-  CreateTrainingProgramDraft,
   CreateTrainingProgramWithStructure,
   ProgramCreationConflictError,
   SaveTrainingProgramStructure,
@@ -173,7 +172,6 @@ function compose(client) {
     signOut: new SignOutCurrentSession(auth),
     signUp: new SignUpWithEmail(auth),
     updateProfile: new UpdateAthleteProfile(profile),
-    createProgram: new CreateTrainingProgramDraft(programs),
     createProgramWithStructure: new CreateTrainingProgramWithStructure(
       programs,
     ),
@@ -250,86 +248,90 @@ await first.record.execute({
   weightKg: 76.8,
 });
 assert.equal((await first.latest.execute())?.weightKg, 76.8);
-const draft = await first.createProgram.execute({ name: "Programa local" });
-await first.saveProgram.execute(draft.id, {
-  blocks: [
-    {
-      sequence: 1,
-      name: "Base",
-      weeks: [
-        {
-          sequence: 1,
-          name: "Semana 1",
-          days: [
-            {
-              sequence: 1,
-              name: "Treino A",
-              prescriptions: [
-                {
-                  sequence: 1,
-                  exerciseId: "50000000-0000-4000-8000-000000000001",
-                  sets: [
-                    {
-                      sequence: 1,
-                      targetMetric: "reps",
-                      targetMin: 8,
-                      targetMax: 10,
-                      rirMin: 2,
-                      rirMax: 2,
-                      restMinSeconds: 120,
-                      restMaxSeconds: 120,
-                      tempo: "3-1-X-0",
-                      loadKind: "athlete_selected",
-                      loadKg: null,
-                    },
-                    {
-                      sequence: 2,
-                      targetMetric: "reps",
-                      targetMin: 8,
-                      targetMax: 10,
-                      rirMin: 2,
-                      rirMax: 2,
-                      restMinSeconds: 120,
-                      restMaxSeconds: 120,
-                      tempo: null,
-                      loadKind: "athlete_selected",
-                      loadKg: null,
-                    },
-                    {
-                      sequence: 3,
-                      targetMetric: "reps",
-                      targetMin: 8,
-                      targetMax: 10,
-                      rirMin: 2,
-                      rirMax: 2,
-                      restMinSeconds: 120,
-                      restMaxSeconds: 120,
-                      tempo: null,
-                      loadKind: "athlete_selected",
-                      loadKg: null,
-                    },
-                    {
-                      sequence: 4,
-                      targetMetric: "reps",
-                      targetMin: 8,
-                      targetMax: 10,
-                      rirMin: 2,
-                      rirMax: 2,
-                      restMinSeconds: 120,
-                      restMaxSeconds: 120,
-                      tempo: null,
-                      loadKind: "athlete_selected",
-                      loadKg: null,
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-  ],
+// Root creation only through the atomic boundary (ADR-0100..0103).
+const draft = await first.createProgramWithStructure.execute({
+  creationRequestId: crypto.randomUUID(),
+  name: "Programa local",
+  structure: {
+    blocks: [
+      {
+        sequence: 1,
+        name: "Base",
+        weeks: [
+          {
+            sequence: 1,
+            name: "Semana 1",
+            days: [
+              {
+                sequence: 1,
+                name: "Treino A",
+                prescriptions: [
+                  {
+                    sequence: 1,
+                    exerciseId: "50000000-0000-4000-8000-000000000001",
+                    sets: [
+                      {
+                        sequence: 1,
+                        targetMetric: "reps",
+                        targetMin: 8,
+                        targetMax: 10,
+                        rirMin: 2,
+                        rirMax: 2,
+                        restMinSeconds: 120,
+                        restMaxSeconds: 120,
+                        tempo: "3-1-X-0",
+                        loadKind: "athlete_selected",
+                        loadKg: null,
+                      },
+                      {
+                        sequence: 2,
+                        targetMetric: "reps",
+                        targetMin: 8,
+                        targetMax: 10,
+                        rirMin: 2,
+                        rirMax: 2,
+                        restMinSeconds: 120,
+                        restMaxSeconds: 120,
+                        tempo: null,
+                        loadKind: "athlete_selected",
+                        loadKg: null,
+                      },
+                      {
+                        sequence: 3,
+                        targetMetric: "reps",
+                        targetMin: 8,
+                        targetMax: 10,
+                        rirMin: 2,
+                        rirMax: 2,
+                        restMinSeconds: 120,
+                        restMaxSeconds: 120,
+                        tempo: null,
+                        loadKind: "athlete_selected",
+                        loadKg: null,
+                      },
+                      {
+                        sequence: 4,
+                        targetMetric: "reps",
+                        targetMin: 8,
+                        targetMax: 10,
+                        rirMin: 2,
+                        rirMax: 2,
+                        restMinSeconds: 120,
+                        restMaxSeconds: 120,
+                        tempo: null,
+                        loadKind: "athlete_selected",
+                        loadKg: null,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 });
 const activated = await first.activateProgram.execute(draft.id);
 assert.equal(activated.status, "active");
@@ -1109,10 +1111,12 @@ const threeSetStructure = () => ({
     },
   ],
 });
-const draftE = await reloaded.createProgram.execute({
+// Root creation only through the atomic boundary (ADR-0100..0103).
+const draftE = await reloaded.createProgramWithStructure.execute({
+  creationRequestId: crypto.randomUUID(),
   name: "Programa séries",
+  structure: threeSetStructure(),
 });
-await reloaded.saveProgram.execute(draftE.id, threeSetStructure());
 const programE = await reloaded.activateProgram.execute(draftE.id);
 const dayE = programE.blocks[0].weeks[0].days[0];
 const allSets = (value) => [1, 2, 3, 4, 5, 6].map(() => value);
@@ -1444,7 +1448,6 @@ const replacementApi = () => {
   };
 };
 // Program R: X with absolute load, then baseline workouts on X.
-const draftR = await reloaded.createProgram.execute({ name: "Programa troca" });
 const absoluteStructure = threeSetStructure();
 absoluteStructure.blocks[0].weeks[0].days[0].prescriptions[0].sets = [1, 2].map(
   (sequence) => ({
@@ -1461,7 +1464,12 @@ absoluteStructure.blocks[0].weeks[0].days[0].prescriptions[0].sets = [1, 2].map(
     loadKg: 40,
   }),
 );
-await reloaded.saveProgram.execute(draftR.id, absoluteStructure);
+// Root creation only through the atomic boundary (ADR-0100..0103).
+const draftR = await reloaded.createProgramWithStructure.execute({
+  creationRequestId: crypto.randomUUID(),
+  name: "Programa troca",
+  structure: absoluteStructure,
+});
 const programR = await reloaded.activateProgram.execute(draftR.id);
 const dayR = programR.blocks[0].weeks[0].days[0];
 await trainDay(
@@ -2642,35 +2650,37 @@ assert.deepEqual(
     ...change,
   });
   // 1-2. Program A0 with two exercises; every node receives a lineage.
-  const a0Draft = await reloaded.createProgram.execute({
+  // Root creation only through the atomic boundary (ADR-0100..0103).
+  const a0Draft = await reloaded.createProgramWithStructure.execute({
+    creationRequestId: crypto.randomUUID(),
     name: "Programa linhagem",
-  });
-  await reloaded.saveProgram.execute(a0Draft.id, {
-    blocks: [
-      {
-        sequence: 1,
-        name: "Bloco",
-        weeks: [
-          {
-            sequence: 1,
-            days: [
-              {
-                sequence: 1,
-                name: "Dia",
-                prescriptions: [
-                  {
-                    sequence: 1,
-                    exerciseId: EX_X,
-                    sets: [plannedSet(), plannedSet({ sequence: 2 })],
-                  },
-                  { sequence: 2, exerciseId: EX_Z, sets: [plannedSet()] },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    ],
+    structure: {
+      blocks: [
+        {
+          sequence: 1,
+          name: "Bloco",
+          weeks: [
+            {
+              sequence: 1,
+              days: [
+                {
+                  sequence: 1,
+                  name: "Dia",
+                  prescriptions: [
+                    {
+                      sequence: 1,
+                      exerciseId: EX_X,
+                      sets: [plannedSet(), plannedSet({ sequence: 2 })],
+                    },
+                    { sequence: 2, exerciseId: EX_Z, sets: [plannedSet()] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
   });
   const a0 = await reloaded.activateProgram.execute(a0Draft.id);
   assert.equal(a0.lineageTracked, true);
@@ -3068,36 +3078,42 @@ assert.deepEqual(
     ],
   });
   // 1-3. Multi-block / multi-week / multi-day draft; record the full hierarchy.
-  const draft = await reloaded.createProgram.execute({
+  // Root creation only through the atomic boundary (ADR-0100..0103).
+  const draft = await reloaded.createProgramWithStructure.execute({
+    creationRequestId: crypto.randomUUID(),
     name: "Programa completo",
-  });
-  await reloaded.saveProgram.execute(draft.id, {
-    blocks: [
-      {
-        sequence: 1,
-        name: "Bloco A",
-        weeks: [
-          {
-            sequence: 1,
-            name: "Semana 1",
-            days: [dayInput(1, "Dia 1", EX_X), dayInput(2, "Dia 2", EX_Z)],
-          },
-          {
-            sequence: 2,
-            name: "Semana 2",
-            notes: "deload",
-            days: [dayInput(1, "Dia 3", EX_Y)],
-          },
-        ],
-      },
-      {
-        sequence: 2,
-        name: "Bloco B",
-        weeks: [
-          { sequence: 1, name: "Semana 1", days: [dayInput(1, "Dia 4", EX_X)] },
-        ],
-      },
-    ],
+    structure: {
+      blocks: [
+        {
+          sequence: 1,
+          name: "Bloco A",
+          weeks: [
+            {
+              sequence: 1,
+              name: "Semana 1",
+              days: [dayInput(1, "Dia 1", EX_X), dayInput(2, "Dia 2", EX_Z)],
+            },
+            {
+              sequence: 2,
+              name: "Semana 2",
+              notes: "deload",
+              days: [dayInput(1, "Dia 3", EX_Y)],
+            },
+          ],
+        },
+        {
+          sequence: 2,
+          name: "Bloco B",
+          weeks: [
+            {
+              sequence: 1,
+              name: "Semana 1",
+              days: [dayInput(1, "Dia 4", EX_X)],
+            },
+          ],
+        },
+      ],
+    },
   });
   let program = await reloaded.getProgram.execute(draft.id);
   const initial = snapshot(program);
@@ -3424,31 +3440,41 @@ assert.deepEqual(
     ],
   });
   // 1. Draft: Bloco A (Semana 1: Dia 1, Dia 2; Semana 2: Dia 3), Bloco B (Dia 4).
-  const draft = await reloaded.createProgram.execute({
+  // Root creation only through the atomic boundary (ADR-0100..0103).
+  const draft = await reloaded.createProgramWithStructure.execute({
+    creationRequestId: crypto.randomUUID(),
     name: "Estrutura explícita",
-  });
-  await reloaded.saveProgram.execute(draft.id, {
-    blocks: [
-      {
-        sequence: 1,
-        name: "Bloco A",
-        weeks: [
-          {
-            sequence: 1,
-            name: "Semana 1",
-            days: [dayInput(1, "Dia 1", EX_X), dayInput(2, "Dia 2", EX_Z)],
-          },
-          { sequence: 2, name: "Semana 2", days: [dayInput(1, "Dia 3", EX_Y)] },
-        ],
-      },
-      {
-        sequence: 2,
-        name: "Bloco B",
-        weeks: [
-          { sequence: 1, name: "Semana 1", days: [dayInput(1, "Dia 4", EX_X)] },
-        ],
-      },
-    ],
+    structure: {
+      blocks: [
+        {
+          sequence: 1,
+          name: "Bloco A",
+          weeks: [
+            {
+              sequence: 1,
+              name: "Semana 1",
+              days: [dayInput(1, "Dia 1", EX_X), dayInput(2, "Dia 2", EX_Z)],
+            },
+            {
+              sequence: 2,
+              name: "Semana 2",
+              days: [dayInput(1, "Dia 3", EX_Y)],
+            },
+          ],
+        },
+        {
+          sequence: 2,
+          name: "Bloco B",
+          weeks: [
+            {
+              sequence: 1,
+              name: "Semana 1",
+              days: [dayInput(1, "Dia 4", EX_X)],
+            },
+          ],
+        },
+      ],
+    },
   });
   let program = await reloaded.getProgram.execute(draft.id);
   const original = nodes(program);
@@ -4056,9 +4082,135 @@ assert.deepEqual(
   assert.deepEqual(tree(await reloaded.getProgram.execute(created.id)), before);
 }
 
+// Corrective pass — program creation boundary enforcement (ADR-0103). -----
+{
+  // 1. Signed-up, onboarded athlete (the session above).
+  const athleteId = (await reloaded.ensure.execute()).id;
+  const programCount = async () =>
+    (await reloadedClient.from("training_programs").select("id")).data.length;
+  const before = await programCount();
+  // 2-4. Direct authenticated root insert: denied, no row.
+  const direct = await reloadedClient
+    .from("training_programs")
+    .insert({ athlete_id: athleteId, name: "Raiz direta" })
+    .select("id");
+  assert.equal(direct.error?.code, "42501", "direct insert denied");
+  assert.equal(direct.data, null);
+  assert.equal(await programCount(), before, "no row created");
+  // 5-7. Atomic creation works; retrying the same intent returns the same draft.
+  const creationRequestId = crypto.randomUUID();
+  const structure = {
+    blocks: [
+      {
+        sequence: 1,
+        name: "Base",
+        weeks: [
+          {
+            sequence: 1,
+            days: [
+              {
+                sequence: 1,
+                name: "Treino A",
+                prescriptions: [
+                  {
+                    sequence: 1,
+                    exerciseId: EX_X,
+                    sets: [
+                      {
+                        sequence: 1,
+                        targetMetric: "reps",
+                        targetMin: 8,
+                        targetMax: 10,
+                        rirMin: 2,
+                        rirMax: 3,
+                        restMinSeconds: 90,
+                        restMaxSeconds: 150,
+                        tempo: null,
+                        loadKind: "athlete_selected",
+                        loadKg: null,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const root = await reloaded.createProgramWithStructure.execute({
+    creationRequestId,
+    name: "Raiz controlada",
+    structure,
+  });
+  assert.equal(root.status, "draft");
+  assert.equal(root.athleteId, athleteId, "athlete derived by the server");
+  assert.equal(
+    (
+      await reloaded.createProgramWithStructure.execute({
+        creationRequestId,
+        name: "Raiz controlada",
+        structure,
+      })
+    ).id,
+    root.id,
+  );
+  assert.equal(await programCount(), before + 1);
+  // 8. Existing draft editing still works.
+  const edited = await reloaded.saveProgram.execute(
+    root.id,
+    structureEdits.renameDay(
+      programToStructureInput(root),
+      { block: 0, week: 0, day: 0 },
+      "Treino A1",
+    ),
+  );
+  assert.equal(edited.blocks[0].weeks[0].days[0].name, "Treino A1");
+  // 13. Activation only by explicit human action.
+  assert.equal((await reloaded.getProgram.execute(root.id)).status, "draft");
+  const active = await reloaded.activateProgram.execute(root.id);
+  // 9-10. Revision through the controlled (definer) clone keeps working.
+  const revision = await reloaded.cloneProgram.execute(active.id);
+  assert.equal(revision.status, "draft");
+  assert.equal(revision.supersedesProgramId, active.id);
+  assert.equal(revision.revision, 2);
+  assert.equal(
+    revision.blocks[0].weeks[0].days[0].lineageId,
+    active.blocks[0].weeks[0].days[0].lineageId,
+  );
+  // 11-12. Coach materialization and auto-draft ran earlier in this same run,
+  // after the boundary migration: both origins produced drafts.
+  const { data: materialized, error: materializedError } = await reloadedClient
+    .from("coach_decisions")
+    .select("materialization_origin,materialized_program_id")
+    .not("materialized_program_id", "is", null);
+  assert.equal(materializedError, null);
+  assert.deepEqual(
+    [
+      ...new Set(materialized.map((item) => item.materialization_origin)),
+    ].sort(),
+    ["auto_draft", "human"],
+  );
+  // 14-15. Logout/login: data rebuilds unchanged.
+  const snapshotBefore = JSON.stringify([
+    await reloaded.getProgram.execute(active.id),
+    await reloaded.getProgram.execute(revision.id),
+  ]);
+  await reloaded.signOut.execute();
+  await reloaded.signIn.execute(credentials);
+  assert.equal(
+    JSON.stringify([
+      await reloaded.getProgram.execute(active.id),
+      await reloaded.getProgram.execute(revision.id),
+    ]),
+    snapshotBefore,
+  );
+}
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage/full-structure/structure-editing/atomic-creation flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage/full-structure/structure-editing/atomic-creation/creation-boundary flow passed.",
 );

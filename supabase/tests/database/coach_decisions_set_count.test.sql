@@ -1,11 +1,17 @@
 begin; create extension if not exists pgtap with schema extensions; select no_plan();
+-- Test-only privileged seeding (ADR-0103): clients can no longer insert program
+-- rows; fixtures that only need an existing root bypass the product flow on
+-- purpose here. Rolled back with the test transaction; never in production.
+create function public.test_seed_program_root(p_id uuid, p_name text, p_athlete uuid default null, p_goal uuid default null) returns void language sql security definer set search_path='' as $seed$
+  insert into public.training_programs(id,athlete_id,athlete_goal_id,name) values(p_id,coalesce(p_athlete,public.current_athlete_id()),p_goal,p_name) $seed$;
+grant execute on function public.test_seed_program_root(uuid,text,uuid,uuid) to authenticated;
 -- Phase 13 (ADR-0062/0064): coach-proposal-v2 set-count materialization.
 insert into auth.users(id,email) values('41111111-1111-4111-8111-111111111111','sets-a@example.invalid'),('42222222-2222-4222-8222-222222222222','sets-b@example.invalid');
 insert into public.athletes(id,user_id) values('4aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','41111111-1111-4111-8111-111111111111'),('4bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','42222222-2222-4222-8222-222222222222');
 
 -- Test-only helpers (rolled back with the transaction).
 create function public.t13_program(p_id uuid) returns void language plpgsql as $$ begin
-  insert into public.training_programs(id,athlete_id,name) values(p_id,public.current_athlete_id(),'Base');
+  perform public.test_seed_program_root(p_id,'Base');
   perform public.replace_training_program_structure(p_id,'{"blocks":[{"sequence":1,"name":"B","weeks":[{"sequence":1,"days":[{"sequence":1,"name":"A","prescriptions":[
     {"sequence":1,"exerciseId":"50000000-0000-4000-8000-000000000001","sets":[
       {"sequence":1,"targetMetric":"reps","targetMin":8,"targetMax":10,"rirMin":2,"rirMax":2,"restMinSeconds":120,"restMaxSeconds":120,"tempo":null,"loadKind":"athlete_selected","loadKg":null},

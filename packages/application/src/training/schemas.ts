@@ -97,14 +97,12 @@ export const programStructureInputSchema = z.object({
     )
     .min(1),
 });
-export const createProgramDraftInputSchema = z.object({
+/** Metadata of a new program root (only used by atomic creation, ADR-0103). */
+const programRootMetadataSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: optionalText,
   athleteGoalId: z.uuid().optional(),
 });
-export type CreateProgramDraftInput = z.infer<
-  typeof createProgramDraftInputSchema
->;
 export type ProgramStructureInput = z.infer<typeof programStructureInputSchema>;
 /**
  * New program creation as ONE intent (corrective pass after Implementation
@@ -112,20 +110,19 @@ export type ProgramStructureInput = z.infer<typeof programStructureInputSchema>;
  * `creationRequestId` reused on every retry. A new root has no structural
  * continuity, so lineage is never accepted here (the server assigns it).
  */
-export const createProgramWithStructureInputSchema =
-  createProgramDraftInputSchema
-    .extend({
-      creationRequestId: z.uuid(),
-      structure: programStructureInputSchema,
-    })
-    .superRefine((value, context) => {
-      if (JSON.stringify(value.structure).includes('"lineageId"'))
-        context.addIssue({
-          code: "custom",
-          path: ["structure"],
-          message: "Um programa novo não aceita linhagem de outro programa.",
-        });
-    });
+export const createProgramWithStructureInputSchema = programRootMetadataSchema
+  .extend({
+    creationRequestId: z.uuid(),
+    structure: programStructureInputSchema,
+  })
+  .superRefine((value, context) => {
+    if (JSON.stringify(value.structure).includes('"lineageId"'))
+      context.addIssue({
+        code: "custom",
+        path: ["structure"],
+        message: "Um programa novo não aceita linhagem de outro programa.",
+      });
+  });
 export type CreateProgramWithStructureInput = z.infer<
   typeof createProgramWithStructureInputSchema
 >;

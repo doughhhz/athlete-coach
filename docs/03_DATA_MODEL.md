@@ -229,3 +229,23 @@ RPC `create_training_program_with_structure(p_creation_request_id, p_name, p_str
 Qualquer falha desfaz tudo. Não ativa nada.
 
 O insert direto em `training_programs` por RLS continua permitido (fixtures pgTAP e fluxos existentes), mas não pode definir a identidade de criação; o app não o usa mais para criar programas.
+
+## Correção pós-criação atômica — Privilégios de `training_programs`
+
+Migration `20261007120000_enforce_atomic_program_creation_boundary.sql` (apenas para frente):
+
+- `revoke insert on public.training_programs from authenticated, anon`; SELECT, UPDATE e DELETE continuam como antes;
+- a policy `training_programs_own` (`for all`) foi substituída por `_own_select`, `_own_update` e `_own_delete`, com o mesmo predicado de dono, para que nenhuma policy descreva um INSERT que o cliente não pode mais fazer;
+- RLS continua ativa;
+- `create_training_program_with_structure` e `clone_training_program_as_draft` passaram para SECURITY DEFINER sem mudar o corpo.
+
+Endurecimento das duas funções (já presente no corpo):
+
+- `search_path=''` e objetos sempre com schema explícito;
+- atleta resolvido só por `current_athlete_id()` (`auth.uid()`), sem nenhum parâmetro de atleta;
+- filtros explícitos por atleta, sem depender de RLS;
+- nenhum SQL dinâmico;
+- a gravação da árvore continua passando pela checagem explícita de rascunho próprio em `replace_training_program_structure`;
+- `anon` não pode executar nenhuma das duas.
+
+Materialização e auto-draft já eram SECURITY DEFINER e restritos a `service_role`; não mudaram. O trigger de identidade de criação continua como defesa em profundidade.

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  CreateTrainingProgramDraft,
   SaveTrainingProgramStructure,
   ActivateTrainingProgram,
   CloneTrainingProgramAsDraft,
@@ -102,11 +101,6 @@ const program = {
 };
 function fake() {
   return {
-    createDraft: async (input) => ({
-      ...program,
-      name: input.name,
-      blocks: [],
-    }),
     saveStructure: async () => program,
     get: async () => program,
     activate: async () => ({ ...program, status: "active" }),
@@ -118,12 +112,18 @@ function fake() {
     }),
   };
 }
-test("creates validated draft", async () =>
+// ADR-0103: root creation is only the atomic, idempotent boundary; the
+// two-step "create empty draft" use case no longer exists.
+test("no empty-draft creation use case remains", async () => {
+  const application = await import("../src/index.ts");
+  assert.equal("CreateTrainingProgramDraft" in application, false);
+  assert.equal("createProgramDraftInputSchema" in application, false);
   assert.equal(
-    (await new CreateTrainingProgramDraft(fake()).execute({ name: "Programa" }))
-      .name,
-    "Programa",
-  ));
+    typeof application.CreateTrainingProgramWithStructure,
+    "function",
+  );
+  assert.equal("createDraft" in fake(), false);
+});
 test("rejects invalid structure before repository", () =>
   assert.throws(() =>
     new SaveTrainingProgramStructure(fake()).execute("p", { blocks: [] }),

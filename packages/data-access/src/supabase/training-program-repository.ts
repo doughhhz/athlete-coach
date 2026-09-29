@@ -1,6 +1,5 @@
 import {
   ProgramCreationConflictError,
-  type CreateProgramDraftInput,
   type CreateProgramWithStructureInput,
   type ProgramStructureInput,
   type TrainingProgramRepository,
@@ -204,21 +203,6 @@ export class SupabaseTrainingProgramRepository implements TrainingProgramReposit
       .maybeSingle();
     if (error) failure("Não foi possível carregar o programa ativo.", error);
     return data ? map(data) : null;
-  }
-  async createDraft(input: CreateProgramDraftInput) {
-    const athlete = await this.currentAthlete();
-    const { data, error } = await this.client
-      .from("training_programs")
-      .insert({
-        athlete_id: athlete,
-        name: input.name,
-        description: input.description ?? null,
-        athlete_goal_id: input.athleteGoalId ?? null,
-      })
-      .select("id")
-      .single();
-    if (error) failure("Não foi possível criar o rascunho.", error);
-    return (await this.get(data.id))!;
   }
   /**
    * One RPC, one transaction: program row + complete hierarchy. The athlete,

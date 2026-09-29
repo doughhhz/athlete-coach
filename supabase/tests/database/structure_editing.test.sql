@@ -1,4 +1,10 @@
 begin; create extension if not exists pgtap with schema extensions; select no_plan();
+-- Test-only privileged seeding (ADR-0103): clients can no longer insert program
+-- rows; fixtures that only need an existing root bypass the product flow on
+-- purpose here. Rolled back with the test transaction; never in production.
+create function public.test_seed_program_root(p_id uuid, p_name text, p_athlete uuid default null, p_goal uuid default null) returns void language sql security definer set search_path='' as $seed$
+  insert into public.training_programs(id,athlete_id,athlete_goal_id,name) values(p_id,coalesce(p_athlete,public.current_athlete_id()),p_goal,p_name) $seed$;
+grant execute on function public.test_seed_program_root(uuid,text,uuid,uuid) to authenticated;
 -- Implementation Phase 19 (ADR-0097/0098): explicit structural removal through
 -- whole-tree saves; removed lineage is never recycled.
 insert into auth.users(id,email) values('b1111111-1111-4111-8111-111111111111','edit-a@example.invalid');
@@ -11,7 +17,7 @@ grant execute on function public.tse_day(int,text,uuid), public.tse_lineage(uuid
 
 select set_config('request.jwt.claim.sub','b1111111-1111-4111-8111-111111111111',true);
 set local role authenticated;
-insert into public.training_programs(id,athlete_id,name) values('b3000000-0000-4000-8000-000000000001','bbbbbbbb-1111-4bbb-8bbb-bbbbbbbbbbbb','Edit');
+select public.test_seed_program_root('b3000000-0000-4000-8000-000000000001','Edit','bbbbbbbb-1111-4bbb-8bbb-bbbbbbbbbbbb');
 select lives_ok($$select public.replace_training_program_structure('b3000000-0000-4000-8000-000000000001',jsonb_build_object('blocks',jsonb_build_array(jsonb_build_object('sequence',1,'name','A','weeks',jsonb_build_array(jsonb_build_object('sequence',1,'days',jsonb_build_array(public.tse_day(1,'D1'),public.tse_day(2,'D2')))))))) $$,'two-day draft saved');
 create temp table tse_ids as select public.tse_lineage('b3000000-0000-4000-8000-000000000001','D1') d1, public.tse_lineage('b3000000-0000-4000-8000-000000000001','D2') d2;
 select isnt((select d2 from tse_ids),null,'D2 has server lineage');

@@ -87,3 +87,52 @@ test("the migration reuses the canonical structure writer instead of copying it"
     /activate_training_program|activated_at\s*=|app\.training_program_transition|'active'/,
   );
 });
+
+// ADR-0103: "Initial TrainingProgram creation is only permitted through the
+// atomic creation boundary." / "RLS ownership is not sufficient authority to
+// create a TrainingProgram root."
+test("no production code inserts program rows directly or keeps an empty-draft API", async () => {
+  const production = await sources([
+    "apps/mobile/app",
+    "apps/mobile/src",
+    "packages/application/src",
+    "packages/data-access/src/supabase",
+    "packages/domain/src",
+  ]);
+  for (const file of production) {
+    assert.doesNotMatch(
+      file.text,
+      /from\(\s*["']training_programs["']\s*\)\s*\.(insert|upsert)\(/,
+      file.path,
+    );
+    assert.doesNotMatch(
+      file.text,
+      /\bcreateDraft\b|CreateTrainingProgramDraft|createProgramDraftInputSchema/,
+      file.path,
+    );
+  }
+});
+
+test("the database revokes client INSERT on program rows and keeps the creators controlled", async () => {
+  const migration = await readFile(
+    resolve(
+      root,
+      "supabase/migrations/20261007120000_enforce_atomic_program_creation_boundary.sql",
+    ),
+    "utf8",
+  );
+  assert.match(
+    migration,
+    /revoke insert on public\.training_programs from authenticated, anon;/,
+  );
+  assert.match(
+    migration,
+    /alter function public\.create_training_program_with_structure\(uuid,text,jsonb,text,uuid\) security definer;/,
+  );
+  assert.match(
+    migration,
+    /alter function public\.clone_training_program_as_draft\(uuid\) security definer;/,
+  );
+  assert.doesNotMatch(migration, /grant (all|insert)[^;]*training_programs/i);
+  assert.doesNotMatch(migration, /for (insert|all) to authenticated/);
+});

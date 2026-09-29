@@ -1,4 +1,10 @@
 begin; create extension if not exists pgtap with schema extensions; select no_plan();
+-- Test-only privileged seeding (ADR-0103): clients can no longer insert program
+-- rows; fixtures that only need an existing root bypass the product flow on
+-- purpose here. Rolled back with the test transaction; never in production.
+create function public.test_seed_program_root(p_id uuid, p_name text, p_athlete uuid default null, p_goal uuid default null) returns void language sql security definer set search_path='' as $seed$
+  insert into public.training_programs(id,athlete_id,athlete_goal_id,name) values(p_id,coalesce(p_athlete,public.current_athlete_id()),p_goal,p_name) $seed$;
+grant execute on function public.test_seed_program_root(uuid,text,uuid,uuid) to authenticated;
 -- Implementation Phase 18 (ADR-0091..0094): stable training structure lineage.
 insert into auth.users(id,email) values('91111111-1111-4111-8111-111111111111','lineage-a@example.invalid'),('92222222-2222-4222-8222-222222222222','lineage-b@example.invalid');
 insert into public.athletes(id,user_id) values('9aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','91111111-1111-4111-8111-111111111111'),('9bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','92222222-2222-4222-8222-222222222222');
@@ -34,7 +40,7 @@ select col_not_null('public','exercise_prescriptions','lineage_id','lineage is m
 -- CREATION --------------------------------------------------------------------------
 select set_config('request.jwt.claim.sub','91111111-1111-4111-8111-111111111111',true);
 set local role authenticated;
-insert into public.training_programs(id,athlete_id,name,lineage_tracked) values('93000000-0000-4000-8000-000000000001','9aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','A',false);
+select public.test_seed_program_root('93000000-0000-4000-8000-000000000001','A','9aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 select is((select lineage_tracked from public.training_programs where id='93000000-0000-4000-8000-000000000001'),true,'new programs are lineage-tracked (client flag ignored)');
 select lives_ok($$select public.replace_training_program_structure('93000000-0000-4000-8000-000000000001',public.t18_structure())$$,'structure created');
 select is((select count(distinct lineage) from public.t18_prescriptions('93000000-0000-4000-8000-000000000001')),2::bigint,'each new prescription gets its own lineage');
@@ -80,7 +86,7 @@ delete from public.exercise_prescriptions where sequence=9;
 reset role;
 select set_config('request.jwt.claim.sub','92222222-2222-4222-8222-222222222222',true);
 set local role authenticated;
-insert into public.training_programs(id,athlete_id,name) values('93000000-0000-4000-8000-000000000009','9bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','Other');
+select public.test_seed_program_root('93000000-0000-4000-8000-000000000009','Other','9bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
 select throws_ok(format($$select public.replace_training_program_structure('93000000-0000-4000-8000-000000000009', jsonb_set(public.t18_structure(),'{blocks,0,weeks,0,days,0,prescriptions,0,lineageId}',to_jsonb(%L::text)))$$,(select lineage from t18_l where sequence=1)),'22023','Unknown structure lineage','another athlete cannot forge lineage');
 reset role;
 
@@ -121,7 +127,7 @@ reset role;
 -- A fresh active program C (B already has its single successor draft).
 select set_config('request.jwt.claim.sub','91111111-1111-4111-8111-111111111111',true);
 set local role authenticated;
-insert into public.training_programs(id,athlete_id,name) values('93000000-0000-4000-8000-000000000003','9aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','C');
+select public.test_seed_program_root('93000000-0000-4000-8000-000000000003','C','9aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 select lives_ok($$select public.replace_training_program_structure('93000000-0000-4000-8000-000000000003',public.t18_structure())$$,'program C structured');
 select lives_ok($$select public.activate_training_program('93000000-0000-4000-8000-000000000003')$$,'program C activated');
 reset role;

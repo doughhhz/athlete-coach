@@ -64,7 +64,10 @@ select throws_ok($$select public.create_training_program_with_structure('d000000
 select is(public.tapc_count('d0000000-0000-4000-8000-000000000004'),0::bigint,'no program after lineage injection');
 
 -- The client cannot forge creation identity through direct inserts, nor change it.
-select throws_ok($$insert into public.training_programs(athlete_id,name,creation_request_id,creation_request_fingerprint) values('cccccccc-1111-4ccc-8ccc-cccccccccccc','X','d0000000-0000-4000-8000-000000000005',repeat('a',64))$$,'42501','Creation identity requires the atomic creation operation','direct insert with identity rejected');
+select throws_ok($$insert into public.training_programs(athlete_id,name,creation_request_id,creation_request_fingerprint) values('cccccccc-1111-4ccc-8ccc-cccccccccccc','X','d0000000-0000-4000-8000-000000000005',repeat('a',64))$$,'42501','permission denied for table training_programs','authenticated cannot insert a program row (ADR-0103)');
+reset role;
+select throws_ok($$insert into public.training_programs(athlete_id,name,creation_request_id,creation_request_fingerprint) values('cccccccc-1111-4ccc-8ccc-cccccccccccc','X','d0000000-0000-4000-8000-000000000005',repeat('a',64))$$,'42501','Creation identity requires the atomic creation operation','even a privileged writer cannot forge creation identity outside the RPC');
+set local role authenticated;
 select throws_ok($$update public.training_programs set creation_request_id='d0000000-0000-4000-8000-000000000009' where id=(select id from tapc_first)$$,'55000','Creation identity is immutable','identity immutable');
 select throws_ok($$select public.create_training_program_with_structure(null,'X',public.tapc_tree())$$,'22023','Creation request id required','request id required');
 reset role;

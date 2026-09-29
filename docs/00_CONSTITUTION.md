@@ -118,3 +118,8 @@ Ativação de programa é sempre uma ação humana explícita. Ativação autom�
 
 - **Creating a training program is one transactional user intent, not a sequence of independently durable mutations.**
 - **Retrying the same creation intent must resolve to the same draft.**
+
+## Correção pós-criação atômica — Autoridade de criação
+
+- **Initial TrainingProgram creation is only permitted through the atomic creation boundary.**
+- **RLS ownership is not sufficient authority to create a TrainingProgram root.**

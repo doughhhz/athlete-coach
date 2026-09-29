@@ -1,10 +1,8 @@
 import { assertActivatable } from "@athlete-coach/domain";
 import {
-  createProgramDraftInputSchema,
   createProgramWithStructureInputSchema,
   type CreateProgramWithStructureInput,
   programStructureInputSchema,
-  type CreateProgramDraftInput,
   type ProgramStructureInput,
 } from "./schemas.ts";
 import type { TrainingProgramRepository } from "./ports.ts";
@@ -27,13 +25,6 @@ export class GetTrainingProgram extends ProgramsUseCase {
 export class GetActiveTrainingProgram extends ProgramsUseCase {
   execute() {
     return this.repository.getActive();
-  }
-}
-export class CreateTrainingProgramDraft extends ProgramsUseCase {
-  execute(input: CreateProgramDraftInput) {
-    return this.repository.createDraft(
-      createProgramDraftInputSchema.parse(input),
-    );
   }
 }
 /**
