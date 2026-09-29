@@ -113,7 +113,10 @@ export function TrainingProgramsScreen() {
             </Text>
             <Link href={`/workouts/${workout.id}` as Href} asChild>
               <Pressable
-                style={[s.button, { backgroundColor: theme.colors.accent }]}
+                style={StyleSheet.flatten([
+                  s.button,
+                  { backgroundColor: theme.colors.accent },
+                ])}
               >
                 <Text style={s.buttonText}>Continuar treino</Text>
               </Pressable>
@@ -152,7 +155,10 @@ export function TrainingProgramsScreen() {
         </Text>
         <Link href={"/programs/new" as Href} asChild>
           <Pressable
-            style={[s.button, { backgroundColor: theme.colors.accent }]}
+            style={StyleSheet.flatten([
+              s.button,
+              { backgroundColor: theme.colors.accent },
+            ])}
           >
             <Text style={s.buttonText}>Criar programa</Text>
           </Pressable>
@@ -179,13 +185,13 @@ export function TrainingProgramsScreen() {
         items.map((p) => (
           <Link key={p.id} href={`/programs/${p.id}` as Href} asChild>
             <Pressable
-              style={[
+              style={StyleSheet.flatten([
                 s.card,
                 {
                   backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.border,
                 },
-              ]}
+              ])}
             >
               <View style={s.row}>
                 <Text style={[s.program, { color: theme.colors.text }]}>
@@ -203,7 +209,12 @@ export function TrainingProgramsScreen() {
           </Link>
         ))}
       <Link href={"/exercises" as Href} asChild>
-        <Pressable style={[s.card, { borderColor: theme.colors.border }]}>
+        <Pressable
+          style={StyleSheet.flatten([
+            s.card,
+            { borderColor: theme.colors.border },
+          ])}
+        >
           <Text style={[s.program, { color: theme.colors.text }]}>
             Biblioteca de exercícios
           </Text>
@@ -222,7 +233,12 @@ export function TrainingProgramsScreen() {
       ) : (
         history.map((w) => (
           <Link key={w.id} href={`/workouts/${w.id}/summary` as Href} asChild>
-            <Pressable style={[s.card, { borderColor: theme.colors.border }]}>
+            <Pressable
+              style={StyleSheet.flatten([
+                s.card,
+                { borderColor: theme.colors.border },
+              ])}
+            >
               <Text style={[s.program, { color: theme.colors.text }]}>
                 {w.dayName}
               </Text>

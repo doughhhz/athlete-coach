@@ -249,13 +249,13 @@ export function ExerciseLibraryScreen() {
             >
               <Pressable
                 accessibilityRole="link"
-                style={[
+                style={StyleSheet.flatten([
                   styles.card,
                   {
                     backgroundColor: theme.colors.surface,
                     borderColor: theme.colors.border,
                   },
-                ]}
+                ])}
               >
                 <Text style={[styles.cardTitle, { color: theme.colors.text }]}>
                   {item.namePt}

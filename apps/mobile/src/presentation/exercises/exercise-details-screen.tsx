@@ -186,7 +186,10 @@ export function ExerciseDetailsScreen() {
             >
               <Pressable
                 accessibilityRole="link"
-                style={[styles.relation, { borderColor: theme.colors.border }]}
+                style={StyleSheet.flatten([
+                  styles.relation,
+                  { borderColor: theme.colors.border },
+                ])}
               >
                 <Text style={{ color: theme.colors.accent, fontWeight: "700" }}>
                   {relation.exercise.namePt}
