@@ -757,7 +757,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0087 — Human review evidence as a derived projection (Implementation Phase 17)
 
 - Data: 2026-10-04
-- Status: accepted
+- Status: accepted; correspondência posicional complementada pela ADR-0094 (evidência v2 com linhagem; v1 histórico)
 - Decisão: `coach-draft-review-evidence-v1` descreve o que aconteceu com um rascunho materializado durante a revisão humana: `awaiting_review | activated_unchanged | activated_with_edits | archived_without_activation | limited_data`, comparação por ação (origem → materializado esperado → revisado/ativado), categorias factuais e contagens. Reconstruída de ledger + ciclo de vida do programa, sem migration nem snapshot duplicado. Só existe para decisões materializadas; rejeição de proposta não é arquivamento de rascunho. Funciona igualmente para `human` e `auto_draft`. Redação "o rascunho revisado difere", sem atribuir autor.
 - Impacto: domínio, aplicação, mobile, integração.
 
@@ -770,7 +770,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0089 — Dossier v6, coach-system-v6 and coach-proposal-prompt-v6
 
 - Data: 2026-10-04
-- Status: accepted
+- Status: accepted; dossier corrente passou a v7 pela ADR-0094 (prompts v6 mantidos)
 - Decisão: `athlete-training-dossier-v6` = v5 + `draftReviewHistory` compacto (≤ 8 itens, contagens, referências `coach_draft_review`). `coach-system-v6` e `coach-proposal-prompt-v6` são v5 verbatim + regras de revisão (supervisão ≠ correção, sem inferir confiança, sem expandir autoridade, fisiologia só por outcomes). v1–v5 permanecem históricos. O tipo de evidência `coach_draft_review` é aditivo nos enums de evidência (precedente: `response_memory_group`), sem alterar as versões dos contratos de análise/proposta.
 
 ### ADR-0090 — Auto-draft policy isolation from review history
@@ -778,3 +778,29 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Data: 2026-10-04
 - Status: accepted
 - Decisão: **Auto-draft authority may not expand itself from review history.** `coach-auto-draft-v1` permanece exatamente com RIR ↑, descanso ↑ e redução de carga absoluta existente; testes de arquitetura garantem que política/orquestração de auto-draft e governança não importam o módulo de revisão e que o conjunto elegível não mudou; o módulo de revisão não tem caminho para ativar, materializar ou escrever no ledger. Qualquer próxima decisão de autoridade deve ser nova ADR baseada em arquitetura (fronteiras, reversibilidade, verificações determinísticas), nunca em "aceitação" nem em autoavaliação do modelo.
+
+### ADR-0091 — Stable training structure lineage (Implementation Phase 18)
+
+- Data: 2026-10-05
+- Status: accepted
+- Regra anterior (Phases 11, 13, 14, 17): correspondência entre revisões por posição (bloco/semana/dia/prescrição/série) com heurísticas por exercício; reordenar parecia troca de exercício ou séries removidas/adicionadas.
+- Decisão: `lineage_id` estável nos cinco níveis estruturais, preservado por clone, materialização (Coach, set-count, troca, auto-draft) e salvamento de rascunho; novo nó → nova linhagem; removido → ausente. **Revision identity is not sequence identity.** **Reordering an existing training element does not make it a new element.** **Lineage identifies structural continuity; it does not imply semantic equivalence of changed exercise content.** Linhagem não é row id, sequence nem exercício.
+- Impacto: DB, domínio, data-access, builder mobile, integração.
+
+### ADR-0092 — Server-controlled lineage assignment
+
+- Data: 2026-10-05
+- Status: accepted
+- Decisão: linhagem imutável; qualquer insert direto recebe nova linhagem; só RPCs confiáveis (clone, materialização, salvamento validado) preservam linhagem. O salvamento aceita `lineageId` apenas se existir no mesmo nível do mesmo rascunho, sem duplicatas; cópia de série no cliente deve omitir `lineageId`. `lineage_tracked` é forçado e imutável.
+
+### ADR-0093 — Legacy lineage fallback
+
+- Data: 2026-10-05
+- Status: accepted
+- Decisão: backfill conservador — cada linha existente é raiz; relações entre revisões anteriores à migration não são inferidas. Comparações usam `lineage` somente quando a revisão comparada tem `lineage_tracked` e ambas as estruturas têm linhagem completa; caso contrário `legacy_position`, exposto explicitamente (`matchingStrategy`). Preferir continuidade desconhecida a ligação falsa.
+
+### ADR-0094 — Lineage-aware review and fidelity matching
+
+- Data: 2026-10-05
+- Status: accepted
+- Decisão: um único matcher canônico (`training/lineage.ts`) para evidência de revisão e fidelidade de outcome. `coach-draft-review-evidence-v2`/`coach-draft-review-history-v2` (v1 histórico) adicionam `matchingStrategy` e `sequence_changed`; `athlete-training-dossier-v7` (v6 histórico). Fidelidade de outcome: correspondência de prescrição/série por linhagem quando disponível; contrato `intervention-outcome-v3` e semântica fisiológica inalterados (em modo linhagem, `set_count` também sinaliza série substituída com a mesma contagem, preservando a sensibilidade anterior); comportamento legado idêntico. Prompts não mudam (v6). `coach-auto-draft-v1` inalterado.

@@ -10,15 +10,21 @@ import type { CoachProposalOrigin } from "../coach-governance/governance.ts";
 import type { EvidenceReference } from "../dossier/dossier.ts";
 import {
   diffPrescription,
-  flattenPrescriptions,
   prescriptionDimensionValue,
-  prescriptionKey,
   samePrescriptionValue,
-  type FidelityDifference,
-  type LocatedPrescription,
   type PrescriptionDimensionValue,
   type PrescriptionPath,
+  type StructuralDifference,
 } from "../outcomes/outcomes.ts";
+import {
+  flattenPrescriptions,
+  matchPrescriptions,
+  matchSets,
+  prescriptionKey,
+  structureMatchingStrategy,
+  type LocatedPrescription,
+  type StructureMatchingStrategy,
+} from "../training/lineage.ts";
 import type {
   ExercisePrescription,
   ProgramStatus,
@@ -36,10 +42,19 @@ import type {
  * No score, rate, reward, correctness or trust label exists here, and this
  * module is never an input of the auto-draft policy.
  */
+/**
+ * v2 (Implementation Phase 18, ADR-0094): lineage-first matching through the
+ * canonical matcher, explicit `matchingStrategy` and `sequence_changed`.
+ * A reorder is no longer reported as an exercise change. v1 is historical.
+ */
 export const COACH_DRAFT_REVIEW_EVIDENCE_VERSION =
-  "coach-draft-review-evidence-v1" as const;
+  "coach-draft-review-evidence-v2" as const;
 export const COACH_DRAFT_REVIEW_HISTORY_VERSION =
-  "coach-draft-review-history-v1" as const;
+  "coach-draft-review-history-v2" as const;
+export const coachDraftReviewEvidenceVersions = [
+  "coach-draft-review-evidence-v1",
+  COACH_DRAFT_REVIEW_EVIDENCE_VERSION,
+] as const;
 export const DRAFT_REVIEW_HISTORY_DEFAULT_LIMIT = 20;
 
 export const draftReviewStatuses = [
@@ -60,6 +75,7 @@ export const draftReviewChangeCategories = [
   "rest_changed",
   "load_changed",
   "tempo_changed",
+  "sequence_changed",
   "prescription_added",
   "prescription_removed",
   "program_structure_changed",
@@ -109,6 +125,8 @@ export type CoachDraftReviewEvidence = Readonly<{
     status: ProgramStatus | null;
   }>;
   reviewStatus: DraftReviewStatus;
+  /** `lineage` when the draft preserved lineage; explicit legacy fallback otherwise. */
+  matchingStrategy: StructureMatchingStrategy;
   materializedAt: string | null;
   activatedAt: string | null;
   archivedAt: string | null;
@@ -132,8 +150,9 @@ export type CoachDraftReviewEvidence = Readonly<{
 }>;
 
 const categoryOf: Readonly<
-  Record<FidelityDifference["dimension"], DraftReviewChangeCategory | null>
+  Record<StructuralDifference["dimension"], DraftReviewChangeCategory | null>
 > = {
+  sequence: "sequence_changed",
   target: "target_changed",
   planned_rir: "rir_changed",
   planned_rest: "rest_changed",
@@ -188,29 +207,43 @@ function diffPrograms(
   expected: readonly LocatedPrescription[],
   reviewed: readonly LocatedPrescription[],
   structureChanged: boolean,
+  strategy: StructureMatchingStrategy,
 ): Diff {
   const categories = new Set<DraftReviewChangeCategory>();
   const changedKeys = new Set<string>();
   let changedSets = 0;
   let changedExercises = 0;
   if (structureChanged) categories.add("program_structure_changed");
-  const reviewedByKey = new Map(
-    reviewed.map((item) => [prescriptionKey(item.path), item.prescription]),
-  );
-  const expectedKeys = new Set(
-    expected.map((item) => prescriptionKey(item.path)),
-  );
-  for (const item of expected) {
+  const matched = matchPrescriptions(expected, reviewed, strategy);
+  for (const item of matched.removed) {
+    categories.add("prescription_removed");
+    changedKeys.add(prescriptionKey(item.path));
+  }
+  for (const item of matched.added) {
+    categories.add("prescription_added");
+    changedKeys.add(`added:${prescriptionKey(item.path)}`);
+  }
+  for (const { expected: item, compared: counterpart } of matched.pairs) {
     const key = prescriptionKey(item.path);
-    const counterpart = reviewedByKey.get(key);
-    if (!counterpart) {
-      categories.add("prescription_removed");
-      changedKeys.add(key);
-      continue;
-    }
-    const differences = diffPrescription(item.prescription, counterpart);
-    if (!differences.length) continue;
+    const differences = diffPrescription(
+      item.prescription,
+      counterpart.prescription,
+      strategy,
+    );
+    const moved =
+      strategy === "lineage" &&
+      prescriptionKey(item.path) !== prescriptionKey(counterpart.path);
+    const sets = matchSets(
+      item.prescription.sets,
+      counterpart.prescription.sets,
+      strategy,
+    );
+    const setLineageChanged =
+      strategy === "lineage" &&
+      (sets.added.length > 0 || sets.removed.length > 0);
+    if (!differences.length && !moved && !setLineageChanged) continue;
     changedKeys.add(key);
+    if (moved) categories.add("sequence_changed");
     const setPositions = new Set<number>();
     for (const difference of differences) {
       const category = categoryOf[difference.dimension];
@@ -219,16 +252,19 @@ function diffPrograms(
       if (difference.setSequence !== null)
         setPositions.add(difference.setSequence);
     }
-    const delta = counterpart.sets.length - item.prescription.sets.length;
-    if (delta > 0) categories.add("set_added");
-    if (delta < 0) categories.add("set_removed");
-    changedSets += setPositions.size + Math.abs(delta);
-  }
-  for (const item of reviewed)
-    if (!expectedKeys.has(prescriptionKey(item.path))) {
-      categories.add("prescription_added");
-      changedKeys.add(prescriptionKey(item.path));
+    if (strategy === "lineage") {
+      if (sets.added.length) categories.add("set_added");
+      if (sets.removed.length) categories.add("set_removed");
+      changedSets +=
+        setPositions.size + sets.added.length + sets.removed.length;
+    } else {
+      const delta =
+        counterpart.prescription.sets.length - item.prescription.sets.length;
+      if (delta > 0) categories.add("set_added");
+      if (delta < 0) categories.add("set_removed");
+      changedSets += setPositions.size + Math.abs(delta);
     }
+  }
   return {
     categories: new Set(
       draftReviewChangeCategories.filter((category) =>
@@ -257,7 +293,16 @@ function compareActions(
   source: readonly LocatedPrescription[],
   expected: readonly LocatedPrescription[],
   reviewed: readonly LocatedPrescription[] | null,
+  strategy: StructureMatchingStrategy,
 ): readonly DraftReviewActionComparison[] {
+  const counterparts = new Map(
+    reviewed
+      ? matchPrescriptions(expected, reviewed, strategy).pairs.map((pair) => [
+          prescriptionKey(pair.expected.path),
+          pair.compared.prescription,
+        ])
+      : [],
+  );
   return decision.proposal.actions.map((action, actionIndex) => {
     const located = source.find(
       (item) => item.prescription.id === action.exercisePrescriptionId,
@@ -265,7 +310,7 @@ function compareActions(
     const key = located ? prescriptionKey(located.path) : null;
     const sourcePrescription = located?.prescription ?? null;
     const expectedPrescription = locate(expected, key);
-    const reviewedPrescription = reviewed ? locate(reviewed, key) : null;
+    const reviewedPrescription = key ? (counterparts.get(key) ?? null) : null;
     const base = {
       actionIndex,
       kind: action.kind,
@@ -299,9 +344,12 @@ function compareActions(
         ) ?? null;
       const reviewedSet =
         expectedSet && reviewedPrescription
-          ? (reviewedPrescription.sets.find(
-              (set) => set.sequence === expectedSet.sequence,
-            ) ?? null)
+          ? (matchSets(
+              expectedPrescription?.sets ?? [],
+              reviewedPrescription.sets,
+              strategy,
+            ).pairs.find((pair) => pair.expected === expectedSet)?.compared ??
+            null)
           : null;
       const materializedValue = expectedSet
         ? prescriptionDimensionValue(expectedSet, dimension)
@@ -399,12 +447,17 @@ export function buildCoachDraftReviewEvidence(
     comparable && materializedProgram
       ? flattenPrescriptions(materializedProgram)
       : null;
+  const strategy = structureMatchingStrategy(
+    sourceProgram,
+    materializedProgram,
+  );
   const diff = reviewed
     ? diffPrograms(
         expected,
         reviewed,
         shape(sourceProgram as TrainingProgram) !==
           shape(materializedProgram as TrainingProgram),
+        strategy,
       )
     : null;
   const affectedKeys = new Set(
@@ -449,6 +502,7 @@ export function buildCoachDraftReviewEvidence(
       status: materializedProgram?.status ?? null,
     },
     reviewStatus,
+    matchingStrategy: strategy,
     materializedAt: decision.materializedAt,
     activatedAt,
     archivedAt,
@@ -459,7 +513,7 @@ export function buildCoachDraftReviewEvidence(
         : null,
     reviewedDraftDiffers,
     actionComparisons: sourceProgram
-      ? compareActions(decision, source, expected, reviewed)
+      ? compareActions(decision, source, expected, reviewed, strategy)
       : [],
     changedPrescriptionCount: diff?.changedKeys.size ?? 0,
     changedSetCount: diff?.changedSets ?? 0,

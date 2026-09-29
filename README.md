@@ -184,3 +184,7 @@ Nova permissão opcional e separada do modo do Personal: **Criação automática
 ## Implementation Phase 17 — Evidência de revisão humana
 
 O app agora mostra o que aconteceu com cada rascunho criado a partir de uma proposta — por você ou automaticamente: **Aguardando revisão**, **Ativado sem alterações**, **Ativado após alterações** ou **Arquivado sem ativação**, com o antes / preparado / revisado de cada ajuste e as categorias de diferença. É evidência factual de supervisão, reconstruída do histórico existente (sem nova tabela), sem nota, taxa de aceitação, confiança ou recompensa. Ela não altera a política de rascunho automático nem qualquer autoridade do Personal. Dossier `athlete-training-dossier-v6`, prompts `coach-system-v6` e `coach-proposal-prompt-v6`.
+
+## Implementation Phase 18 — Identidade estável entre revisões
+
+Blocos, semanas, dias, prescrições e séries agora têm uma linhagem estável (`lineage_id`) que atravessa revisões: clonar, materializar uma proposta, criar rascunho automático ou salvar um rascunho no builder preservam a linhagem dos elementos existentes; elementos novos recebem nova linhagem; removidos desaparecem. Assim, reordenar exercícios aparece como "Ordem" e não como troca de exercício, e uma troca de exercício continua sendo a mesma prescrição. Programas anteriores a esta fase usam um fallback posicional explícito. Evidência de revisão `coach-draft-review-evidence-v2`, dossier `athlete-training-dossier-v7`.

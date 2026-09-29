@@ -729,6 +729,7 @@ export type Database = {
           exercise_id: string
           id: string
           instructions: string | null
+          lineage_id: string
           sequence: number
           training_day_id: string
           updated_at: string
@@ -739,6 +740,7 @@ export type Database = {
           exercise_id: string
           id?: string
           instructions?: string | null
+          lineage_id?: string
           sequence: number
           training_day_id: string
           updated_at?: string
@@ -749,6 +751,7 @@ export type Database = {
           exercise_id?: string
           id?: string
           instructions?: string | null
+          lineage_id?: string
           sequence?: number
           training_day_id?: string
           updated_at?: string
@@ -929,6 +932,7 @@ export type Database = {
           created_at: string
           exercise_prescription_id: string
           id: string
+          lineage_id: string
           load_kg: number | null
           load_kind: string
           rest_max_seconds: number | null
@@ -946,6 +950,7 @@ export type Database = {
           created_at?: string
           exercise_prescription_id: string
           id?: string
+          lineage_id?: string
           load_kg?: number | null
           load_kind?: string
           rest_max_seconds?: number | null
@@ -963,6 +968,7 @@ export type Database = {
           created_at?: string
           exercise_prescription_id?: string
           id?: string
+          lineage_id?: string
           load_kg?: number | null
           load_kind?: string
           rest_max_seconds?: number | null
@@ -991,6 +997,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          lineage_id: string
           name: string
           sequence: number
           training_program_id: string
@@ -1000,6 +1007,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          lineage_id?: string
           name: string
           sequence: number
           training_program_id: string
@@ -1009,6 +1017,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          lineage_id?: string
           name?: string
           sequence?: number
           training_program_id?: string
@@ -1028,6 +1037,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          lineage_id: string
           name: string
           notes: string | null
           preferred_weekday: number | null
@@ -1038,6 +1048,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          lineage_id?: string
           name: string
           notes?: string | null
           preferred_weekday?: number | null
@@ -1048,6 +1059,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          lineage_id?: string
           name?: string
           notes?: string | null
           preferred_weekday?: number | null
@@ -1075,6 +1087,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          lineage_tracked: boolean
           name: string
           revision: number
           status: string
@@ -1090,6 +1103,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          lineage_tracked?: boolean
           name: string
           revision?: number
           status?: string
@@ -1105,6 +1119,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          lineage_tracked?: boolean
           name?: string
           revision?: number
           status?: string
@@ -1139,6 +1154,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          lineage_id: string
           name: string | null
           notes: string | null
           sequence: number
@@ -1148,6 +1164,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          lineage_id?: string
           name?: string | null
           notes?: string | null
           sequence: number
@@ -1157,6 +1174,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          lineage_id?: string
           name?: string | null
           notes?: string | null
           sequence?: number
@@ -1407,6 +1425,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          lineage_tracked: boolean
           name: string
           revision: number
           status: string
@@ -1461,6 +1480,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          lineage_tracked: boolean
           name: string
           revision: number
           status: string
@@ -1880,6 +1900,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          lineage_tracked: boolean
           name: string
           revision: number
           status: string

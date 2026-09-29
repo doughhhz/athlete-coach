@@ -431,7 +431,7 @@ assert.equal(performanceHistory.at(-1)?.isNewEstimatedOneRepMax, true);
 assert.equal((await reloaded.personalBests.execute())[0].maxLoggedLoadKg, 35);
 const overviewBeforeReload = await reloaded.performanceOverview.execute();
 const dossierBeforeReload = await reloaded.dossier.execute();
-assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v6");
+assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v7");
 assert.equal(dossierBeforeReload.activeProgram?.id, revision.id);
 assert.equal(dossierBeforeReload.windows.at(-1)?.sessionsStarted, 3);
 assert.equal(dossierBeforeReload.exerciseSignals.length, 1);
@@ -646,19 +646,23 @@ function outcomeApi() {
 }
 const toStructure = (program, editSet = (set) => set) => ({
   blocks: program.blocks.map((block) => ({
+    lineageId: block.lineageId ?? undefined,
     sequence: block.sequence,
     name: block.name,
     description: block.description ?? undefined,
     weeks: block.weeks.map((week) => ({
+      lineageId: week.lineageId ?? undefined,
       sequence: week.sequence,
       name: week.name ?? undefined,
       notes: week.notes ?? undefined,
       days: week.days.map((day) => ({
+        lineageId: day.lineageId ?? undefined,
         sequence: day.sequence,
         name: day.name,
         preferredWeekday: day.preferredWeekday ?? undefined,
         notes: day.notes ?? undefined,
         prescriptions: day.prescriptions.map((prescription) => ({
+          lineageId: prescription.lineageId ?? undefined,
           sequence: prescription.sequence,
           exerciseId: prescription.exerciseId,
           instructions: prescription.instructions ?? undefined,
@@ -666,6 +670,7 @@ const toStructure = (program, editSet = (set) => set) => ({
           sets: prescription.sets.map((set) => {
             const edited = editSet(set);
             return {
+              lineageId: edited.lineageId ?? undefined,
               sequence: edited.sequence,
               targetMetric: edited.targetMetric,
               targetMin: edited.targetMin,
@@ -976,7 +981,7 @@ const dossierV3 = await new BuildAthleteTrainingDossier(
   outcomeClock,
   memoryUseCases.context,
 ).execute();
-assert.equal(dossierV3.schemaVersion, "athlete-training-dossier-v6");
+assert.equal(dossierV3.schemaVersion, "athlete-training-dossier-v7");
 assert.equal(dossierV3.interventionHistory.totalAvailable, 3);
 assert.equal(dossierV3.responseMemory.groups.included, 1);
 assert.equal(dossierV3.responseMemory.truncation.groupLimit, 10);
@@ -1024,7 +1029,7 @@ const learningAnalysis = await new AnalyzeAthleteWithCoach(
 });
 assert.equal(
   capturedRequest.dossier.schemaVersion,
-  "athlete-training-dossier-v6",
+  "athlete-training-dossier-v7",
 );
 assert.equal(
   capturedRequest.dossier.responseMemory.groups.items[0].key,
@@ -1032,7 +1037,7 @@ assert.equal(
 );
 assert.equal(
   learningAnalysis.metadata.dossierSchemaVersion,
-  "athlete-training-dossier-v6",
+  "athlete-training-dossier-v7",
 );
 assert.equal(
   (
@@ -1183,6 +1188,8 @@ assert.equal(
 const fiveSetStructure = toStructure(draftF);
 fiveSetStructure.blocks[0].weeks[0].days[0].prescriptions[0].sets.push({
   ...fiveSetStructure.blocks[0].weeks[0].days[0].prescriptions[0].sets[3],
+  // A copied set is a new structural element: it never reuses a lineage.
+  lineageId: undefined,
   sequence: 5,
 });
 await reloaded.saveProgram.execute(draftF.id, fiveSetStructure);
@@ -1331,7 +1338,7 @@ const dossierV4 = await new BuildAthleteTrainingDossier(
   outcomeClock,
   memoryUseCases.context,
 ).execute();
-assert.equal(dossierV4.schemaVersion, "athlete-training-dossier-v6");
+assert.equal(dossierV4.schemaVersion, "athlete-training-dossier-v7");
 assert.ok(
   dossierV4.responseMemory.groups.items.some(
     (group) => group.key === setGroup.key,
@@ -1373,7 +1380,7 @@ await new AnalyzeAthleteWithCoach(
   new DeterministicCoachSafetyPolicy(),
   () => "phase13-request",
 ).execute({ userRequest: "E as séries?", analysisMode: "question" });
-assert.equal(capturedV4.dossier.schemaVersion, "athlete-training-dossier-v6");
+assert.equal(capturedV4.dossier.schemaVersion, "athlete-training-dossier-v7");
 assert.equal(
   (
     await new SupabaseCoachDecisionRepository(
@@ -1454,7 +1461,7 @@ await trainDay(
 );
 let rApi = replacementApi();
 const dossierR = await rApi.dossier.execute();
-assert.equal(dossierR.schemaVersion, "athlete-training-dossier-v6");
+assert.equal(dossierR.schemaVersion, "athlete-training-dossier-v7");
 const candidateSet = dossierR.exerciseReplacementCandidates.items.find(
   (item) => item.sourceExerciseId === EX_X,
 );
@@ -1690,7 +1697,7 @@ assert.doesNotMatch(
 );
 // Dossier v5 reaches the (fake) Coach; nothing is proposed or activated.
 const dossierV5 = await rApi.dossier.execute();
-assert.equal(dossierV5.schemaVersion, "athlete-training-dossier-v6");
+assert.equal(dossierV5.schemaVersion, "athlete-training-dossier-v7");
 assert.deepEqual(
   dossierV5.exerciseReplacementCandidates.items.map(
     (item) => item.sourceExerciseId,
@@ -1721,7 +1728,7 @@ await new AnalyzeAthleteWithCoach(
   new DeterministicCoachSafetyPolicy(),
   () => "phase14-request",
 ).execute({ userRequest: "Posso trocar o supino?", analysisMode: "question" });
-assert.equal(capturedV5.dossier.schemaVersion, "athlete-training-dossier-v6");
+assert.equal(capturedV5.dossier.schemaVersion, "athlete-training-dossier-v7");
 assert.ok(capturedV5.dossier.exerciseReplacementCandidates);
 assert.equal(
   (
@@ -2407,7 +2414,7 @@ assert.deepEqual(
     b.run.autoDraft.draftProgramId,
   );
   let reviewB = await reviewOf(decisionB.id);
-  assert.equal(reviewB.schemaVersion, "coach-draft-review-evidence-v1");
+  assert.equal(reviewB.schemaVersion, "coach-draft-review-evidence-v2");
   assert.equal(reviewB.reviewStatus, "awaiting_review");
   assert.equal(reviewB.materializationOrigin, "auto_draft");
   assert.equal(reviewB.reviewedDraftDiffers, false);
@@ -2493,7 +2500,7 @@ assert.deepEqual(
   );
   assert.doesNotMatch(
     JSON.stringify(history),
-    /rate|score|trust|accept|reward/i,
+    /(rates?|scorew*|trustw*|acceptw*|rewardw*)/i,
   );
   // 19-20. Dossier v6 carries bounded review history to the (fake) Coach.
   const dossierV6 = await new BuildAthleteTrainingDossier(
@@ -2506,7 +2513,7 @@ assert.deepEqual(
     null,
     new ListCoachDraftReviewHistory(reviews),
   ).execute();
-  assert.equal(dossierV6.schemaVersion, "athlete-training-dossier-v6");
+  assert.equal(dossierV6.schemaVersion, "athlete-training-dossier-v7");
   assert.ok(dossierV6.draftReviewHistory.items.length <= 8);
   let capturedV6 = null;
   await new AnalyzeAthleteWithCoach(
@@ -2528,7 +2535,7 @@ assert.deepEqual(
     userRequest: "Como foram minhas revisões?",
     analysisMode: "question",
   });
-  assert.equal(capturedV6.dossier.schemaVersion, "athlete-training-dossier-v6");
+  assert.equal(capturedV6.dossier.schemaVersion, "athlete-training-dossier-v7");
   assert.ok(
     capturedV6.dossier.draftReviewHistory.items.some(
       (item) => item.decisionId === decisionD.id,
@@ -2587,9 +2594,365 @@ assert.deepEqual(
   await preferences.setAutonomyMode("manual");
 }
 
+// Implementation Phase 18 — Stable training structure lineage (ADR-0091..0094).
+{
+  const programsRepo = new SupabaseTrainingProgramRepository(reloadedClient);
+  const readDecisions = new SupabaseCoachDecisionRepository(
+    reloadedClient,
+    identity.userId,
+  );
+  const reviews = new BuildCoachDraftReviews(readDecisions, programsRepo);
+  const reviewOf = (decisionId) =>
+    new GetCoachDraftReviewEvidence(reviews).execute(decisionId);
+  const lineageOf = (program) =>
+    program.blocks[0].weeks[0].days[0].prescriptions.map((prescription) => ({
+      id: prescription.id,
+      lineageId: prescription.lineageId,
+      exerciseId: prescription.exerciseId,
+      sets: prescription.sets.map((set) => ({
+        id: set.id,
+        lineageId: set.lineageId,
+      })),
+    }));
+  const plannedSet = (change = {}) => ({
+    sequence: 1,
+    targetMetric: "reps",
+    targetMin: 8,
+    targetMax: 10,
+    rirMin: 2,
+    rirMax: 2,
+    restMinSeconds: 120,
+    restMaxSeconds: 120,
+    tempo: null,
+    loadKind: "athlete_selected",
+    loadKg: null,
+    ...change,
+  });
+  // 1-2. Program A0 with two exercises; every node receives a lineage.
+  const a0Draft = await reloaded.createProgram.execute({
+    name: "Programa linhagem",
+  });
+  await reloaded.saveProgram.execute(a0Draft.id, {
+    blocks: [
+      {
+        sequence: 1,
+        name: "Bloco",
+        weeks: [
+          {
+            sequence: 1,
+            days: [
+              {
+                sequence: 1,
+                name: "Dia",
+                prescriptions: [
+                  {
+                    sequence: 1,
+                    exerciseId: EX_X,
+                    sets: [plannedSet(), plannedSet({ sequence: 2 })],
+                  },
+                  { sequence: 2, exerciseId: EX_Z, sets: [plannedSet()] },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  const a0 = await reloaded.activateProgram.execute(a0Draft.id);
+  assert.equal(a0.lineageTracked, true);
+  const a0Lineage = lineageOf(a0);
+  assert.ok(
+    a0Lineage.every(
+      (item) => item.lineageId && item.sets.every((set) => set.lineageId),
+    ),
+  );
+  // 3-5. Manual revision: new row ids, same lineage.
+  const clone = await reloaded.cloneProgram.execute(a0.id);
+  const cloneLineage = lineageOf(clone);
+  assert.deepEqual(
+    cloneLineage.map((item) => item.lineageId),
+    a0Lineage.map((item) => item.lineageId),
+  );
+  assert.deepEqual(
+    cloneLineage.map((item) => item.sets.map((set) => set.lineageId)),
+    a0Lineage.map((item) => item.sets.map((set) => set.lineageId)),
+  );
+  assert.ok(
+    cloneLineage.every((item, index) => item.id !== a0Lineage[index].id),
+  );
+  const programA = await reloaded.activateProgram.execute(clone.id);
+  // A Coach proposal (RIR +1 on the first set) materialized by the athlete.
+  const dossierA = await replacementApi().dossier.execute();
+  const evidenceA = dossierA.evidence.find(
+    (item) => item.kind === "training_program" && item.id === programA.id,
+  );
+  const [pX, pZ] = programA.blocks[0].weeks[0].days[0].prescriptions;
+  const decisionB = await new GenerateCoachProposal(
+    { execute: async () => dossierA },
+    programsRepo,
+    new FixtureCoachProposalProvider({
+      ...proposalFixture,
+      schemaVersion: "coach-proposal-v3",
+      id: crypto.randomUUID(),
+      sourceProgramId: programA.id,
+      sourceProgramRevision: programA.revision,
+      evidenceReferences: [evidenceA],
+      actions: [
+        {
+          kind: "adjust_prescription_rir",
+          trainingDayId: programA.blocks[0].weeks[0].days[0].id,
+          exercisePrescriptionId: pX.id,
+          prescriptionSetId: pX.sets[0].id,
+          rirMin: 3,
+          rirMax: 3,
+          rationale: "Ajuste proposto.",
+          evidence: [evidenceA],
+        },
+      ],
+    }),
+    decisions,
+  ).execute(await authoritative());
+  const materializedB = await decisions.materialize(decisionB.id);
+  let programB = await reloaded.getProgram.execute(
+    materializedB.materializedProgramId,
+  );
+  assert.deepEqual(
+    lineageOf(programB).map((item) => item.lineageId),
+    lineageOf(programA).map((item) => item.lineageId),
+    "Coach materialization preserves lineage",
+  );
+  assert.equal((await reviewOf(decisionB.id)).matchingStrategy, "lineage");
+  // 6-7. Reorder exercises in B: a sequence change only.
+  const reorder = toStructure(programB);
+  const [first, second] = reorder.blocks[0].weeks[0].days[0].prescriptions;
+  reorder.blocks[0].weeks[0].days[0].prescriptions = [
+    { ...second, sequence: 1 },
+    { ...first, sequence: 2 },
+  ];
+  await reloaded.saveProgram.execute(programB.id, reorder);
+  let review = await reviewOf(decisionB.id);
+  assert.deepEqual(review.changeCategories, ["sequence_changed"]);
+  assert.equal(review.changedExerciseCount, 0);
+  assert.equal(
+    review.actionComparisons[0].reviewedDiffersFromMaterialized,
+    false,
+  );
+  // 8-9. Edit RIR of the proposed set (moved to position 2): same lineage.
+  programB = await reloaded.getProgram.execute(programB.id);
+  const movedX = programB.blocks[0].weeks[0].days[0].prescriptions.find(
+    (item) => item.lineageId === pX.lineageId,
+  );
+  assert.equal(movedX.sequence, 2);
+  await reloaded.saveProgram.execute(
+    programB.id,
+    toStructure(programB, (set) =>
+      set.lineageId === pX.sets[0].lineageId
+        ? { ...set, rirMin: 4, rirMax: 4 }
+        : set,
+    ),
+  );
+  review = await reviewOf(decisionB.id);
+  assert.deepEqual(review.actionComparisons[0].reviewedValue, {
+    dimension: "planned_rir",
+    min: 4,
+    max: 4,
+  });
+  assert.ok(review.changeCategories.includes("rir_changed"));
+  // 10-13. Add a set to Z (new lineage) and remove X's second set (lineage absent).
+  programB = await reloaded.getProgram.execute(programB.id);
+  const structure = toStructure(programB);
+  const day = structure.blocks[0].weeks[0].days[0];
+  const zIndex = day.prescriptions.findIndex(
+    (item) => item.lineageId === pZ.lineageId,
+  );
+  const xIndex = day.prescriptions.findIndex(
+    (item) => item.lineageId === pX.lineageId,
+  );
+  day.prescriptions[zIndex] = {
+    ...day.prescriptions[zIndex],
+    sets: [...day.prescriptions[zIndex].sets, plannedSet({ sequence: 2 })],
+  };
+  day.prescriptions[xIndex] = {
+    ...day.prescriptions[xIndex],
+    sets: day.prescriptions[xIndex].sets.filter(
+      (set) => set.lineageId !== pX.sets[1].lineageId,
+    ),
+  };
+  await reloaded.saveProgram.execute(programB.id, structure);
+  programB = await reloaded.getProgram.execute(programB.id);
+  const zNow = programB.blocks[0].weeks[0].days[0].prescriptions.find(
+    (item) => item.lineageId === pZ.lineageId,
+  );
+  const xNow = programB.blocks[0].weeks[0].days[0].prescriptions.find(
+    (item) => item.lineageId === pX.lineageId,
+  );
+  const knownSetLineages = new Set(
+    lineageOf(programA).flatMap((item) =>
+      item.sets.map((set) => set.lineageId),
+    ),
+  );
+  assert.equal(zNow.sets.length, 2);
+  assert.ok(
+    !knownSetLineages.has(zNow.sets[1].lineageId),
+    "added set gets a new lineage",
+  );
+  assert.ok(
+    !xNow.sets.some((set) => set.lineageId === pX.sets[1].lineageId),
+    "removed lineage absent",
+  );
+  review = await reviewOf(decisionB.id);
+  assert.ok(review.changeCategories.includes("set_added"));
+  assert.ok(review.changeCategories.includes("set_removed"));
+  // 14-15. Replace exercise X → Y in the draft: prescription lineage preserved.
+  await reloaded.saveProgram.execute(
+    programB.id,
+    (() => {
+      const replaced = toStructure(programB);
+      const target = replaced.blocks[0].weeks[0].days[0].prescriptions.find(
+        (item) => item.lineageId === pX.lineageId,
+      );
+      target.exerciseId = EX_Y;
+      return replaced;
+    })(),
+  );
+  programB = await reloaded.getProgram.execute(programB.id);
+  const xReplaced = programB.blocks[0].weeks[0].days[0].prescriptions.find(
+    (item) => item.lineageId === pX.lineageId,
+  );
+  assert.equal(xReplaced.exerciseId, EX_Y);
+  review = await reviewOf(decisionB.id);
+  assert.ok(review.changeCategories.includes("exercise_changed"));
+  assert.equal(review.changedExerciseCount, 1);
+  // 16-18. Manual activation: fidelity resolves by lineage; outcomes start now.
+  const outcomeApiLineage = replacementApi();
+  assert.equal(
+    (await outcomeApiLineage.get.execute(decisionB.id)).status,
+    "awaiting_activation",
+  );
+  await reloaded.activateProgram.execute(programB.id);
+  review = await reviewOf(decisionB.id);
+  assert.equal(review.reviewStatus, "activated_with_edits");
+  const outcomeB = await outcomeApiLineage.get.execute(decisionB.id);
+  assert.notEqual(outcomeB.status, "awaiting_activation");
+  const fidelity = outcomeB.interventionFidelity.actions[0];
+  assert.equal(
+    fidelity.locatedInImplementedProgram,
+    false,
+    "prescription now carries another exercise",
+  );
+  assert.equal(
+    fidelity.exerciseIdentityPreserved,
+    false,
+    "same lineage, changed exercise (no false match)",
+  );
+  // 19-20. Auto-draft on the lineage-tracked active program preserves lineage.
+  const preferences = new SupabaseCoachPreferenceRepository(reloadedClient);
+  await preferences.setAutonomyMode("proactive");
+  await preferences.setDraftAuthorityMode("standard_auto_draft");
+  const active = await reloaded.activeProgram.execute();
+  const activeDay = active.blocks[0].weeks[0].days[0];
+  const dossierNow = await replacementApi().dossier.execute();
+  const activeEvidence = dossierNow.evidence.find(
+    (item) => item.kind === "training_program" && item.id === active.id,
+  );
+  const autoRun = await new AnalyzeAthleteWithCoachAndGovernance(
+    new AnalyzeAthleteWithCoach(
+      { execute: async () => dossierNow },
+      {
+        async analyze(_request, requestId) {
+          return {
+            analysis: {
+              ...coachFixture,
+              requestId,
+              observations: coachFixture.observations.map((item) => ({
+                ...item,
+                evidence: [activeEvidence],
+              })),
+              recommendations: coachFixture.recommendations.map((item) => ({
+                ...item,
+                evidence: [activeEvidence],
+              })),
+              evidenceUsed: [activeEvidence],
+            },
+            provider: "fixture",
+            model: "deterministic",
+            inputTokens: null,
+            outputTokens: null,
+          };
+        },
+      },
+      new DeterministicCoachSafetyPolicy(),
+    ),
+    analysisRuns,
+    analysisProgramFrom({ execute: async () => dossierNow }),
+    new GenerateCoachProposal(
+      { execute: async () => dossierNow },
+      programsRepo,
+      new FixtureCoachProposalProvider({
+        ...proposalFixture,
+        schemaVersion: "coach-proposal-v3",
+        id: crypto.randomUUID(),
+        sourceProgramId: active.id,
+        sourceProgramRevision: active.revision,
+        evidenceReferences: [activeEvidence],
+        actions: [
+          {
+            kind: "adjust_prescription_rest",
+            trainingDayId: activeDay.id,
+            exercisePrescriptionId: activeDay.prescriptions[0].id,
+            prescriptionSetId: activeDay.prescriptions[0].sets[0].id,
+            restMinSeconds: 150,
+            restMaxSeconds: 150,
+            rationale: "Ajuste conservador.",
+            evidence: [activeEvidence],
+          },
+        ],
+      }),
+      decisions,
+    ),
+    preferences,
+    undefined,
+    new PrepareConservativeAutoDraft(preferences, programsRepo, decisions),
+  ).execute({
+    userRequest: "Linhagem",
+    analysisMode: "question",
+    analysisRequestId: crypto.randomUUID(),
+  });
+  assert.equal(autoRun.autoDraft.status, "materialized");
+  const autoDraftProgram = await reloaded.getProgram.execute(
+    autoRun.autoDraft.draftProgramId,
+  );
+  assert.deepEqual(
+    lineageOf(autoDraftProgram).map((item) => [
+      item.lineageId,
+      item.sets.map((set) => set.lineageId),
+    ]),
+    lineageOf(active).map((item) => [
+      item.lineageId,
+      item.sets.map((set) => set.lineageId),
+    ]),
+    "auto-draft preserves lineage",
+  );
+  assert.equal(
+    (await reviewOf(autoRun.autoDraft.decision.id)).matchingStrategy,
+    "lineage",
+  );
+  // 21-22. Deterministic rebuild after logout/login.
+  const before = await new ListCoachDraftReviewHistory(reviews).execute(50);
+  await reloaded.signOut.execute();
+  await reloaded.signIn.execute(credentials);
+  assert.deepEqual(
+    await new ListCoachDraftReviewHistory(reviews).execute(50),
+    before,
+  );
+  await preferences.setDraftAuthorityMode("manual_draft");
+  await preferences.setAutonomyMode("manual");
+}
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage flow passed.",
 );

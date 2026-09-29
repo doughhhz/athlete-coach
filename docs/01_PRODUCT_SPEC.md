@@ -143,3 +143,7 @@ Futuro documentado, **não implementado**: ampliar o conjunto elegível (nova ve
 ## Implementation Phase 17 — Evidência de revisão de rascunhos
 
 Para toda decisão materializada (humana ou automática) o app mostra estados factuais: "Aguardando revisão" (mesmo que o rascunho já tenha sido editado), "Ativado sem alterações", "Ativado após alterações", "Arquivado sem ativação" e "Dados insuficientes para comparar". A revisão da proposta mostra, por ajuste, "Antes", "Preparado" e "Ativado" (ou "Revisado (rascunho atual)"), com "Alterado durante a revisão" quando difere, sem julgamento. O Progresso ganha "Revisões do Personal" com contagens (rascunhos automáticos, criados por você e por estado). Proposta rejeitada antes da materialização é outro fato e não tem evidência de revisão. Sem polegar para cima/baixo, sem "boa/má proposta", sem porcentagens.
+
+## Implementation Phase 18 — Comparações que entendem reordenação
+
+A revisão do rascunho passa a distinguir reordenação ("Ordem"), edição de valores, séries adicionadas/removidas e troca de exercício dentro da mesma prescrição. Nenhuma tela mostra identificadores de linhagem. Linhagem não torna comparáveis cargas ou 1RM de exercícios diferentes (regra da Phase 14 mantida).

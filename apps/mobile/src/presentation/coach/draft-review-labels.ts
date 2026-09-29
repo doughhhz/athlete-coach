@@ -28,6 +28,7 @@ export const draftReviewCategoryLabels: Record<
   rest_changed: "Descanso",
   load_changed: "Carga",
   tempo_changed: "Tempo",
+  sequence_changed: "Ordem",
   prescription_added: "Exercício adicionado",
   prescription_removed: "Exercício removido",
   program_structure_changed: "Estrutura do programa",

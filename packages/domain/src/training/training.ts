@@ -16,6 +16,11 @@ export type LoadPrescriptionKind = (typeof loadPrescriptionKinds)[number];
 
 export type PrescriptionSet = Readonly<{
   id: string;
+  /**
+   * Stable structural identity across revisions (Implementation Phase 18,
+   * ADR-0091). Absent/null = unknown (legacy or not yet materialized).
+   */
+  lineageId?: string | null;
   sequence: number;
   targetMetric: TargetMetric;
   targetMin: number;
@@ -30,6 +35,11 @@ export type PrescriptionSet = Readonly<{
 }>;
 export type ExercisePrescription = Readonly<{
   id: string;
+  /**
+   * Stable structural identity across revisions (Implementation Phase 18,
+   * ADR-0091). Absent/null = unknown (legacy or not yet materialized).
+   */
+  lineageId?: string | null;
   exerciseId: string;
   exerciseName: string;
   sequence: number;
@@ -39,6 +49,11 @@ export type ExercisePrescription = Readonly<{
 }>;
 export type TrainingDay = Readonly<{
   id: string;
+  /**
+   * Stable structural identity across revisions (Implementation Phase 18,
+   * ADR-0091). Absent/null = unknown (legacy or not yet materialized).
+   */
+  lineageId?: string | null;
   sequence: number;
   name: string;
   preferredWeekday: number | null;
@@ -47,6 +62,11 @@ export type TrainingDay = Readonly<{
 }>;
 export type TrainingWeek = Readonly<{
   id: string;
+  /**
+   * Stable structural identity across revisions (Implementation Phase 18,
+   * ADR-0091). Absent/null = unknown (legacy or not yet materialized).
+   */
+  lineageId?: string | null;
   sequence: number;
   name: string | null;
   notes: string | null;
@@ -54,6 +74,11 @@ export type TrainingWeek = Readonly<{
 }>;
 export type TrainingBlock = Readonly<{
   id: string;
+  /**
+   * Stable structural identity across revisions (Implementation Phase 18,
+   * ADR-0091). Absent/null = unknown (legacy or not yet materialized).
+   */
+  lineageId?: string | null;
   sequence: number;
   name: string;
   description: string | null;
@@ -61,6 +86,11 @@ export type TrainingBlock = Readonly<{
 }>;
 export type TrainingProgram = Readonly<{
   id: string;
+  /**
+   * True when this revision preserved lineage from its source (created after
+   * Implementation Phase 18). Absent/false = legacy: continuity unknown.
+   */
+  lineageTracked?: boolean;
   athleteId: string;
   athleteGoalId: string | null;
   name: string;

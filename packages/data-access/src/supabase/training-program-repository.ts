@@ -16,6 +16,7 @@ import { DataAccessError } from "./supabase-repositories.ts";
 
 const setSchema = z.object({
   id: z.uuid(),
+  lineage_id: z.uuid(),
   sequence: z.number().int(),
   target_metric: z.enum(targetMetrics),
   target_min: z.number(),
@@ -30,6 +31,7 @@ const setSchema = z.object({
 });
 const prescriptionSchema = z.object({
   id: z.uuid(),
+  lineage_id: z.uuid(),
   exercise_id: z.uuid(),
   sequence: z.number().int(),
   instructions: z.string().nullable(),
@@ -39,6 +41,7 @@ const prescriptionSchema = z.object({
 });
 const daySchema = z.object({
   id: z.uuid(),
+  lineage_id: z.uuid(),
   sequence: z.number().int(),
   name: z.string(),
   preferred_weekday: z.number().int().nullable(),
@@ -47,6 +50,7 @@ const daySchema = z.object({
 });
 const weekSchema = z.object({
   id: z.uuid(),
+  lineage_id: z.uuid(),
   sequence: z.number().int(),
   name: z.string().nullable(),
   notes: z.string().nullable(),
@@ -54,6 +58,7 @@ const weekSchema = z.object({
 });
 const blockSchema = z.object({
   id: z.uuid(),
+  lineage_id: z.uuid(),
   sequence: z.number().int(),
   name: z.string(),
   description: z.string().nullable(),
@@ -73,10 +78,11 @@ const programSchema = z.object({
   activated_at: z.iso.datetime({ offset: true }).nullable(),
   completed_at: z.iso.datetime({ offset: true }).nullable(),
   archived_at: z.iso.datetime({ offset: true }).nullable(),
+  lineage_tracked: z.boolean(),
   training_blocks: z.array(blockSchema).default([]),
 });
 const selectTree =
-  "id,athlete_id,athlete_goal_id,name,description,status,revision,supersedes_program_id,created_at,updated_at,activated_at,completed_at,archived_at,training_blocks(id,sequence,name,description,training_weeks(id,sequence,name,notes,training_days(id,sequence,name,preferred_weekday,notes,exercise_prescriptions(id,exercise_id,sequence,instructions,athlete_cues,exercises(name_pt),prescription_sets(id,sequence,target_metric,target_min,target_max,rir_min,rir_max,rest_min_seconds,rest_max_seconds,tempo,load_kind,load_kg)))))";
+  "id,athlete_id,athlete_goal_id,name,description,status,revision,supersedes_program_id,created_at,updated_at,activated_at,completed_at,archived_at,lineage_tracked,training_blocks(id,lineage_id,sequence,name,description,training_weeks(id,lineage_id,sequence,name,notes,training_days(id,lineage_id,sequence,name,preferred_weekday,notes,exercise_prescriptions(id,lineage_id,exercise_id,sequence,instructions,athlete_cues,exercises(name_pt),prescription_sets(id,lineage_id,sequence,target_metric,target_min,target_max,rir_min,rir_max,rest_min_seconds,rest_max_seconds,tempo,load_kind,load_kg)))))";
 function failure(message: string, error: unknown): never {
   throw new DataAccessError(message, { cause: error });
 }
@@ -96,10 +102,12 @@ function map(input: unknown): TrainingProgram {
     activatedAt: p.activated_at,
     completedAt: p.completed_at,
     archivedAt: p.archived_at,
+    lineageTracked: p.lineage_tracked,
     blocks: p.training_blocks
       .sort((a, b) => a.sequence - b.sequence)
       .map((b) => ({
         id: b.id,
+        lineageId: b.lineage_id,
         sequence: b.sequence,
         name: b.name,
         description: b.description,
@@ -107,6 +115,7 @@ function map(input: unknown): TrainingProgram {
           .sort((a, c) => a.sequence - c.sequence)
           .map((w) => ({
             id: w.id,
+            lineageId: w.lineage_id,
             sequence: w.sequence,
             name: w.name,
             notes: w.notes,
@@ -114,6 +123,7 @@ function map(input: unknown): TrainingProgram {
               .sort((a, c) => a.sequence - c.sequence)
               .map((d) => ({
                 id: d.id,
+                lineageId: d.lineage_id,
                 sequence: d.sequence,
                 name: d.name,
                 preferredWeekday: d.preferred_weekday,
@@ -122,6 +132,7 @@ function map(input: unknown): TrainingProgram {
                   .sort((a, c) => a.sequence - c.sequence)
                   .map((ep) => ({
                     id: ep.id,
+                    lineageId: ep.lineage_id,
                     exerciseId: ep.exercise_id,
                     exerciseName: ep.exercises.name_pt,
                     sequence: ep.sequence,
@@ -131,6 +142,7 @@ function map(input: unknown): TrainingProgram {
                       .sort((a, c) => a.sequence - c.sequence)
                       .map((s) => ({
                         id: s.id,
+                        lineageId: s.lineage_id,
                         sequence: s.sequence,
                         targetMetric: s.target_metric,
                         targetMin: s.target_min,

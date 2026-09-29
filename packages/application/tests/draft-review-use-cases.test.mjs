@@ -174,7 +174,7 @@ test("single evidence lookup and bounded history", async () => {
   assert.equal(history.counts.byMaterializationOrigin.auto_draft, 2);
   assert.doesNotMatch(
     JSON.stringify(history),
-    /rate|score|trust|accept|reward/i,
+    /(rates?|scorew*|trustw*|acceptw*|rewardw*)/i,
   );
 });
 
@@ -198,7 +198,7 @@ test("dossier v6 embeds the bounded review history only when composed", async ()
     null,
   ];
   const without = await new BuildAthleteTrainingDossier(...base).execute();
-  assert.equal(without.schemaVersion, "athlete-training-dossier-v6");
+  assert.equal(without.schemaVersion, "athlete-training-dossier-v7");
   assert.equal(without.draftReviewHistory, null);
   const { reviews } = setup([decision("aa", "materialized", "unchanged")]);
   const withReviews = await new BuildAthleteTrainingDossier(

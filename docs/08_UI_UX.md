@@ -103,3 +103,7 @@ Seção "Criação automática de rascunho" (Desligada/Conservadora), separada d
 ## Implementation Phase 17 — Revisão factual
 
 Histórico de decisões: "Rascunho preparado automaticamente → Ativado sem alterações / Ativado após alterações / Aguardando revisão / Arquivado sem ativação". Detalhe: "Revisão do rascunho" com Antes / Preparado / Ativado (ou Revisado) e "Alterado durante a revisão", nota de que a comparação não identifica quem editou e de que a revisão não diz se a proposta estava certa. Progresso: "Revisões do Personal" apenas com contagens. Cartão de auto-draft mantém "Revisar rascunho". Proibido: aceitação, sucesso, acurácia, confiança, score, porcentagens, gamificação e polegares.
+
+## Implementation Phase 18 — Revisão mais precisa
+
+A revisão do rascunho ganha a categoria "Ordem" (reordenação) e deixa de reportar troca de exercício falsa quando exercícios apenas mudam de posição. Nenhum UUID de linhagem é exibido.

@@ -153,3 +153,7 @@ Toda avaliação tem `requiresHumanReview: true`, `allowsAutomaticMaterializatio
 ## Implementation Phase 17 — Diferenças de revisão
 
 Categorias factuais: `exercise_changed`, `set_added`, `set_removed`, `target_changed`, `rir_changed`, `rest_changed`, `load_changed`, `tempo_changed`, `prescription_added`, `prescription_removed`, `program_structure_changed`; correspondência posicional (bloco/semana/dia/prescrição/série). Sem severidade (menor/maior). Mudanças fora das prescrições da proposta são registradas em `changesOutsideProposal`. Tempos factuais: `timeUntilActivationSeconds` e `timeUntilArchiveSeconds` (sem "hesitação", sem idade dependente de agora). Revisão acontece antes da camada de outcome: outcomes e memória continuam começando só na ativação humana.
+
+## Implementation Phase 18 — Linhagem estrutural
+
+Clone/revisão preservam a linhagem; elemento novo recebe nova; removido some; reordenação muda `sequence` e mantém linhagem; troca de exercício (`replace_exercise` ou edição no builder) mantém a linhagem da prescrição e muda `exercise_id`; séries mantêm linhagem ao mudar alvo, RIR, descanso, tempo, carga ou posição. Linhagem não é identidade de desempenho: histórico, PRs e comparações continuam por exercício canônico.

@@ -1,5 +1,14 @@
 import type { BodyWeightEntry } from "../athlete/athlete.ts";
 import {
+  flattenPrescriptions,
+  matchPrescriptions,
+  matchSets,
+  prescriptionKey,
+  structureMatchingStrategy,
+  type LocatedPrescription,
+  type StructureMatchingStrategy,
+} from "../training/lineage.ts";
+import {
   relationsBetween,
   type ExerciseRelationEdge,
   type ReplacementRelationContext,
@@ -547,38 +556,8 @@ export function samePrescriptionValue(
 // ---------------------------------------------------------------------------
 // Program structure navigation
 
-export type LocatedPrescription = Readonly<{
-  path: Omit<PrescriptionPath, "setSequence">;
-  prescription: ExercisePrescription;
-}>;
-
-export function prescriptionKey(
-  path: Omit<PrescriptionPath, "setSequence">,
-): string {
-  return `${path.blockSequence}.${path.weekSequence}.${path.daySequence}.${path.prescriptionSequence}`;
-}
 function dayKey(path: Omit<PrescriptionPath, "setSequence">): string {
   return `${path.blockSequence}.${path.weekSequence}.${path.daySequence}`;
-}
-
-export function flattenPrescriptions(
-  program: TrainingProgram,
-): readonly LocatedPrescription[] {
-  return program.blocks.flatMap((block) =>
-    block.weeks.flatMap((week) =>
-      week.days.flatMap((day) =>
-        day.prescriptions.map((prescription) => ({
-          path: {
-            blockSequence: block.sequence,
-            weekSequence: week.sequence,
-            daySequence: day.sequence,
-            prescriptionSequence: prescription.sequence,
-          },
-          prescription,
-        })),
-      ),
-    ),
-  );
 }
 
 function locateSourcePrescription(
@@ -613,6 +592,32 @@ function locateSourcePrescription(
  * rewrite IDs. Prefer the same path with the same canonical exercise; fall back
  * to the only prescription of that exercise in the corresponding day.
  */
+/**
+ * Lineage correspondence (Implementation Phase 18): the same prescription
+ * lineage, wherever it moved. A different exercise is accepted only for
+ * replacement actions (the activated exercise is the intervention).
+ */
+function lineageCorrespondence(
+  implemented: readonly LocatedPrescription[],
+  source: LocatedPrescription,
+  expectedExerciseId: string,
+  acceptDifferentExercise: boolean,
+): Readonly<{
+  match: LocatedPrescription | null;
+  exerciseIdentityPreserved: boolean | null;
+}> {
+  const match =
+    implemented.find(
+      (item) => item.prescription.lineageId === source.prescription.lineageId,
+    ) ?? null;
+  if (!match) return { match: null, exerciseIdentityPreserved: null };
+  if (match.prescription.exerciseId === expectedExerciseId)
+    return { match, exerciseIdentityPreserved: true };
+  return acceptDifferentExercise
+    ? { match, exerciseIdentityPreserved: false }
+    : { match: null, exerciseIdentityPreserved: false };
+}
+
 function locateCorrespondingPrescription(
   implemented: readonly LocatedPrescription[],
   source: LocatedPrescription,
@@ -644,20 +649,44 @@ function locateCorrespondingPrescription(
   };
 }
 
+export type StructuralDifference = Readonly<{
+  setSequence: number | null;
+  dimension: FidelityDifference["dimension"] | "sequence";
+}>;
+/** outcome-v3 fidelity dimensions only (sequence is a structural fact). */
+function fidelityOnly(
+  differences: readonly StructuralDifference[],
+): readonly FidelityDifference[] {
+  return differences.filter(
+    (difference): difference is FidelityDifference =>
+      difference.dimension !== "sequence",
+  );
+}
 export function diffPrescription(
   source: ExercisePrescription,
   implemented: ExercisePrescription,
-): readonly FidelityDifference[] {
-  const differences: FidelityDifference[] = [];
+  strategy: StructureMatchingStrategy = "legacy_position",
+): readonly StructuralDifference[] {
+  const differences: StructuralDifference[] = [];
   if (source.exerciseId !== implemented.exerciseId)
     differences.push({ setSequence: null, dimension: "exercise" });
-  if (source.sets.length !== implemented.sets.length)
+  const sets = matchSets(source.sets, implemented.sets, strategy);
+  // Lineage mode also reports a replaced set (removed + added) at equal count.
+  if (
+    source.sets.length !== implemented.sets.length ||
+    (strategy === "lineage" &&
+      (sets.added.length > 0 || sets.removed.length > 0))
+  )
     differences.push({ setSequence: null, dimension: "set_count" });
-  for (const sourceSet of source.sets) {
-    const implementedSet = implemented.sets.find(
-      (item) => item.sequence === sourceSet.sequence,
-    );
-    if (!implementedSet) continue;
+  for (const { expected: sourceSet, compared: implementedSet } of sets.pairs) {
+    if (
+      strategy === "lineage" &&
+      sourceSet.sequence !== implementedSet.sequence
+    )
+      differences.push({
+        setSequence: sourceSet.sequence,
+        dimension: "sequence",
+      });
     for (const dimension of setLevelDimensions) {
       if (
         !samePrescriptionValue(
@@ -728,26 +757,36 @@ function resolveActions(
   const implementedPrescriptions = implementedProgram
     ? flattenPrescriptions(implementedProgram)
     : [];
+  const strategy = structureMatchingStrategy(sourceProgram, implementedProgram);
   const expectedFor = (source: LocatedPrescription) =>
     materializeProposalPrescription(source.prescription, actions);
   const correspondenceFor = (
     source: LocatedPrescription | null,
     acceptDifferentExercise = false,
   ) =>
-    source
-      ? locateCorrespondingPrescription(
-          implementedPrescriptions,
-          source,
-          expectedFor(source).exerciseId,
-          acceptDifferentExercise,
-        )
-      : { match: null, exerciseIdentityPreserved: null };
+    !source
+      ? { match: null, exerciseIdentityPreserved: null }
+      : strategy === "lineage"
+        ? lineageCorrespondence(
+            implementedPrescriptions,
+            source,
+            expectedFor(source).exerciseId,
+            acceptDifferentExercise,
+          )
+        : locateCorrespondingPrescription(
+            implementedPrescriptions,
+            source,
+            expectedFor(source).exerciseId,
+            acceptDifferentExercise,
+          );
   const additionalFor = (
     source: LocatedPrescription | null,
     match: LocatedPrescription | null,
   ) =>
     source && match
-      ? diffPrescription(expectedFor(source), match.prescription)
+      ? fidelityOnly(
+          diffPrescription(expectedFor(source), match.prescription, strategy),
+        )
       : [];
   const resolved: Omit<ResolvedAction, "snapshot" | "fidelity">[] = [];
   const snapshots: InterventionActionSnapshot[] = [];
@@ -773,8 +812,10 @@ function resolveActions(
         : null;
     const implementedSet =
       expectedSet && correspondence.match
-        ? (correspondence.match.prescription.sets.find(
-            (item) => item.sequence === expectedSet.sequence,
+        ? (correspondence.match.prescription.sets.find((item) =>
+            strategy === "lineage"
+              ? item.lineageId === expectedSet.lineageId
+              : item.sequence === expectedSet.sequence,
           ) ?? null)
         : null;
     const dimension = dimensionByKind[action.kind];
@@ -1057,12 +1098,14 @@ function programWideChanges(
     return { unproposedChangedPrescriptionCount: 0, structureChanged: false };
   const source = flattenPrescriptions(sourceProgram);
   const implemented = flattenPrescriptions(implementedProgram);
-  const affectedKeys = new Set(
+  const strategy = structureMatchingStrategy(sourceProgram, implementedProgram);
+  const affected = new Set(
     resolved
       .map((item) => item.source)
       .filter((item) => item !== null)
-      .map((item) => prescriptionKey(item.path)),
+      .map((item) => item.prescription.id),
   );
+  const matched = matchPrescriptions(source, implemented, strategy);
   const shape = (program: TrainingProgram) =>
     program.blocks
       .map(
@@ -1070,23 +1113,23 @@ function programWideChanges(
           `${block.sequence}:${block.weeks.map((week) => `${week.sequence}:${week.days.map((day) => day.sequence).join(",")}`).join(";")}`,
       )
       .join("|");
-  let changed = 0;
-  for (const item of source) {
-    if (affectedKeys.has(prescriptionKey(item.path))) continue;
-    const counterpart = implemented.find(
-      (candidate) =>
-        prescriptionKey(candidate.path) === prescriptionKey(item.path),
-    );
+  let changed = matched.removed.filter(
+    (item) => !affected.has(item.prescription.id),
+  ).length;
+  for (const pair of matched.pairs) {
+    if (affected.has(pair.expected.prescription.id)) continue;
     if (
-      !counterpart ||
-      diffPrescription(item.prescription, counterpart.prescription).length > 0
+      fidelityOnly(
+        diffPrescription(
+          pair.expected.prescription,
+          pair.compared.prescription,
+          strategy,
+        ),
+      ).length > 0
     )
       changed += 1;
   }
-  const sourceKeys = new Set(source.map((item) => prescriptionKey(item.path)));
-  changed += implemented.filter(
-    (item) => !sourceKeys.has(prescriptionKey(item.path)),
-  ).length;
+  changed += matched.added.length;
   return {
     unproposedChangedPrescriptionCount: changed,
     structureChanged:

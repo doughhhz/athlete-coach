@@ -25,8 +25,20 @@ type DraftSet = {
   tempo: string;
   loadKind: LoadPrescriptionKind;
   loadKg: string;
+  /** Existing set lineage (never shown); absent for sets added here. */
+  lineageId?: string;
 };
-type Picked = { exercise: ExerciseSummary; sets: DraftSet[] };
+/**
+ * `lineageId` keeps structural identity across revisions (Implementation
+ * Phase 18): a swapped exercise keeps its prescription lineage; new items
+ * have none and receive one from the server.
+ */
+type Picked = {
+  exercise: ExerciseSummary;
+  sets: DraftSet[];
+  lineageId?: string;
+};
+type ParentLineage = { block?: string; week?: string; day?: string };
 const emptySet = (): DraftSet => ({
   targetMetric: "reps",
   min: "8",
@@ -48,6 +60,7 @@ export function ProgramBuilderScreen() {
     [day, setDay] = useState("Treino A"),
     [catalog, setCatalog] = useState<readonly ExerciseSummary[]>([]),
     [picked, setPicked] = useState<Picked[]>([]),
+    [parentLineage, setParentLineage] = useState<ParentLineage>({}),
     [busy, setBusy] = useState(false),
     // Index of the exercise being swapped; the next catalog tap replaces it
     // and keeps its sets (human review of replacement drafts).
@@ -67,6 +80,11 @@ export function ProgramBuilderScreen() {
         setBlock(firstBlock?.name ?? "Bloco 1");
         setWeek(firstWeek?.name ?? "Semana 1");
         setDay(firstDay?.name ?? "Treino A");
+        setParentLineage({
+          block: firstBlock?.lineageId ?? undefined,
+          week: firstWeek?.lineageId ?? undefined,
+          day: firstDay?.lineageId ?? undefined,
+        });
         setPicked(
           (firstDay?.prescriptions ?? []).flatMap((prescription) => {
             const exercise = exercises.find(
@@ -76,7 +94,9 @@ export function ProgramBuilderScreen() {
             return [
               {
                 exercise,
+                lineageId: prescription.lineageId ?? undefined,
                 sets: prescription.sets.map((set) => ({
+                  lineageId: set.lineageId ?? undefined,
                   targetMetric: set.targetMetric,
                   min: String(set.targetMin),
                   max: String(set.targetMax),
@@ -136,20 +156,25 @@ export function ProgramBuilderScreen() {
       await app.saveProgramStructure(programId, {
         blocks: [
           {
+            lineageId: parentLineage.block,
             sequence: 1,
             name: block,
             weeks: [
               {
+                lineageId: parentLineage.week,
                 sequence: 1,
                 name: week,
                 days: [
                   {
+                    lineageId: parentLineage.day,
                     sequence: 1,
                     name: day,
                     prescriptions: picked.map((p, i) => ({
+                      lineageId: p.lineageId,
                       sequence: i + 1,
                       exerciseId: p.exercise.id,
                       sets: p.sets.map((x, j) => ({
+                        lineageId: x.lineageId,
                         sequence: j + 1,
                         targetMetric: x.targetMetric,
                         targetMin: Number(x.min),

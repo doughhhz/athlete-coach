@@ -27,15 +27,18 @@ import type { WorkoutSession, WorkoutSet } from "../workout/workout.ts";
  * exercise-replacement semantics in its intervention sections (ADR-0072).
  * v6 keeps v5 and adds bounded `draftReviewHistory`: factual human-review
  * evidence of materialized drafts — supervision, never correctness (ADR-0089).
+ * v7 keeps v6 and carries draft review evidence v2 (lineage-first matching,
+ * `matchingStrategy`, `sequence_changed`) (Implementation Phase 18, ADR-0094).
  */
 export const ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION =
-  "athlete-training-dossier-v6" as const;
+  "athlete-training-dossier-v7" as const;
 export const athleteTrainingDossierSchemaVersions = [
   "athlete-training-dossier-v1",
   "athlete-training-dossier-v2",
   "athlete-training-dossier-v3",
   "athlete-training-dossier-v4",
   "athlete-training-dossier-v5",
+  "athlete-training-dossier-v6",
   ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION,
 ] as const;
 export const DOSSIER_RECENT_SESSION_LIMIT = 12;
@@ -645,6 +648,7 @@ export type DossierDraftReviewItem = Pick<
   | "proposalOrigin"
   | "materializationOrigin"
   | "reviewStatus"
+  | "matchingStrategy"
   | "materializedAt"
   | "activatedAt"
   | "archivedAt"
@@ -672,6 +676,7 @@ export function compactDraftReviewHistory(
       proposalOrigin: item.proposalOrigin,
       materializationOrigin: item.materializationOrigin,
       reviewStatus: item.reviewStatus,
+      matchingStrategy: item.matchingStrategy,
       materializedAt: item.materializedAt,
       activatedAt: item.activatedAt,
       archivedAt: item.archivedAt,

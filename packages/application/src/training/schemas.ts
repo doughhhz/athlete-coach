@@ -2,8 +2,15 @@ import { loadPrescriptionKinds, targetMetrics } from "@athlete-coach/domain";
 import { z } from "zod";
 
 const optionalText = z.string().trim().max(1000).optional();
+/**
+ * Existing structural node lineage (Implementation Phase 18). Optional: new
+ * nodes omit it. The server accepts only lineage already present at the same
+ * level of the same draft.
+ */
+const lineageId = z.uuid().optional();
 export const prescriptionSetInputSchema = z
   .object({
+    lineageId,
     sequence: z.number().int().positive(),
     targetMetric: z.enum(targetMetrics),
     targetMin: z.number().positive(),
@@ -49,18 +56,21 @@ export const programStructureInputSchema = z.object({
   blocks: z
     .array(
       z.object({
+        lineageId,
         sequence: z.number().int().positive(),
         name: z.string().trim().min(1).max(120),
         description: optionalText,
         weeks: z
           .array(
             z.object({
+              lineageId,
               sequence: z.number().int().positive(),
               name: z.string().trim().max(120).optional(),
               notes: optionalText,
               days: z
                 .array(
                   z.object({
+                    lineageId,
                     sequence: z.number().int().positive(),
                     name: z.string().trim().min(1).max(120),
                     preferredWeekday: z.number().int().min(1).max(7).optional(),
@@ -68,6 +78,7 @@ export const programStructureInputSchema = z.object({
                     prescriptions: z
                       .array(
                         z.object({
+                          lineageId,
                           sequence: z.number().int().positive(),
                           exerciseId: z.uuid(),
                           instructions: optionalText,

@@ -102,3 +102,9 @@ Ativação de programa é sempre uma ação humana explícita. Ativação autom�
 - **Human review behavior is evidence about oversight, not proof that a proposal was correct.**
 - **User acceptance does not validate a coaching intervention physiologically.**
 - **Auto-draft authority may not expand itself from review history.**
+
+## Implementation Phase 18 — Identidade de revisão
+
+- **Revision identity is not sequence identity.**
+- **Reordering an existing training element does not make it a new element.**
+- **Lineage identifies structural continuity; it does not imply semantic equivalence of changed exercise content.**

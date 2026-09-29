@@ -139,3 +139,7 @@ Nenhum prompt ou contrato mudou (`coach-system-v5`, `coach-proposal-prompt-v5`, 
 ## Implementation Phase 17 — Dossier v6 e prompts v6
 
 `athlete-training-dossier-v6` adiciona `draftReviewHistory` compacto (até 8 itens: decisão, origens, estado, categorias, valores preparado/revisado, referências) sem estrutura de programa nem proposta duplicada; v5 permanece histórico. `coach-system-v6` = v5 + política de revisão: supervisão não é correção; ativação não prova acerto; edição não prova erro; nunca inferir confiança do atleta; nunca pedir/expandir autonomia a partir do histórico; fisiologia vem só de interventionHistory/responseMemory; sem taxas ou scores. `coach-proposal-prompt-v6` = v5 + regra: ativação sem alterações não justifica repetir, edição/arquivamento não proíbe; saída continua `coach-proposal-v3`. Novo tipo de evidência aditivo `coach_draft_review` (mesmo padrão de `response_memory_group`), sem mudar as versões `coach-analysis-v1`/`coach-proposal-v3`.
+
+## Implementation Phase 18 — Dossier v7
+
+`athlete-training-dossier-v7` = v6 com evidência de revisão v2 (`matchingStrategy`, categoria `sequence_changed`). Prompts permanecem `coach-system-v6` e `coach-proposal-prompt-v6`: as regras de raciocínio não mudaram e o modelo nunca recebe identificadores de linhagem.

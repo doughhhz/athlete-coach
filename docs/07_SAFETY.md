@@ -104,3 +104,7 @@ Análise com `trainingAdviceBlocked` → auto-draft `blocked`, sem rascunho nem 
 ## Implementation Phase 17 — Revisão não amplia autoridade
 
 O histórico de revisão nunca alimenta `coach-auto-draft-v1`, governança, ativação ou qualquer política (teste de arquitetura). Ativações repetidas sem alteração não liberam auto-draft mais amplo nem ativação automática. Nenhum reward, preferência aprendida, bandit ou ajuste de elegibilidade.
+
+## Implementation Phase 18 — Sem ampliação de autoridade
+
+Linhagem é infraestrutura de identidade. `coach-auto-draft-v1` permanece exatamente RIR ↑, descanso ↑ e redução de carga absoluta existente; ativação continua humana; nenhum reward ou score. Cliente não pode forjar linhagem de outro atleta, programa ou nível.

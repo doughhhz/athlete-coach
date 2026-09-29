@@ -71,12 +71,18 @@ test("review evidence has no path to activation, materialization or ledger write
   }
 });
 
-test("Implementation Phase 17 is derived-only (no new migration)", async () => {
+test("Implementation Phase 17 is derived-only (no migration between Phases 16 and 18)", async () => {
   const migrations = (await readdir(resolve(root, "supabase/migrations")))
     .filter((name) => name.endsWith(".sql"))
     .sort();
-  assert.equal(
-    migrations.at(-1),
+  const phase16 = migrations.indexOf(
     "20261003120000_conservative_auto_draft_authority.sql",
+  );
+  assert.ok(phase16 >= 0);
+  assert.equal(
+    migrations[phase16 + 1] ?? null,
+    migrations.includes("20261004120000_training_structure_lineage.sql")
+      ? "20261004120000_training_structure_lineage.sql"
+      : null,
   );
 });

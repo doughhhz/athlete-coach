@@ -202,7 +202,7 @@ test("auto-draft awaiting review, unchanged: factual, no judgment", () => {
     {
       kind: "coach_draft_review",
       id: "decision-1",
-      version: "coach-draft-review-evidence-v1",
+      version: "coach-draft-review-evidence-v2",
     },
   ]);
 });
@@ -438,7 +438,7 @@ test("no correctness, acceptance, trust or score vocabulary", () => {
   ]);
   assert.doesNotMatch(
     text,
-    /accept|reject|success|fail|correct|trust|score|rate|reward|approved|discard/i,
+    /(acceptw*|rejectw*|successw*|failw*|correctw*|trustw*|scorew*|rates?|rewardw*|approved|discardw*)/i,
   );
 });
 
@@ -457,7 +457,7 @@ const evidenceAt = (
     {
       kind: "coach_draft_review",
       id,
-      version: "coach-draft-review-evidence-v1",
+      version: "coach-draft-review-evidence-v2",
     },
   ],
 });
