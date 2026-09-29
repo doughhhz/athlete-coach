@@ -11,7 +11,7 @@ const labels = await read("src/presentation/coach/governance-labels.ts");
 const gateway = await read(
   "src/infrastructure/coach/supabase-coach-gateway.ts",
 );
-const requestId = await read("src/presentation/coach/analysis-request-id.ts");
+const requestId = await read("src/presentation/idempotency-key.ts");
 const presentation = [personal, review, labels].join("\n");
 
 test("mode copy: manual and proactive, explicit consent and cost notice", () => {

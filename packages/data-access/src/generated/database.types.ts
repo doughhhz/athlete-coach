@@ -1085,6 +1085,8 @@ export type Database = {
           athlete_id: string
           completed_at: string | null
           created_at: string
+          creation_request_fingerprint: string | null
+          creation_request_id: string | null
           description: string | null
           id: string
           lineage_tracked: boolean
@@ -1101,6 +1103,8 @@ export type Database = {
           athlete_id: string
           completed_at?: string | null
           created_at?: string
+          creation_request_fingerprint?: string | null
+          creation_request_id?: string | null
           description?: string | null
           id?: string
           lineage_tracked?: boolean
@@ -1117,6 +1121,8 @@ export type Database = {
           athlete_id?: string
           completed_at?: string | null
           created_at?: string
+          creation_request_fingerprint?: string | null
+          creation_request_id?: string | null
           description?: string | null
           id?: string
           lineage_tracked?: boolean
@@ -1423,6 +1429,8 @@ export type Database = {
           athlete_id: string
           completed_at: string | null
           created_at: string
+          creation_request_fingerprint: string | null
+          creation_request_id: string | null
           description: string | null
           id: string
           lineage_tracked: boolean
@@ -1478,6 +1486,8 @@ export type Database = {
           athlete_id: string
           completed_at: string | null
           created_at: string
+          creation_request_fingerprint: string | null
+          creation_request_id: string | null
           description: string | null
           id: string
           lineage_tracked: boolean
@@ -1665,6 +1675,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      create_training_program_with_structure: {
+        Args: {
+          p_athlete_goal_id?: string
+          p_creation_request_id: string
+          p_description?: string
+          p_name: string
+          p_structure: Json
+        }
+        Returns: string
       }
       current_athlete_id: { Args: never; Returns: string }
       ensure_current_athlete: {
@@ -1889,6 +1909,15 @@ export type Database = {
         Args: { p_training_day_id: string }
         Returns: string
       }
+      training_program_creation_fingerprint: {
+        Args: {
+          p_athlete_goal_id: string
+          p_description: string
+          p_name: string
+          p_structure: Json
+        }
+        Returns: string
+      }
       transition_training_program: {
         Args: { p_program_id: string; p_status: string }
         Returns: {
@@ -1898,6 +1927,8 @@ export type Database = {
           athlete_id: string
           completed_at: string | null
           created_at: string
+          creation_request_fingerprint: string | null
+          creation_request_id: string | null
           description: string | null
           id: string
           lineage_tracked: boolean

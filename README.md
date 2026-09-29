@@ -196,3 +196,7 @@ Corrigido: o builder carregava e salvava apenas o primeiro bloco/semana/dia, e o
 ## Implementation Phase 19 — Edição explícita da estrutura do programa
 
 O builder agora permite adicionar, remover (com confirmação) e reordenar blocos, semanas e dias. A navegação é Bloco → Semana → Dia; cada nível tem "+", ↑/↓ e "Remover". A confirmação mostra o conteúdo real (semanas, dias, exercícios, séries), sem linguagem alarmista. O último bloco/semana/dia não pode ser removido e a tela explica o motivo. Sair do builder com alterações não salvas pergunta "Continuar editando" ou "Descartar alterações"; descartar não salva nada. Trocar de bloco/semana/dia não é sair. O salvamento continua enviando o programa inteiro.
+
+## Correção pós-Implementation Phase 19 — Criação de programa atômica
+
+Criar um programa novo agora é uma única operação: o programa e toda a sua estrutura são salvos juntos ou nada é salvo. Antes, o app criava o rascunho e só depois salvava a estrutura; se a segunda etapa falhasse e o atleta tentasse de novo, surgiam rascunhos duplicados ou vazios. Cada tentativa de criação usa um identificador estável: repetir a mesma tentativa (por exemplo, após falha de rede) devolve o mesmo rascunho. Repetir com conteúdo diferente é recusado sem alterar nada, e a tela oferece abrir o programa já criado. Em caso de falha, a estrutura montada continua na tela e o aviso de alterações não salvas permanece.

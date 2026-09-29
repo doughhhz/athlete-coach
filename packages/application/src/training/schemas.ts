@@ -106,3 +106,26 @@ export type CreateProgramDraftInput = z.infer<
   typeof createProgramDraftInputSchema
 >;
 export type ProgramStructureInput = z.infer<typeof programStructureInputSchema>;
+/**
+ * New program creation as ONE intent (corrective pass after Implementation
+ * Phase 19, ADR-0100..0102): metadata + complete tree + a stable
+ * `creationRequestId` reused on every retry. A new root has no structural
+ * continuity, so lineage is never accepted here (the server assigns it).
+ */
+export const createProgramWithStructureInputSchema =
+  createProgramDraftInputSchema
+    .extend({
+      creationRequestId: z.uuid(),
+      structure: programStructureInputSchema,
+    })
+    .superRefine((value, context) => {
+      if (JSON.stringify(value.structure).includes('"lineageId"'))
+        context.addIssue({
+          code: "custom",
+          path: ["structure"],
+          message: "Um programa novo não aceita linhagem de outro programa.",
+        });
+    });
+export type CreateProgramWithStructureInput = z.infer<
+  typeof createProgramWithStructureInputSchema
+>;

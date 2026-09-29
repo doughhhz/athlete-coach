@@ -204,3 +204,28 @@ Migration `20261005120000_full_draft_structure_preservation.sql` (forward) redef
 ## Implementation Phase 19 — Sem mudança de schema
 
 Nenhuma migration. Remoção, adição e reordenação de blocos/semanas/dias usam a mesma `replace_training_program_structure` (árvore inteira, atômica, verificada). Novos nós não enviam `lineageId`: o servidor atribui. Linhagem removida não pode ser reanexada ("Unknown structure lineage"), e reordenar mantém a linhagem e muda só `sequence`. Coberto por `supabase/tests/database/structure_editing.test.sql`.
+
+## Correção pós-Implementation Phase 19 — Identidade de criação
+
+A migration `20261006120000_atomic_program_creation.sql` (forward) altera `training_programs`:
+
+- colunas `creation_request_id uuid` e `creation_request_fingerprint text` (SHA-256 hex), ambas nulas ou ambas preenchidas;
+- apenas em raízes criadas pelo usuário: nunca junto com `supersedes_program_id`, e as linhas históricas ficam NULL;
+- índice único parcial `(athlete_id, creation_request_id)`, com escopo por atleta: o mesmo UUID de outro atleta não colide;
+- trigger que só permite definir a identidade dentro da RPC atômica (`app.training_program_creation`) e a torna imutável.
+
+`training_program_creation_fingerprint`: serialização canônica de `jsonb` (ordem de chaves canônica; arrays mantêm a ordem, que é semântica; nulos removidos), com o nome aparado, a descrição, a meta e a estrutura, versão `training-program-creation-v1`. Não entram JWT, timestamps, ids de banco nem linhagem. A impressão digital garante a integridade das tentativas; não é autenticação nem segredo.
+
+RPC `create_training_program_with_structure(p_creation_request_id, p_name, p_structure, p_description, p_athlete_goal_id)`, security invoker (RLS aplicada), executável só por `authenticated` e `service_role`. Etapas:
+
+1. deriva o atleta da sessão;
+2. rejeita linhagem enviada pelo cliente;
+3. calcula a impressão digital;
+4. aplica `pg_advisory_xact_lock` por (atleta, request);
+5. se o request já existe, devolve o mesmo programa ou lança `program_creation_conflict`;
+6. insere o rascunho (status `draft`, revisão 1, sem `supersedes`, `lineage_tracked` pelo trigger da Implementation Phase 18);
+7. grava a estrutura com a função canônica `replace_training_program_structure`, com as mesmas invariantes, a mesma atribuição de linhagem e a mesma verificação final, sem cópia de lógica.
+
+Qualquer falha desfaz tudo. Não ativa nada.
+
+O insert direto em `training_programs` por RLS continua permitido (fixtures pgTAP e fluxos existentes), mas não pode definir a identidade de criação; o app não o usa mais para criar programas.

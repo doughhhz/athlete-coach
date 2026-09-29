@@ -1,6 +1,8 @@
 import { assertActivatable } from "@athlete-coach/domain";
 import {
   createProgramDraftInputSchema,
+  createProgramWithStructureInputSchema,
+  type CreateProgramWithStructureInput,
   programStructureInputSchema,
   type CreateProgramDraftInput,
   type ProgramStructureInput,
@@ -31,6 +33,18 @@ export class CreateTrainingProgramDraft extends ProgramsUseCase {
   execute(input: CreateProgramDraftInput) {
     return this.repository.createDraft(
       createProgramDraftInputSchema.parse(input),
+    );
+  }
+}
+/**
+ * Creating a training program is one transactional user intent, not a
+ * sequence of independently durable mutations. Retrying the same creation
+ * intent (same creationRequestId) resolves to the same draft.
+ */
+export class CreateTrainingProgramWithStructure extends ProgramsUseCase {
+  async execute(input: CreateProgramWithStructureInput) {
+    return this.repository.createWithStructure(
+      createProgramWithStructureInputSchema.parse(input),
     );
   }
 }

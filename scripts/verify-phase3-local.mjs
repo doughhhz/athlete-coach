@@ -15,6 +15,8 @@ import {
   SignUpWithEmail,
   UpdateAthleteProfile,
   CreateTrainingProgramDraft,
+  CreateTrainingProgramWithStructure,
+  ProgramCreationConflictError,
   SaveTrainingProgramStructure,
   ActivateTrainingProgram,
   GetActiveTrainingProgram,
@@ -172,6 +174,9 @@ function compose(client) {
     signUp: new SignUpWithEmail(auth),
     updateProfile: new UpdateAthleteProfile(profile),
     createProgram: new CreateTrainingProgramDraft(programs),
+    createProgramWithStructure: new CreateTrainingProgramWithStructure(
+      programs,
+    ),
     saveProgram: new SaveTrainingProgramStructure(programs),
     activateProgram: new ActivateTrainingProgram(programs),
     activeProgram: new GetActiveTrainingProgram(programs),
@@ -3832,9 +3837,228 @@ assert.deepEqual(
   await preferences.setAutonomyMode("manual");
 }
 
+// Corrective pass — atomic & idempotent new program creation (ADR-0100..0102).
+{
+  // 1. Signed-up, onboarded athlete (the session above).
+  const countFor = async (requestId) => {
+    const { data, error } = await reloadedClient
+      .from("training_programs")
+      .select("id")
+      .eq("creation_request_id", requestId);
+    assert.equal(error, null);
+    return data.length;
+  };
+  const tree = (program) =>
+    program.blocks.map((block) => ({
+      lineage: block.lineageId,
+      name: block.name,
+      weeks: block.weeks.map((week) => ({
+        lineage: week.lineageId,
+        days: week.days.map((day) => ({
+          lineage: day.lineageId,
+          name: day.name,
+          prescriptions: day.prescriptions.map((prescription) => ({
+            lineage: prescription.lineageId,
+            exerciseId: prescription.exerciseId,
+            sets: prescription.sets.map((set) => [
+              set.lineageId,
+              set.targetMin,
+              set.targetMax,
+              set.rirMin,
+              set.rirMax,
+              set.restMinSeconds,
+              set.restMaxSeconds,
+              set.loadKind,
+              set.loadKg,
+            ]),
+          })),
+        })),
+      })),
+    }));
+  const plannedSet = (sequence) => ({
+    sequence,
+    targetMetric: "reps",
+    targetMin: 6,
+    targetMax: 8,
+    rirMin: 1,
+    rirMax: 2,
+    restMinSeconds: 120,
+    restMaxSeconds: 180,
+    tempo: null,
+    loadKind: "athlete_selected",
+    loadKg: null,
+  });
+  const dayInput = (sequence, name, exerciseId) => ({
+    sequence,
+    name,
+    prescriptions: [
+      { sequence: 1, exerciseId, sets: [plannedSet(1), plannedSet(2)] },
+    ],
+  });
+  // 2. Local multi-block/week/day tree (as the builder holds it).
+  const localTree = {
+    blocks: [
+      {
+        sequence: 1,
+        name: "Base",
+        weeks: [
+          {
+            sequence: 1,
+            name: "Semana 1",
+            days: [
+              dayInput(1, "Treino A", EX_X),
+              dayInput(2, "Treino B", EX_Y),
+            ],
+          },
+          {
+            sequence: 2,
+            name: "Semana 2",
+            days: [dayInput(1, "Treino C", EX_Z)],
+          },
+        ],
+      },
+      {
+        sequence: 2,
+        name: "Intensificação",
+        weeks: [
+          {
+            sequence: 1,
+            name: "Semana 1",
+            days: [dayInput(1, "Treino D", EX_X)],
+          },
+        ],
+      },
+    ],
+  };
+  // 3. One creation intent = one stable request id.
+  const creationRequestId = crypto.randomUUID();
+  const create = (name, structure) =>
+    reloaded.createProgramWithStructure.execute({
+      creationRequestId,
+      name,
+      structure,
+    });
+  // 4-6. A tree the server rejects (unknown exercise) fails atomically: zero drafts.
+  const invalid = structuredClone(localTree);
+  invalid.blocks[1].weeks[0].days[0].prescriptions[0].exerciseId =
+    crypto.randomUUID();
+  const programsBefore = (
+    await reloadedClient.from("training_programs").select("id")
+  ).data.length;
+  await assert.rejects(async () => create("Programa atômico", invalid));
+  assert.equal(
+    await countFor(creationRequestId),
+    0,
+    "no draft after failed creation",
+  );
+  assert.equal(
+    (await reloadedClient.from("training_programs").select("id")).data.length,
+    programsBefore,
+    "no orphan program row",
+  );
+  // 7-10. Corrected tree, same intent: success, exactly one draft.
+  const created = await create("Programa atômico", localTree);
+  assert.equal(created.status, "draft");
+  assert.equal(created.supersedesProgramId, null);
+  assert.equal(created.revision, 1);
+  assert.equal(created.lineageTracked, true);
+  assert.equal(await countFor(creationRequestId), 1);
+  // 11. Full tree persisted.
+  assert.deepEqual(
+    created.blocks.map((block) =>
+      block.weeks.map((week) => week.days.map((day) => day.name)),
+    ),
+    [[["Treino A", "Treino B"], ["Treino C"]], [["Treino D"]]],
+  );
+  assert.equal(
+    created.blocks[0].weeks[0].days[1].prescriptions[0].sets[1].restMaxSeconds,
+    180,
+  );
+  // 12. Fresh, distinct lineage on every node.
+  const lineages = created.blocks.flatMap((block) => [
+    block.lineageId,
+    ...block.weeks.flatMap((week) => [
+      week.lineageId,
+      ...week.days.flatMap((day) => [
+        day.lineageId,
+        ...day.prescriptions.flatMap((prescription) => [
+          prescription.lineageId,
+          ...prescription.sets.map((set) => set.lineageId),
+        ]),
+      ]),
+    ]),
+  ]);
+  assert.ok(lineages.every((lineage) => /^[0-9a-f-]{36}$/.test(lineage)));
+  assert.equal(new Set(lineages).size, lineages.length);
+  assert.equal(
+    lineages.length,
+    2 + 3 + 4 + 4 + 8,
+    "blocks+weeks+days+prescriptions+sets",
+  );
+  // 13-15. Lost response: the same id and payload return the same draft.
+  const retried = await create("Programa atômico", structuredClone(localTree));
+  assert.equal(retried.id, created.id);
+  assert.equal(await countFor(creationRequestId), 1);
+  // 16-18. Same id, changed name or tree: conflict; the draft is unchanged.
+  for (const [name, structure] of [
+    ["Outro nome", localTree],
+    ["Programa atômico", { blocks: localTree.blocks.slice(0, 1) }],
+  ])
+    await assert.rejects(
+      async () => create(name, structure),
+      (error) =>
+        error instanceof ProgramCreationConflictError &&
+        error.existingProgramId === created.id,
+    );
+  const unchanged = await reloaded.getProgram.execute(created.id);
+  assert.equal(unchanged.name, "Programa atômico");
+  assert.deepEqual(tree(unchanged), tree(created));
+  // 19-20. Concurrent equivalent requests: one draft, same id for both.
+  const concurrentId = crypto.randomUUID();
+  const concurrent = await Promise.all(
+    [0, 1, 2].map(() =>
+      reloaded.createProgramWithStructure.execute({
+        creationRequestId: concurrentId,
+        name: "Programa concorrente",
+        structure: localTree,
+      }),
+    ),
+  );
+  assert.equal(new Set(concurrent.map((program) => program.id)).size, 1);
+  assert.equal(await countFor(concurrentId), 1);
+  // 21-22. Existing draft editing is unchanged (full-tree save, lineage kept).
+  let structure = programToStructureInput(created);
+  structure = structureEdits.updateSet(
+    structure,
+    { block: 1, week: 0, day: 0 },
+    0,
+    0,
+    { rirMin: 2, rirMax: 3 },
+  );
+  const edited = await reloaded.saveProgram.execute(created.id, structure);
+  assert.deepEqual(
+    [
+      edited.blocks[1].weeks[0].days[0].prescriptions[0].sets[0].rirMin,
+      edited.blocks[1].weeks[0].days[0].prescriptions[0].sets[0].lineageId,
+    ],
+    [2, created.blocks[1].weeks[0].days[0].prescriptions[0].sets[0].lineageId],
+  );
+  assert.deepEqual(tree(edited).slice(0, 1), tree(created).slice(0, 1));
+  assert.equal(await countFor(creationRequestId), 1, "editing creates nothing");
+  // 23. Activation only by explicit human action.
+  assert.equal((await reloaded.getProgram.execute(created.id)).status, "draft");
+  const activated = await reloaded.activateProgram.execute(created.id);
+  assert.equal(activated.status, "active");
+  // 24-25. Logout/login: the program rebuilds identically.
+  const before = tree(await reloaded.getProgram.execute(created.id));
+  await reloaded.signOut.execute();
+  await reloaded.signIn.execute(credentials);
+  assert.deepEqual(tree(await reloaded.getProgram.execute(created.id)), before);
+}
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage/full-structure/structure-editing flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage/full-structure/structure-editing/atomic-creation flow passed.",
 );

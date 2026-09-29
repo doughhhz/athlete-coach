@@ -7,6 +7,7 @@ import {
   emptyDays,
   emptyStructure,
   listDays,
+  ProgramCreationConflictError,
   programToStructureInput,
   shouldGuardDraftLeave,
   structureEdits,
@@ -38,6 +39,7 @@ import {
   View,
 } from "react-native";
 import { useAppSession } from "@/presentation/auth/app-session";
+import { newIdempotencyKey } from "@/presentation/idempotency-key";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import {
   lastNodeExplanation,
@@ -73,6 +75,12 @@ export function ProgramBuilderScreen() {
     // Set after a successful save; navigation happens once the clean state
     // has rendered, so the leave guard is already released.
     [savedProgramId, setSavedProgramId] = useState<string | null>(null),
+    // One new-program creation intent per builder visit: generated once and
+    // reused on every retry (network failure, timeout, unknown result).
+    // Leaving the builder abandons the intent; a new visit is a new intent.
+    [creationRequestId] = useState<string>(newIdempotencyKey),
+    // Same intent already created with a different payload (409).
+    [conflictProgramId, setConflictProgramId] = useState<string | null>(null),
     // Index of the exercise being swapped; the next catalog tap replaces it
     // and keeps its sets (human review of replacement drafts).
     [replacing, setReplacing] = useState<number | null>(null),
@@ -257,16 +265,34 @@ export function ProgramBuilderScreen() {
       );
       return;
     }
+    setConflictProgramId(null);
     track("save_started");
     try {
-      const programId = id ?? (await app.createProgramDraft({ name })).id;
-      // Always the full tree: the viewport is never the save scope.
-      await app.saveProgramStructure(programId, structure);
+      let programId: string;
+      if (id) {
+        programId = id;
+        // Always the full tree: the viewport is never the save scope.
+        await app.saveProgramStructure(programId, structure);
+      } else {
+        // New program: ONE atomic, idempotent creation (program + complete
+        // tree). Zero drafts or one complete draft; a retry of this intent
+        // resolves to the same draft.
+        programId = (
+          await app.createProgramWithStructure({
+            creationRequestId,
+            name,
+            structure,
+          })
+        ).id;
+      }
       track("save_succeeded");
       setSavedProgramId(programId);
     } catch (e) {
-      // Edits stay dirty: nothing is marked saved after a failure.
+      // Edits stay dirty and the local tree is kept: nothing is marked saved
+      // after a failure, and "Salvar e revisar" retries the same intent.
       track("save_failed");
+      if (e instanceof ProgramCreationConflictError)
+        setConflictProgramId(e.existingProgramId);
       setError(
         e instanceof Error ? e.message : "Não foi possível salvar o programa.",
       );
@@ -597,6 +623,16 @@ export function ProgramBuilderScreen() {
         <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>
           {error}
         </Text>
+      ) : null}
+      {conflictProgramId ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push(`/programs/${conflictProgramId}` as Href)}
+        >
+          <Text style={{ color: theme.colors.accent, fontWeight: "700" }}>
+            Abrir o programa já criado
+          </Text>
+        </Pressable>
       ) : null}
       <Pressable
         disabled={busy}

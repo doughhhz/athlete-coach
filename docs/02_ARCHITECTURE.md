@@ -208,3 +208,11 @@ Domínio: `packages/domain/src/coach-draft-review/` — `buildCoachDraftReviewEv
 ## Implementation Phase 19 — Operações estruturais e guarda de saída
 
 `program-structure-editor.ts` ganhou `addBlock`, `addWeek`, `removeBlock`, `removeWeek`, `removeDay`, `moveBlock`, `moveWeek` e `moveDay` em `structureEdits`. Também ganhou `structureRemovalRules` (último nó), `structureSummaries` (contagens para confirmação), `clampPath` (viewport após remoção) e `StructuralInvariantError`. Não há JSON Patch nem mutação genérica; remoções só existem em operações `remove*` (teste de arquitetura `structure-editing-boundaries`). `draft-edit-session.ts` é o modelo puro de alterações não salvas (`edited`, `save_started`, `save_succeeded`, `save_failed`, `discarded`; `shouldGuardDraftLeave`). A tela usa `usePreventRemove` de `expo-router/react-navigation` (sem nova dependência) e navega só depois que o estado limpo é renderizado. `structure-labels.ts` (apresentação) apenas formata textos. A persistência continua sendo o salvamento da árvore inteira (ADR-0095).
+
+## Correção pós-Implementation Phase 19 — Fronteira única de criação
+
+Programa novo: `CreateTrainingProgramWithStructure` (aplicação) → `TrainingProgramRepository.createWithStructure` (data-access) → RPC `create_training_program_with_structure` (uma transação). O gateway mobile expõe só `createProgramWithStructure`; `createProgramDraft` deixou de existir no mobile (a apresentação não pode mais "inserir programa e depois salvar"). A edição de rascunho existente continua em `saveProgramStructure(programId, fullTree)`.
+
+O `creationRequestId` é gerado uma vez por visita ao builder (`newIdempotencyKey`, gerador compartilhado com o `analysisRequestId` do Coach) e reutilizado em toda nova tentativa. Sair do builder abandona a intenção; uma nova visita gera uma nova intenção.
+
+Conflito: `ProgramCreationConflictError`, com `existingProgramId`, normalizado a partir do erro `23505 program_creation_conflict` (HTTP 409 pelo PostgREST). Guardas de arquitetura: `program-creation-boundary.test.mjs`.

@@ -844,3 +844,24 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Trocar de bloco, semana ou dia não é sair. Descartar não salva. O estado _dirty_ só é limpo após um salvamento bem-sucedido e permanece após uma falha. A navegação pós-salvamento só acontece depois que o estado limpo é renderizado.
 - "Salvar e sair" foi rejeitado nesta fase: o salvamento pode falhar por validação (dia sem exercício) ou por rede, e sair não deve depender de um resultado que o atleta não viu.
 - Modelo puro: `draft-edit-session.ts`.
+
+### ADR-0100 — Atomic New Program Creation
+
+- Data: 2026-10-08
+- Status: accepted
+- Regra anterior: o builder criava o programa (`createProgramDraft`, insert direto e durável) e, em outra chamada, salvava a estrutura (`saveProgramStructure`). Uma falha na segunda etapa deixava um rascunho vazio, e a nova tentativa criava outro. Reproduzido localmente: uma intenção gerou 2 rascunhos, 1 deles órfão e vazio.
+- Regra nova: **"Creating a training program is one transactional user intent, not a sequence of independently durable mutations."** A criação de programa novo usa `create_training_program_with_structure`, em uma transação: programa e árvore completa, ou nada. A estrutura é gravada pela função canônica `replace_training_program_structure`, sem duplicação. O programa nasce como raiz nova: `draft`, sem `supersedes`, com linhagem nova (linhagem do cliente é rejeitada). Não há job de limpeza de órfãos: a prevenção é transacional.
+- Afetados: migration `20261006120000`; aplicação (`CreateTrainingProgramWithStructure`, schema, port); data-access; gateway e builder mobile; testes; docs 00/02/03/04/08/10.
+
+### ADR-0101 — Creation Intent Idempotency
+
+- Data: 2026-10-08
+- Status: accepted
+- Decisão: **"Retrying the same creation intent must resolve to the same draft."** O `creationRequestId` (UUID) é gerado uma vez por intenção e reutilizado após falha de rede, timeout ou resultado desconhecido. Ele é só identidade: o servidor deriva atleta, dono, status, linhagem e timestamps.
+- A unicidade é por atleta (`athlete_id, creation_request_id`). A impressão digital é determinística e calculada no servidor a partir do payload semântico validado, seguindo o padrão da análise autoritativa do Coach (ADR-0085), mas calculada no servidor porque o payload inteiro chega à RPC e assim não pode ser forjado. Retentativas concorrentes são serializadas por advisory lock, com o índice único como garantia final.
+
+### ADR-0102 — Program Creation Retry Conflict Semantics
+
+- Data: 2026-10-08
+- Status: accepted
+- Decisão: o mesmo atleta, com o mesmo `creationRequestId` e um payload semântico diferente, recebe `program_creation_conflict` (SQLSTATE 23505, HTTP 409). Não sobrescreve, não devolve silenciosamente o existente e não cria outro. A aplicação normaliza para `ProgramCreationConflictError` com `existingProgramId` (lido via RLS, do próprio atleta), e a UI oferece abrir o programa já criado.

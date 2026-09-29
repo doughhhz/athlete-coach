@@ -113,3 +113,8 @@ Ativação de programa é sempre uma ação humana explícita. Ativação autom�
 
 - **A partial editing surface must never imply a full-aggregate replacement.**
 - **Saving one visible training node must preserve every untouched node in the draft.**
+
+## Correção pós-Implementation Phase 19 — Intenção de criação
+
+- **Creating a training program is one transactional user intent, not a sequence of independently durable mutations.**
+- **Retrying the same creation intent must resolve to the same draft.**

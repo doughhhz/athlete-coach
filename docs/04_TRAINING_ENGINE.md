@@ -167,3 +167,12 @@ Edição de um dia não altera outros dias, semanas ou blocos; linhas são recri
 Invariantes canônicas (schema e RPC): ≥1 bloco por programa, ≥1 semana por bloco, ≥1 dia por semana, ≥1 exercício por dia e ≥1 série por exercício. Remoção que quebraria uma invariante de contêiner é recusada. Bloco novo nasce com uma semana e um dia vazio; semana nova, com um dia vazio. O dia vazio precisa de um exercício antes de salvar: nada é inventado. Sequências são normalizadas (1..n) após cada operação.
 
 Na Review Evidence, as categorias existentes bastam, sem mudança de contrato: remoção e adição de dias/semanas/blocos aparecem como `prescription_removed`/`prescription_added` e, quando a forma muda, `program_structure_changed`. Reordenação aparece como `sequence_changed`. A mudança de Coach ou auto-draft em outro dia continua com `reviewedDiffersFromMaterialized = false`.
+
+## Correção pós-Implementation Phase 19 — Programa novo como raiz
+
+Programa criado pelo usuário é uma raiz nova:
+
+- status `draft`, revisão 1, sem `supersedes_program_id`;
+- toda a estrutura recebe linhagem nova do servidor, e linhagem enviada pelo cliente é rejeitada (não há continuidade estrutural anterior);
+- as mesmas invariantes do salvamento de rascunho: ≥1 bloco, semana, dia, exercício e série, além das validações de série;
+- ativação continua exclusivamente humana.

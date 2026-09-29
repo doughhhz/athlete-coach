@@ -215,9 +215,9 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
     getProgram: async (id) => application?.getProgram.execute(id) ?? null,
     getActiveProgram: async () =>
       application?.getActiveProgram.execute() ?? null,
-    createProgramDraft: async (input) => {
+    createProgramWithStructure: async (input) => {
       if (!application) throw new Error("Backend não configurado.");
-      return application.createProgramDraft.execute(input);
+      return application.createProgramWithStructure.execute(input);
     },
     saveProgramStructure: async (id, input) => {
       if (!application) throw new Error("Backend não configurado.");

@@ -1,7 +1,9 @@
-import type {
-  CreateProgramDraftInput,
-  ProgramStructureInput,
-  TrainingProgramRepository,
+import {
+  ProgramCreationConflictError,
+  type CreateProgramDraftInput,
+  type CreateProgramWithStructureInput,
+  type ProgramStructureInput,
+  type TrainingProgramRepository,
 } from "@athlete-coach/application";
 import {
   loadPrescriptionKinds,
@@ -217,6 +219,39 @@ export class SupabaseTrainingProgramRepository implements TrainingProgramReposit
       .single();
     if (error) failure("Não foi possível criar o rascunho.", error);
     return (await this.get(data.id))!;
+  }
+  /**
+   * One RPC, one transaction: program row + complete hierarchy. The athlete,
+   * status, lineage and timestamps are derived by the server; the request id
+   * is identity only. A retry with the same id and payload returns the same
+   * draft; a different payload is a conflict (nothing modified).
+   */
+  async createWithStructure(input: CreateProgramWithStructureInput) {
+    await this.currentAthlete();
+    const { data, error } = await this.client.rpc(
+      "create_training_program_with_structure",
+      {
+        p_creation_request_id: input.creationRequestId,
+        p_name: input.name,
+        p_structure: input.structure,
+        ...(input.description ? { p_description: input.description } : {}),
+        ...(input.athleteGoalId
+          ? { p_athlete_goal_id: input.athleteGoalId }
+          : {}),
+      },
+    );
+    if (error?.message === "program_creation_conflict") {
+      const existing = await this.client
+        .from("training_programs")
+        .select("id")
+        .eq("creation_request_id", input.creationRequestId)
+        .maybeSingle();
+      throw new ProgramCreationConflictError(existing.data?.id ?? null);
+    }
+    if (error) failure("Não foi possível criar o programa.", error);
+    const program = await this.get(z.uuid().parse(data));
+    if (!program) failure("Programa criado não encontrado.", null);
+    return program;
   }
   async saveStructure(id: string, structure: ProgramStructureInput) {
     const { error } = await this.client.rpc(

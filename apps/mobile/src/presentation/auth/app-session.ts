@@ -5,7 +5,7 @@ import type {
   CompleteOnboardingInput,
   ProfileInput,
   TrainingContextInput,
-  CreateProgramDraftInput,
+  CreateProgramWithStructureInput,
   ProgramStructureInput,
   RecordWorkoutSetInput,
   AnalyzeWithGovernanceResult as CoachAnalysisResult,
@@ -71,7 +71,10 @@ export type AppSessionValue = Readonly<{
   listPrograms(): Promise<readonly TrainingProgramSummary[]>;
   getProgram(id: string): Promise<TrainingProgram | null>;
   getActiveProgram(): Promise<TrainingProgram | null>;
-  createProgramDraft(input: CreateProgramDraftInput): Promise<TrainingProgram>;
+  /** One atomic, idempotent creation boundary (no create-then-save). */
+  createProgramWithStructure(
+    input: CreateProgramWithStructureInput,
+  ): Promise<TrainingProgram>;
   saveProgramStructure(
     id: string,
     input: ProgramStructureInput,

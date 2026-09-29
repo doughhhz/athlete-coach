@@ -127,3 +127,11 @@ No último nó, o botão de remover é substituído pela explicação da invaria
 Remoção (ADR-0098): `Alert` com o título `Remover dia "Treino A"?` e uma mensagem factual, por exemplo "Contém 2 exercícios e 5 séries. A remoção vale para o rascunho quando você salvar; sair sem salvar mantém a versão salva." Botões "Cancelar" e "Remover …"; não há checkbox nem opção pré-selecionada.
 
 Saída com alterações não salvas (ADR-0099): voltar, gesto ou botão físico abrem "Sair sem salvar?" com "Continuar editando" e "Descartar alterações". Não há "Salvar e sair". Rascunho limpo sai sem pergunta.
+
+## Correção pós-Implementation Phase 19 — Salvar programa novo
+
+"Salvar e revisar" em um programa novo faz uma única criação atômica.
+
+- **Falha:** mostra o erro, não navega, mantém a estrutura local e o aviso de saída com alterações não salvas. Tocar de novo repete a mesma intenção, com o mesmo identificador.
+- **Conflito** (a mesma intenção já criou um programa com outro conteúdo): "Este programa já foi criado em uma tentativa anterior com outro conteúdo. Nada foi alterado." e o botão "Abrir o programa já criado".
+- **Sucesso:** o estado sujo é limpo e a tela navega para o programa, como antes.
