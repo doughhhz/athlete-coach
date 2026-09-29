@@ -166,3 +166,9 @@ Linhagem estável nos cinco níveis, atribuição controlada pelo servidor, fall
 ## Correção pós-Implementation Phase 18 — Full Program Structure Preservation & Multi-Day Builder Safety — complete
 
 Defeito reproduzido e corrigido (dias fora do primeiro nó eram apagados ao salvar); modelo completo de edição, navegação mínima entre dias, salvamento verificado e atômico, cenário integrado de 21 passos incluindo rascunho de Coach e auto-draft. A limitação registrada na Implementation Phase 18 ("o builder edita só o primeiro bloco/semana/dia") está resolvida. Fora de escopo: CRUD de bloco/semana, calendário, drag-and-drop, ampliação de auto-draft, ativação automática.
+
+## Implementation Phase 19 — Explicit Structure Editing & Unsaved-Changes Safety — complete
+
+Adição, remoção confirmada e reordenação de blocos, semanas e dias; proteção do último nó; navegação Bloco → Semana → Dia; guarda de saída com alterações não salvas. Sem migration, sem mudança de Edge, prompts, dossier ou contratos; `coach-auto-draft-v1` inalterado; nenhuma ativação automática. O item "CRUD de bloco/semana", listado como fora de escopo na correção pós-Implementation Phase 18, está resolvido.
+
+Continuam fora de escopo: calendário, drag-and-drop, duplicar bloco/semana, desfazer/refazer, "Salvar e sair", ampliação de auto-draft e ativação automática.

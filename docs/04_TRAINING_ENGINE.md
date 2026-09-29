@@ -161,3 +161,9 @@ Clone/revisão preservam a linhagem; elemento novo recebe nova; removido some; r
 ## Correção pós-Implementation Phase 18 — Preservação de rascunho
 
 Edição de um dia não altera outros dias, semanas ou blocos; linhas são recriadas no salvamento (novos row ids), mas linhagem e valores dos nós intocados permanecem idênticos. Remoção só por ação explícita; novos nós recebem nova linhagem. Rascunhos criados por Coach, proposta proativa, auto-draft, set-count e troca de exercício abrem inteiros no builder e mantêm suas alterações em outros dias.
+
+## Implementation Phase 19 — Edição estrutural explícita
+
+Invariantes canônicas (schema e RPC): ≥1 bloco por programa, ≥1 semana por bloco, ≥1 dia por semana, ≥1 exercício por dia e ≥1 série por exercício. Remoção que quebraria uma invariante de contêiner é recusada. Bloco novo nasce com uma semana e um dia vazio; semana nova, com um dia vazio. O dia vazio precisa de um exercício antes de salvar: nada é inventado. Sequências são normalizadas (1..n) após cada operação.
+
+Na Review Evidence, as categorias existentes bastam, sem mudança de contrato: remoção e adição de dias/semanas/blocos aparecem como `prescription_removed`/`prescription_added` e, quando a forma muda, `program_structure_changed`. Reordenação aparece como `sequence_changed`. A mudança de Coach ou auto-draft em outro dia continua com `reviewedDiffersFromMaterialized = false`.

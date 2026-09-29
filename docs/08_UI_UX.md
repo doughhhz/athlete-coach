@@ -111,3 +111,19 @@ A revisão do rascunho ganha a categoria "Ordem" (reordenação) e deixa de repo
 ## Correção pós-Implementation Phase 18 — Navegação mínima entre dias
 
 "Dia em edição": lista horizontal compacta com todos os dias ("Bloco · Semana · Dia (n)") e "+ Dia nesta semana". Campos de nome passam a editar o bloco/semana/dia selecionado. Aviso "Alterações não salvas em todo o programa — trocar de dia não as descarta." Dia vazio mostra "Este dia ainda não tem exercícios." (sem pular para outro dia); salvar com dia vazio informa quais dias precisam de exercício. Exercício fora do catálogo aparece como "Exercício fora do catálogo (mantido)" e não é descartado. RIR e descanso ganham campos mínimo/máximo, sem colapsar faixas. Reordenação por ↑/↓. Sem redesign da aba Treino.
+
+## Implementation Phase 19 — Navegação Bloco → Semana → Dia e guarda de saída
+
+Regra anterior (correção pós-Implementation Phase 18): "Dia em edição" era uma lista horizontal única com todos os dias ("Bloco · Semana · Dia (n)").
+
+Regra nova (ADR-0097): há três seletores compactos em sequência, "Bloco", "Semana" e "Dia em edição", este último com os dias da semana selecionada e o número de exercícios. Cada nível tem:
+
+- chips horizontais e "+ Bloco", "+ Semana neste bloco" ou "+ Dia nesta semana";
+- ↑/↓ (alvos de 44 pt, desativados nas pontas);
+- "Remover bloco", "Remover semana" ou "Remover dia".
+
+No último nó, o botão de remover é substituído pela explicação da invariante, por exemplo "Único dia desta semana: uma semana precisa de ao menos um dia." Os campos "Nome do bloco", "Nome da semana" e "Nome do dia" editam a seleção.
+
+Remoção (ADR-0098): `Alert` com o título `Remover dia "Treino A"?` e uma mensagem factual, por exemplo "Contém 2 exercícios e 5 séries. A remoção vale para o rascunho quando você salvar; sair sem salvar mantém a versão salva." Botões "Cancelar" e "Remover …"; não há checkbox nem opção pré-selecionada.
+
+Saída com alterações não salvas (ADR-0099): voltar, gesto ou botão físico abrem "Sair sem salvar?" com "Continuar editando" e "Descartar alterações". Não há "Salvar e sair". Rascunho limpo sai sem pergunta.

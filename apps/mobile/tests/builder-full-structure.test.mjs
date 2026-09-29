@@ -26,9 +26,13 @@ test("save always sends the full tree", () => {
 });
 
 test("any existing day can be selected; switching keeps unsaved edits", () => {
+  // Implementation Phase 19: Block → Week → Day selectors reach every day.
   assert.match(builder, /listDays\(structure\)/);
-  assert.match(builder, /setSelected\(item\.path\)/);
-  assert.ok(builder.includes("Dia em edição"));
+  assert.match(builder, /select\(\{ block: index, week: 0, day: 0 \}\)/);
+  assert.match(builder, /select\(\{ \.\.\.selected, week: index, day: 0 \}\)/);
+  assert.match(builder, /select\(\{ \.\.\.selected, day: index \}\)/);
+  // The "Dia em edição" title now comes from structure-labels.ts.
+  assert.match(builder, /structureLevelLabels\[level\]/);
   assert.ok(builder.includes("trocar de dia não as"));
   assert.ok(builder.includes("descarta"));
 });

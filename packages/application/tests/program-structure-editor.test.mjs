@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  clampPath,
   dayAt,
   emptyDays,
   listDays,
   programStructureInputSchema,
   programToStructureInput,
+  StructuralInvariantError,
   structureEdits,
+  structureRemovalRules,
+  structureSummaries,
 } from "../src/index.ts";
 
 // Corrective pass after Implementation Phase 18: viewport is never the save
@@ -332,5 +336,284 @@ test("nodes disappear only through explicit removal; new nodes carry no lineage"
       0,
       {},
     ),
+  );
+});
+
+// Implementation Phase 19: explicit block/week/day editing (ADR-0097/0098).
+const lineages = (structure) =>
+  JSON.stringify(structure)
+    .match(/"lineageId":"[^"]+"/g)
+    .map((item) => item.slice(13, -1));
+const sequences = (items) => items.map((item) => item.sequence);
+const W3 = { block: 1, week: 0, day: 0 };
+
+test("addBlock appends a block with one week and one empty day, without lineage", () => {
+  const structure = programToStructureInput(program);
+  const next = structureEdits.addBlock(structure, "Bloco C");
+  assert.equal(next.blocks.length, 3);
+  assert.deepEqual(sequences(next.blocks), [1, 2, 3]);
+  const added = next.blocks[2];
+  assert.equal(added.name, "Bloco C");
+  assert.equal(added.lineageId, undefined);
+  assert.equal(added.weeks.length, 1);
+  assert.equal(added.weeks[0].lineageId, undefined);
+  assert.equal(added.weeks[0].days.length, 1);
+  assert.equal(added.weeks[0].days[0].lineageId, undefined);
+  assert.deepEqual(added.weeks[0].days[0].prescriptions, []);
+  assert.deepEqual(
+    next.blocks.slice(0, 2),
+    structure.blocks,
+    "existing blocks untouched",
+  );
+  assert.deepEqual(emptyDays(next), ["Bloco C · Semana 1 · Treino A"]);
+  assert.equal(structure.blocks.length, 2, "input is not mutated");
+});
+
+test("addWeek appends a week with one empty day to the selected block only", () => {
+  const structure = programToStructureInput(program);
+  const next = structureEdits.addWeek(structure, D1);
+  assert.equal(next.blocks[0].weeks.length, 3);
+  assert.deepEqual(sequences(next.blocks[0].weeks), [1, 2, 3]);
+  assert.equal(next.blocks[0].weeks[2].name, "Semana 3");
+  assert.equal(next.blocks[0].weeks[2].lineageId, undefined);
+  assert.equal(next.blocks[0].weeks[2].days.length, 1);
+  assert.deepEqual(next.blocks[0].weeks.slice(0, 2), structure.blocks[0].weeks);
+  assert.deepEqual(next.blocks[1], structure.blocks[1]);
+});
+
+test("addDay appends an empty day without lineage to the selected week only", () => {
+  const structure = programToStructureInput(program);
+  const next = structureEdits.addDay(structure, W3, "Treino C");
+  const days = next.blocks[1].weeks[0].days;
+  assert.deepEqual(sequences(days), [1, 2, 3]);
+  assert.equal(days[2].lineageId, undefined);
+  assert.deepEqual(days.slice(0, 2), structure.blocks[1].weeks[0].days);
+  assert.deepEqual(next.blocks[0], structure.blocks[0]);
+});
+
+test("removeDay removes the subtree, resequences and keeps every other lineage", () => {
+  const structure = programToStructureInput(program);
+  const next = structureEdits.removeDay(structure, D1);
+  const days = next.blocks[0].weeks[0].days;
+  assert.deepEqual(
+    days.map((d) => d.lineageId),
+    ["D2"],
+  );
+  assert.deepEqual(sequences(days), [1]);
+  const gone = ["D1", "P1", "P2", "S1", "S2", "S3"];
+  assert.deepEqual(
+    lineages(next),
+    lineages(structure).filter((id) => !gone.includes(id)),
+    "only the removed subtree lineage disappears",
+  );
+  assert.deepEqual(next.blocks[1], structure.blocks[1]);
+  assert.deepEqual(next.blocks[0].weeks[1], structure.blocks[0].weeks[1]);
+});
+
+test("removeWeek and removeBlock remove whole subtrees and resequence", () => {
+  const structure = programToStructureInput(program);
+  const withoutWeek = structureEdits.removeWeek(structure, D1);
+  assert.deepEqual(
+    withoutWeek.blocks[0].weeks.map((w) => w.lineageId),
+    ["W2"],
+  );
+  assert.deepEqual(sequences(withoutWeek.blocks[0].weeks), [1]);
+  assert.equal(
+    withoutWeek.blocks[0].weeks[0].notes,
+    "w2",
+    "remaining week keeps its data",
+  );
+  const withoutBlock = structureEdits.removeBlock(structure, D1);
+  assert.deepEqual(
+    withoutBlock.blocks.map((b) => b.lineageId),
+    ["B2"],
+  );
+  assert.deepEqual(sequences(withoutBlock.blocks), [1]);
+  assert.deepEqual(
+    { ...withoutBlock.blocks[0], sequence: 2 },
+    structure.blocks[1],
+    "remaining block identical except for its sequence",
+  );
+  assert.equal(listDays(withoutBlock).length, 2);
+});
+
+test("last-node removals are rejected; rules match the canonical invariants", () => {
+  const structure = programToStructureInput(program);
+  assert.equal(structureRemovalRules.canRemoveBlock(structure), true);
+  assert.equal(
+    structureRemovalRules.canRemoveWeek(structure, W3),
+    false,
+    "block B has one week",
+  );
+  assert.equal(
+    structureRemovalRules.canRemoveDay(structure, D3),
+    false,
+    "week 2 has one day",
+  );
+  assert.equal(structureRemovalRules.canRemoveDay(structure, D1), true);
+  assert.throws(
+    () => structureEdits.removeWeek(structure, W3),
+    StructuralInvariantError,
+  );
+  assert.throws(
+    () => structureEdits.removeDay(structure, D3),
+    StructuralInvariantError,
+  );
+  const single = structureEdits.removeBlock(structure, D1);
+  assert.equal(structureRemovalRules.canRemoveBlock(single), false);
+  assert.throws(
+    () => structureEdits.removeBlock(single, D1),
+    StructuralInvariantError,
+  );
+  // Any tree reachable by allowed removals still satisfies the schema.
+  assert.equal(
+    programStructureInputSchema.safeParse(asUuids(single)).success,
+    true,
+  );
+});
+
+test("moveBlock/moveWeek/moveDay reorder with the same lineage and normalized sequences", () => {
+  const structure = programToStructureInput(program);
+  const blocks = structureEdits.moveBlock(structure, D1, 1);
+  assert.deepEqual(
+    blocks.blocks.map((b) => b.lineageId),
+    ["B2", "B1"],
+  );
+  assert.deepEqual(sequences(blocks.blocks), [1, 2]);
+  assert.deepEqual({ ...blocks.blocks[1], sequence: 1 }, structure.blocks[0]);
+  const weeks = structureEdits.moveWeek(structure, D3, -1);
+  assert.deepEqual(
+    weeks.blocks[0].weeks.map((w) => w.lineageId),
+    ["W2", "W1"],
+  );
+  assert.deepEqual(sequences(weeks.blocks[0].weeks), [1, 2]);
+  const days = structureEdits.moveDay(structure, D1, 1);
+  assert.deepEqual(
+    days.blocks[0].weeks[0].days.map((d) => d.lineageId),
+    ["D2", "D1"],
+  );
+  assert.deepEqual(sequences(days.blocks[0].weeks[0].days), [1, 2]);
+  assert.deepEqual(days.blocks[1], structure.blocks[1]);
+  assert.deepEqual(
+    [...lineages(days)].sort(),
+    [...lineages(structure)].sort(),
+    "no lineage lost",
+  );
+  assert.deepEqual(
+    structureEdits.moveDay(structure, D1, -1),
+    structure,
+    "boundary move is a no-op",
+  );
+});
+
+test("summaries give factual counts for confirmations", () => {
+  const structure = programToStructureInput(program);
+  assert.deepEqual(structureSummaries.block(structure, D1), {
+    name: "Bloco A",
+    weeks: 2,
+    days: 3,
+    exercises: 4,
+    sets: 5,
+  });
+  assert.deepEqual(structureSummaries.week(structure, D3), {
+    name: "Semana 2",
+    weeks: 1,
+    days: 1,
+    exercises: 1,
+    sets: 1,
+  });
+  assert.deepEqual(structureSummaries.day(structure, D1), {
+    name: "Dia 1",
+    weeks: 0,
+    days: 1,
+    exercises: 2,
+    sets: 3,
+  });
+  assert.equal(
+    structureSummaries.day(structure, { block: 9, week: 0, day: 0 }),
+    null,
+  );
+});
+
+test("clampPath keeps the viewport inside the tree after removals", () => {
+  const structure = programToStructureInput(program);
+  const withoutBlock = structureEdits.removeBlock(structure, W3);
+  assert.deepEqual(clampPath(withoutBlock, { block: 1, week: 0, day: 1 }), {
+    block: 0,
+    week: 0,
+    day: 1,
+  });
+  const withoutDay = structureEdits.removeDay(structure, {
+    block: 1,
+    week: 0,
+    day: 1,
+  });
+  assert.deepEqual(clampPath(withoutDay, { block: 1, week: 0, day: 1 }), W3);
+  assert.deepEqual(clampPath(structure, { block: 0, week: 5, day: 5 }), {
+    block: 0,
+    week: 1,
+    day: 0,
+  });
+});
+
+test("structural edits keep Coach/Auto-Draft changes on other days intact", () => {
+  // A Coach or auto-draft revision changed D4 (RIR increase) and D5 (rest
+  // increase); the athlete then adds/removes/reorders elsewhere.
+  const coach = structureEdits.updateSet(
+    structureEdits.updateSet(programToStructureInput(program), W3, 0, 0, {
+      rirMin: 3,
+      rirMax: 4,
+    }),
+    { block: 1, week: 0, day: 1 },
+    0,
+    0,
+    { restMinSeconds: 150, restMaxSeconds: 210 },
+  );
+  let next = structureEdits.addWeek(coach, D1);
+  next = structureEdits.removeDay(next, D1);
+  next = structureEdits.moveWeek(next, D3, -1);
+  next = structureEdits.addBlock(next, "Bloco C");
+  assert.deepEqual(
+    next.blocks[1],
+    coach.blocks[1],
+    "Coach-changed block B identical",
+  );
+  const set = next.blocks[1].weeks[0].days[0].prescriptions[0].sets[0];
+  assert.deepEqual([set.rirMin, set.rirMax, set.lineageId], [3, 4, "S6"]);
+});
+
+test("draft edit session: dirty on edit, clean only after save success or discard", async () => {
+  const {
+    cleanDraftEditSession,
+    draftEditTransition,
+    shouldGuardDraftLeave,
+    draftLeaveOptions,
+  } = await import("../src/index.ts");
+  const clean = cleanDraftEditSession;
+  assert.equal(
+    shouldGuardDraftLeave(clean),
+    false,
+    "clean draft leaves without a prompt",
+  );
+  const edited = draftEditTransition(clean, "edited");
+  assert.equal(shouldGuardDraftLeave(edited), true);
+  const saving = draftEditTransition(edited, "save_started");
+  assert.deepEqual(
+    saving,
+    { dirty: true, saving: true },
+    "still dirty while saving",
+  );
+  const failed = draftEditTransition(saving, "save_failed");
+  assert.deepEqual(
+    failed,
+    { dirty: true, saving: false },
+    "failure keeps dirty",
+  );
+  assert.equal(shouldGuardDraftLeave(failed), true);
+  assert.deepEqual(draftEditTransition(saving, "save_succeeded"), clean);
+  assert.deepEqual(draftEditTransition(edited, "discarded"), clean);
+  assert.deepEqual(
+    draftLeaveOptions.map((option) => option.label),
+    ["Continuar editando", "Descartar alterações"],
   );
 });

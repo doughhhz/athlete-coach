@@ -818,3 +818,29 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Data: 2026-10-06
 - Status: accepted
 - Decisão: ausência de um nó no viewport nunca significa remoção; remoção só por operação explícita (`removePrescription`, `removeSet`). A RPC de salvamento rejeita árvores incompletas e verifica o resultado antes do commit, de forma atômica, preservando a validação de linhagem (desconhecida, de outro atleta, nível errado, duplicada). Rascunhos de Coach, proativos, auto-draft, set-count e troca preservam alterações em dias não editados. `coach-auto-draft-v1`, ativação humana, contratos de Coach, dossier e prompts inalterados.
+
+### ADR-0097 — Explicit Training Structure Editing
+
+- Data: 2026-10-07
+- Status: accepted
+- Regra anterior (ADR-0095, UI da correção pós-Implementation Phase 18): o builder só adicionava dias; blocos e semanas não podiam ser adicionados, removidos ou reordenados. A navegação era uma lista única de dias.
+- Regra nova: blocos, semanas e dias são adicionados, removidos e reordenados (↑/↓) por operações tipadas e puras em `structureEdits`, reutilizando o mesmo módulo. Não há um segundo conceito de edição, JSON Patch ou mutação genérica. Novos nós não carregam linhagem (o servidor atribui), e reordenar preserva a linhagem. A navegação passa a ser Bloco → Semana → Dia; a lista única de dias é **superseded** por essa hierarquia. A semântica de persistência (árvore inteira, ADR-0095) não muda.
+- Motivo/evidência: a limitação "sem CRUD de bloco/semana" registrada no Roadmap da correção pós-Implementation Phase 18. O cenário integrado de 26 passos (adição, remoção, reordenação, rascunho de Coach, auto-draft, logout/login) passa, assim como o pgTAP `structure_editing`.
+- Afetados: `packages/application/src/training/program-structure-editor.ts`, builder mobile, `structure-labels.ts`, docs 02/03/04/08/10.
+
+### ADR-0098 — Structural Deletion Requires User Intent
+
+- Data: 2026-10-07
+- Status: accepted
+- Estende a ADR-0096 (não a substitui): remover bloco, semana ou dia exige uma ação explícita **e** uma confirmação. A confirmação mostra contagens factuais calculadas no editor (`structureSummaries`), sem linguagem alarmista e sem checkbox ou opção pré-selecionada.
+- O último nó de cada nível não pode ser removido (`structureRemovalRules`, espelhando o `min(1)` do schema e da RPC). A UI substitui a ação pela explicação da invariante, e o editor lança `StructuralInvariantError`.
+- A remoção vale apenas para o rascunho em memória até o salvamento. A linhagem removida nunca é reciclada: tentar reanexá-la é rejeitado pela RPC.
+
+### ADR-0099 — Unsaved Draft Navigation Guard
+
+- Data: 2026-10-07
+- Status: accepted
+- Decisão: qualquer edição (estrutura, séries, nomes, inclusive o nome do programa) torna o rascunho _dirty_. Sair do builder com alterações não salvas pede confirmação via `usePreventRemove`, com as opções "Continuar editando" e "Descartar alterações".
+- Trocar de bloco, semana ou dia não é sair. Descartar não salva. O estado _dirty_ só é limpo após um salvamento bem-sucedido e permanece após uma falha. A navegação pós-salvamento só acontece depois que o estado limpo é renderizado.
+- "Salvar e sair" foi rejeitado nesta fase: o salvamento pode falhar por validação (dia sem exercício) ou por rede, e sair não deve depender de um resultado que o atleta não viu.
+- Modelo puro: `draft-edit-session.ts`.

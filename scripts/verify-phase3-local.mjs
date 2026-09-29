@@ -61,6 +61,10 @@ import {
   structureEdits,
   listDays,
   dayAt,
+  cleanDraftEditSession,
+  draftEditTransition,
+  shouldGuardDraftLeave,
+  StructuralInvariantError,
 } from "../packages/application/src/index.ts";
 import {
   assessCoachAutoDraftEligibility,
@@ -3324,9 +3328,513 @@ assert.deepEqual(
   await preferences.setAutonomyMode("manual");
 }
 
+// Implementation Phase 19 — explicit structure editing (ADR-0097..0099). ---
+{
+  const programsRepo = new SupabaseTrainingProgramRepository(reloadedClient);
+  const readDecisions = new SupabaseCoachDecisionRepository(
+    reloadedClient,
+    identity.userId,
+  );
+  const reviewOf = (decisionId) =>
+    new GetCoachDraftReviewEvidence(
+      new BuildCoachDraftReviews(readDecisions, programsRepo),
+    ).execute(decisionId);
+  const nodes = (program) =>
+    program.blocks.flatMap((block) => [
+      { level: "block", lineage: block.lineageId, name: block.name },
+      ...block.weeks.flatMap((week) => [
+        { level: "week", lineage: week.lineageId, name: week.name },
+        ...week.days.flatMap((day) => [
+          { level: "day", lineage: day.lineageId, name: day.name },
+          ...day.prescriptions.flatMap((prescription) => [
+            {
+              level: "prescription",
+              lineage: prescription.lineageId,
+              name: `${day.name}/${prescription.exerciseId}`,
+            },
+            ...prescription.sets.map((set) => ({
+              level: "set",
+              lineage: set.lineageId,
+              name: `${day.name}/${set.sequence}`,
+              content: JSON.stringify([
+                set.targetMin,
+                set.targetMax,
+                set.rirMin,
+                set.rirMax,
+                set.restMinSeconds,
+                set.restMaxSeconds,
+                set.tempo,
+                set.loadKind,
+                set.loadKg,
+              ]),
+            })),
+          ]),
+        ]),
+      ]),
+    ]);
+  const lineageSet = (program) =>
+    new Set(nodes(program).map((node) => node.lineage));
+  const setContent = (program, dayName, sequence = 1) =>
+    JSON.parse(
+      nodes(program).find(
+        (node) =>
+          node.level === "set" && node.name === `${dayName}/${sequence}`,
+      ).content,
+    );
+  const pathOf = (structure, dayName) => {
+    const found = listDays(structure).find(
+      (item) => dayAt(structure, item.path).name === dayName,
+    );
+    assert.ok(found, dayName);
+    return found.path;
+  };
+  const sequencesNormalized = (program) => {
+    const ok = (items) =>
+      items.every((item, index) => item.sequence === index + 1);
+    assert.ok(ok(program.blocks), "block sequences 1..n");
+    for (const block of program.blocks) {
+      assert.ok(ok(block.weeks), "week sequences 1..n");
+      for (const week of block.weeks)
+        assert.ok(ok(week.days), "day sequences 1..n");
+    }
+  };
+  const plannedSet = (sequence = 1) => ({
+    sequence,
+    targetMetric: "reps",
+    targetMin: 8,
+    targetMax: 10,
+    rirMin: 1,
+    rirMax: 3,
+    restMinSeconds: 90,
+    restMaxSeconds: 150,
+    tempo: null,
+    loadKind: "athlete_selected",
+    loadKg: null,
+  });
+  const dayInput = (sequence, name, exerciseId) => ({
+    sequence,
+    name,
+    prescriptions: [
+      { sequence: 1, exerciseId, sets: [plannedSet(1), plannedSet(2)] },
+    ],
+  });
+  // 1. Draft: Bloco A (Semana 1: Dia 1, Dia 2; Semana 2: Dia 3), Bloco B (Dia 4).
+  const draft = await reloaded.createProgram.execute({
+    name: "Estrutura explícita",
+  });
+  await reloaded.saveProgram.execute(draft.id, {
+    blocks: [
+      {
+        sequence: 1,
+        name: "Bloco A",
+        weeks: [
+          {
+            sequence: 1,
+            name: "Semana 1",
+            days: [dayInput(1, "Dia 1", EX_X), dayInput(2, "Dia 2", EX_Z)],
+          },
+          { sequence: 2, name: "Semana 2", days: [dayInput(1, "Dia 3", EX_Y)] },
+        ],
+      },
+      {
+        sequence: 2,
+        name: "Bloco B",
+        weeks: [
+          { sequence: 1, name: "Semana 1", days: [dayInput(1, "Dia 4", EX_X)] },
+        ],
+      },
+    ],
+  });
+  let program = await reloaded.getProgram.execute(draft.id);
+  const original = nodes(program);
+  // 2-4. Add a block, a week and a day through the pure editor; fill the new days.
+  let structure = programToStructureInput(program);
+  structure = structureEdits.addBlock(structure, "Bloco C");
+  structure = structureEdits.addPrescription(
+    structure,
+    pathOf(structure, "Treino A"),
+    EX_Y,
+  );
+  structure = structureEdits.renameDay(
+    structure,
+    pathOf(structure, "Treino A"),
+    "Dia 5",
+  );
+  structure = structureEdits.addWeek(structure, pathOf(structure, "Dia 4"));
+  structure = structureEdits.addPrescription(
+    structure,
+    pathOf(structure, "Treino A"),
+    EX_Z,
+  );
+  structure = structureEdits.renameDay(
+    structure,
+    pathOf(structure, "Treino A"),
+    "Dia 6",
+  );
+  structure = structureEdits.addDay(
+    structure,
+    pathOf(structure, "Dia 1"),
+    "Dia 7",
+  );
+  // 5. An empty new day cannot be saved (canonical invariant, nothing invented).
+  let session = draftEditTransition(cleanDraftEditSession, "edited");
+  session = draftEditTransition(session, "save_started");
+  await assert.rejects(async () =>
+    reloaded.saveProgram.execute(draft.id, structure),
+  );
+  session = draftEditTransition(session, "save_failed");
+  // 6. The failed save keeps the edits dirty (guard still active).
+  assert.equal(shouldGuardDraftLeave(session), true);
+  assert.equal(
+    nodes(await reloaded.getProgram.execute(draft.id)).length,
+    original.length,
+    "failed save changed nothing",
+  );
+  structure = structureEdits.addPrescription(
+    structure,
+    pathOf(structure, "Dia 7"),
+    EX_Y,
+  );
+  // 7. Full-tree save succeeds; only then is the session clean.
+  session = draftEditTransition(session, "save_started");
+  await reloaded.saveProgram.execute(draft.id, structure);
+  session = draftEditTransition(session, "save_succeeded");
+  assert.equal(shouldGuardDraftLeave(session), false);
+  program = await reloaded.getProgram.execute(draft.id);
+  // 8. Every original node keeps lineage and content.
+  const afterAdd = nodes(program);
+  for (const node of original)
+    assert.deepEqual(
+      afterAdd.find((item) => item.lineage === node.lineage),
+      node,
+      `${node.level} ${node.name} preserved`,
+    );
+  // 9. New nodes received fresh server lineage.
+  const added = afterAdd.filter(
+    (node) => !original.some((item) => item.lineage === node.lineage),
+  );
+  assert.deepEqual(
+    added
+      .filter(
+        (node) =>
+          node.level === "block" ||
+          node.level === "week" ||
+          node.level === "day",
+      )
+      .map((node) => `${node.level}:${node.name}`)
+      .sort(),
+    [
+      "block:Bloco C",
+      "day:Dia 5",
+      "day:Dia 6",
+      "day:Dia 7",
+      "week:Semana 1",
+      "week:Semana 2",
+    ].sort(),
+  );
+  assert.ok(
+    added.every(
+      (node) => typeof node.lineage === "string" && node.lineage.length === 36,
+    ),
+  );
+  // 10. Sequences normalized at every level.
+  sequencesNormalized(program);
+  assert.deepEqual(
+    program.blocks.map((block) => block.name),
+    ["Bloco A", "Bloco B", "Bloco C"],
+  );
+  // 11-12. Explicit removal of a day, then a week: only those subtrees disappear.
+  const dia2 = program.blocks[0].weeks[0].days.find(
+    (day) => day.name === "Dia 2",
+  );
+  const removedLineages = new Set(
+    nodes({ blocks: [{ weeks: [{ days: [dia2] }] }] })
+      .map((node) => node.lineage)
+      .filter(Boolean),
+  );
+  structure = programToStructureInput(program);
+  structure = structureEdits.removeDay(structure, pathOf(structure, "Dia 2"));
+  const semana2 = program.blocks[0].weeks[1];
+  structure = structureEdits.removeWeek(structure, pathOf(structure, "Dia 3"));
+  await reloaded.saveProgram.execute(draft.id, structure);
+  program = await reloaded.getProgram.execute(draft.id);
+  const afterRemove = lineageSet(program);
+  for (const lineage of removedLineages)
+    assert.equal(afterRemove.has(lineage), false);
+  assert.equal(afterRemove.has(semana2.lineageId), false);
+  assert.deepEqual(
+    program.blocks[0].weeks[0].days.map((day) => day.name),
+    ["Dia 1", "Dia 7"],
+  );
+  for (const node of afterAdd)
+    if (
+      !removedLineages.has(node.lineage) &&
+      !nodes({ blocks: [{ weeks: [semana2] }] }).some(
+        (item) => item.lineage === node.lineage,
+      )
+    )
+      assert.ok(
+        afterRemove.has(node.lineage),
+        `${node.level} ${node.name} kept`,
+      );
+  sequencesNormalized(program);
+  // 13. Removed lineage is never recycled: re-attaching it is rejected.
+  structure = programToStructureInput(program);
+  structure = structureEdits.addDay(
+    structure,
+    pathOf(structure, "Dia 1"),
+    "Dia 8",
+  );
+  structure = structureEdits.addPrescription(
+    structure,
+    pathOf(structure, "Dia 8"),
+    EX_Z,
+  );
+  const reattach = structuredClone(structure);
+  reattach.blocks[0].weeks[0].days[2].lineageId = dia2.lineageId;
+  await assert.rejects(
+    async () => reloaded.saveProgram.execute(draft.id, reattach),
+    (error) => error.cause?.message === "Unknown structure lineage",
+  );
+  // 14. A fresh day gets a new lineage, never the removed one.
+  await reloaded.saveProgram.execute(draft.id, structure);
+  program = await reloaded.getProgram.execute(draft.id);
+  const dia8 = program.blocks[0].weeks[0].days.find(
+    (day) => day.name === "Dia 8",
+  );
+  assert.ok(dia8.lineageId && !removedLineages.has(dia8.lineageId));
+  // 15. Reorder blocks and days: same lineage, new sequence.
+  const before15 = nodes(program);
+  structure = programToStructureInput(program);
+  structure = structureEdits.moveBlock(
+    structure,
+    pathOf(structure, "Dia 5"),
+    -1,
+  );
+  structure = structureEdits.moveDay(structure, pathOf(structure, "Dia 8"), -1);
+  await reloaded.saveProgram.execute(draft.id, structure);
+  program = await reloaded.getProgram.execute(draft.id);
+  assert.deepEqual(
+    program.blocks.map((block) => block.name),
+    ["Bloco A", "Bloco C", "Bloco B"],
+  );
+  assert.deepEqual(
+    program.blocks[0].weeks[0].days.map((day) => day.name),
+    ["Dia 1", "Dia 8", "Dia 7"],
+  );
+  assert.deepEqual(
+    [...lineageSet(program)].sort(),
+    before15.map((node) => node.lineage).sort(),
+    "reorder keeps every lineage",
+  );
+  sequencesNormalized(program);
+  // 16. Last-node protection: the editor refuses, the save contract rejects.
+  const single = programToStructureInput(program);
+  const bWeekPath = pathOf(single, "Dia 4");
+  assert.throws(
+    () => structureEdits.removeDay(single, bWeekPath),
+    StructuralInvariantError,
+  );
+  await assert.rejects(async () =>
+    reloaded.saveProgram.execute(draft.id, { blocks: [] }),
+  );
+  // 17-18. Coach draft: structural edits elsewhere keep the Coach change.
+  const active = await reloaded.activateProgram.execute(draft.id);
+  const dossierNow = await replacementApi().dossier.execute();
+  const evidenceActive = dossierNow.evidence.find(
+    (item) => item.kind === "training_program" && item.id === active.id,
+  );
+  const day4 = active.blocks[2].weeks[0].days[0];
+  assert.equal(day4.name, "Dia 4");
+  const coachDecision = await new GenerateCoachProposal(
+    { execute: async () => dossierNow },
+    programsRepo,
+    new FixtureCoachProposalProvider({
+      ...proposalFixture,
+      schemaVersion: "coach-proposal-v3",
+      id: crypto.randomUUID(),
+      sourceProgramId: active.id,
+      sourceProgramRevision: active.revision,
+      evidenceReferences: [evidenceActive],
+      actions: [
+        {
+          kind: "adjust_prescription_rir",
+          trainingDayId: day4.id,
+          exercisePrescriptionId: day4.prescriptions[0].id,
+          prescriptionSetId: day4.prescriptions[0].sets[0].id,
+          rirMin: 3,
+          rirMax: 4,
+          rationale: "Ajuste proposto.",
+          evidence: [evidenceActive],
+        },
+      ],
+    }),
+    decisions,
+  ).execute(await authoritative());
+  const coachDraftId = (await decisions.materialize(coachDecision.id))
+    .materializedProgramId;
+  let coachDraft = await reloaded.getProgram.execute(coachDraftId);
+  structure = programToStructureInput(coachDraft);
+  structure = structureEdits.addBlock(structure, "Bloco D");
+  structure = structureEdits.addPrescription(
+    structure,
+    pathOf(structure, "Treino A"),
+    EX_X,
+  );
+  structure = structureEdits.removeDay(structure, pathOf(structure, "Dia 7"));
+  await reloaded.saveProgram.execute(coachDraftId, structure);
+  coachDraft = await reloaded.getProgram.execute(coachDraftId);
+  assert.deepEqual(
+    setContent(coachDraft, "Dia 4").slice(2, 4),
+    [3, 4],
+    "Coach RIR change kept",
+  );
+  assert.equal(coachDraft.blocks.length, 4);
+  // 19. Review Evidence reports only the real structural differences.
+  let review = await reviewOf(coachDecision.id);
+  assert.equal(review.matchingStrategy, "lineage");
+  assert.equal(
+    review.actionComparisons[0].reviewedDiffersFromMaterialized,
+    false,
+  );
+  assert.deepEqual(review.changeCategories, [
+    "prescription_added",
+    "prescription_removed",
+    "program_structure_changed",
+  ]);
+  assert.equal(review.changesOutsideProposal, true);
+  // 20-22. Auto-draft: a structural edit keeps the automatic change and its review.
+  const preferences = new SupabaseCoachPreferenceRepository(reloadedClient);
+  await preferences.setAutonomyMode("proactive");
+  await preferences.setDraftAuthorityMode("standard_auto_draft");
+  const activeQ = await reloaded.activateProgram.execute(coachDraftId);
+  const dossierQ = await replacementApi().dossier.execute();
+  const evidenceQ = dossierQ.evidence.find(
+    (item) => item.kind === "training_program" && item.id === activeQ.id,
+  );
+  const day1 = activeQ.blocks[0].weeks[0].days[0];
+  assert.equal(day1.name, "Dia 1");
+  const autoRun = await new AnalyzeAthleteWithCoachAndGovernance(
+    new AnalyzeAthleteWithCoach(
+      { execute: async () => dossierQ },
+      {
+        async analyze(_request, requestId) {
+          return {
+            analysis: {
+              ...coachFixture,
+              requestId,
+              observations: coachFixture.observations.map((item) => ({
+                ...item,
+                evidence: [evidenceQ],
+              })),
+              recommendations: coachFixture.recommendations.map((item) => ({
+                ...item,
+                evidence: [evidenceQ],
+              })),
+              evidenceUsed: [evidenceQ],
+            },
+            provider: "fixture",
+            model: "deterministic",
+            inputTokens: null,
+            outputTokens: null,
+          };
+        },
+      },
+      new DeterministicCoachSafetyPolicy(),
+    ),
+    analysisRuns,
+    analysisProgramFrom({ execute: async () => dossierQ }),
+    new GenerateCoachProposal(
+      { execute: async () => dossierQ },
+      programsRepo,
+      new FixtureCoachProposalProvider({
+        ...proposalFixture,
+        schemaVersion: "coach-proposal-v3",
+        id: crypto.randomUUID(),
+        sourceProgramId: activeQ.id,
+        sourceProgramRevision: activeQ.revision,
+        evidenceReferences: [evidenceQ],
+        actions: [
+          {
+            kind: "adjust_prescription_rest",
+            trainingDayId: day1.id,
+            exercisePrescriptionId: day1.prescriptions[0].id,
+            prescriptionSetId: day1.prescriptions[0].sets[0].id,
+            restMinSeconds: 120,
+            restMaxSeconds: 180,
+            rationale: "Ajuste conservador.",
+            evidence: [evidenceQ],
+          },
+        ],
+      }),
+      decisions,
+    ),
+    preferences,
+    undefined,
+    new PrepareConservativeAutoDraft(preferences, programsRepo, decisions),
+  ).execute({
+    userRequest: "Edição explícita de estrutura",
+    analysisMode: "question",
+    analysisRequestId: crypto.randomUUID(),
+  });
+  assert.equal(autoRun.autoDraft.status, "materialized");
+  const autoDraftId = autoRun.autoDraft.draftProgramId;
+  let autoDraft = await reloaded.getProgram.execute(autoDraftId);
+  structure = programToStructureInput(autoDraft);
+  structure = structureEdits.moveBlock(
+    structure,
+    pathOf(structure, "Dia 4"),
+    1,
+  );
+  structure = structureEdits.addWeek(structure, pathOf(structure, "Dia 1"));
+  structure = structureEdits.addPrescription(
+    structure,
+    pathOf(structure, "Treino A"),
+    EX_Y,
+  );
+  await reloaded.saveProgram.execute(autoDraftId, structure);
+  autoDraft = await reloaded.getProgram.execute(autoDraftId);
+  assert.deepEqual(
+    setContent(autoDraft, "Dia 1").slice(4, 6),
+    [120, 180],
+    "auto-draft rest change kept",
+  );
+  review = await reviewOf(autoRun.autoDraft.decision.id);
+  assert.equal(review.reviewStatus, "awaiting_review");
+  assert.equal(
+    review.actionComparisons[0].reviewedDiffersFromMaterialized,
+    false,
+  );
+  assert.deepEqual(review.changeCategories, [
+    "sequence_changed",
+    "prescription_added",
+    "program_structure_changed",
+  ]);
+  // 23. Nothing is activated automatically: the source stays active.
+  assert.equal(
+    (await reloaded.getProgram.execute(activeQ.id)).status,
+    "active",
+  );
+  assert.equal(autoDraft.status, "draft");
+  // 24. Human activation records the edits.
+  await reloaded.activateProgram.execute(autoDraftId);
+  review = await reviewOf(autoRun.autoDraft.decision.id);
+  assert.equal(review.reviewStatus, "activated_with_edits");
+  // 25-26. Logout/login: the edited structure rebuilds identically.
+  const finalBefore = nodes(await reloaded.getProgram.execute(autoDraftId));
+  await reloaded.signOut.execute();
+  await reloaded.signIn.execute(credentials);
+  assert.deepEqual(
+    nodes(await reloaded.getProgram.execute(autoDraftId)),
+    finalBefore,
+  );
+  await preferences.setDraftAuthorityMode("manual_draft");
+  await preferences.setAutonomyMode("manual");
+}
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage/full-structure flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage/full-structure/structure-editing flow passed.",
 );

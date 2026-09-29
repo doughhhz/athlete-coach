@@ -192,3 +192,7 @@ Blocos, semanas, dias, prescrições e séries agora têm uma linhagem estável 
 ## Correção pós-Implementation Phase 18 — O builder preserva o programa inteiro
 
 Corrigido: o builder carregava e salvava apenas o primeiro bloco/semana/dia, e o salvamento (que substitui a estrutura inteira do rascunho) apagava os demais dias. Agora o builder mantém o programa completo em edição, permite escolher qualquer dia ("Dia em edição"), acumula alterações de vários dias antes de salvar e sempre envia a árvore completa; nada some sem uma remoção explícita. Faixas de RIR e descanso, notas, instruções e exercícios fora do catálogo também passaram a ser preservados.
+
+## Implementation Phase 19 — Edição explícita da estrutura do programa
+
+O builder agora permite adicionar, remover (com confirmação) e reordenar blocos, semanas e dias. A navegação é Bloco → Semana → Dia; cada nível tem "+", ↑/↓ e "Remover". A confirmação mostra o conteúdo real (semanas, dias, exercícios, séries), sem linguagem alarmista. O último bloco/semana/dia não pode ser removido e a tela explica o motivo. Sair do builder com alterações não salvas pergunta "Continuar editando" ou "Descartar alterações"; descartar não salva nada. Trocar de bloco/semana/dia não é sair. O salvamento continua enviando o programa inteiro.

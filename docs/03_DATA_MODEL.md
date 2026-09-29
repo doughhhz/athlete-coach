@@ -200,3 +200,7 @@ Migration `20261004120000_training_structure_lineage.sql` (forward; sem mudança
 ## Correção pós-Implementation Phase 18 — Salvamento de rascunho verificado
 
 Migration `20261005120000_full_draft_structure_preservation.sql` (forward) redefine `replace_training_program_structure`: rejeita árvores incompletas (bloco sem semana, semana sem dia, dia sem exercício, exercício sem série) e verifica a estrutura resultante antes do commit (`Incomplete program structure`), mantendo a validação de linhagem da ADR-0092. Tudo em uma transação: falha não deixa rascunho meio salvo. Sem mudança de schema.
+
+## Implementation Phase 19 — Sem mudança de schema
+
+Nenhuma migration. Remoção, adição e reordenação de blocos/semanas/dias usam a mesma `replace_training_program_structure` (árvore inteira, atômica, verificada). Novos nós não enviam `lineageId`: o servidor atribui. Linhagem removida não pode ser reanexada ("Unknown structure lineage"), e reordenar mantém a linhagem e muda só `sequence`. Coberto por `supabase/tests/database/structure_editing.test.sql`.
