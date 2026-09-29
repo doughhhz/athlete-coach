@@ -24,6 +24,8 @@ select public.test_seed_program_root('a2000000-0000-4000-8000-000000000001','Pro
 select public.test_seed_program_root('a2000000-0000-4000-8000-000000000002','Vazio'); select throws_ok($$select public.activate_training_program('a2000000-0000-4000-8000-000000000002')$$,'23514',null,'empty activation rejected'); delete from public.training_programs where id='a2000000-0000-4000-8000-000000000002';
 select lives_ok($$select public.replace_training_program_structure('a2000000-0000-4000-8000-000000000001','{"blocks":[{"sequence":1,"name":"Base","weeks":[{"sequence":1,"name":"W1","days":[{"sequence":1,"name":"A","prescriptions":[{"sequence":1,"exerciseId":"50000000-0000-4000-8000-000000000001","sets":[{"sequence":1,"targetMetric":"reps","targetMin":8,"targetMax":10,"rirMin":2,"rirMax":2,"restMinSeconds":120,"restMaxSeconds":120,"tempo":"3-1-X-0","loadKind":"absolute","loadKg":30}]}]}]}]}]}'::jsonb)$$,'complete hierarchy saved atomically');
 select is((select count(*) from public.training_blocks),1::bigint,'one block'); select is((select count(*) from public.training_weeks),1::bigint,'one week'); select is((select count(*) from public.training_days),1::bigint,'one day'); select is((select count(*) from public.exercise_prescriptions),1::bigint,'one prescription'); select is((select count(*) from public.prescription_sets),1::bigint,'one set');
+-- ADR-0104: clients cannot write structure rows; table guards are checked with a privileged writer.
+reset role;
 select throws_ok($$insert into public.training_blocks(training_program_id,sequence,name) values('a2000000-0000-4000-8000-000000000001',1,'Duplicate')$$,'23505',null,'duplicate block sequence rejected');
 select throws_ok($$insert into public.exercise_prescriptions(training_day_id,exercise_id,sequence) select id,'50000000-0000-4000-8000-999999999999',2 from public.training_days limit 1$$,'23503',null,'dangling exercise rejected');
 select throws_ok($$insert into public.prescription_sets(exercise_prescription_id,sequence,target_metric,target_min,target_max,load_kind) select id,2,'reps',10,8,'unprescribed' from public.exercise_prescriptions limit 1$$,'23514',null,'reversed target rejected');
@@ -31,8 +33,12 @@ select throws_ok($$insert into public.prescription_sets(exercise_prescription_id
 select throws_ok($$insert into public.prescription_sets(exercise_prescription_id,sequence,target_metric,target_min,target_max,rest_min_seconds,rest_max_seconds,load_kind) select id,2,'seconds',30,45,120,60,'unprescribed' from public.exercise_prescriptions limit 1$$,'23514',null,'rest bounds rejected');
 select throws_ok($$insert into public.prescription_sets(exercise_prescription_id,sequence,target_metric,target_min,target_max,tempo,load_kind) select id,2,'meters',20,20,'slow','unprescribed' from public.exercise_prescriptions limit 1$$,'23514',null,'tempo rejected');
 select throws_ok($$insert into public.prescription_sets(exercise_prescription_id,sequence,target_metric,target_min,target_max,load_kind,load_kg) select id,2,'reps',8,8,'athlete_selected',30 from public.exercise_prescriptions limit 1$$,'23514',null,'load consistency rejected');
+set local role authenticated;
 select lives_ok($$select public.activate_training_program('a2000000-0000-4000-8000-000000000001')$$,'valid activation succeeds'); select is((select status from public.training_programs where id='a2000000-0000-4000-8000-000000000001'),'active','program active');
+-- ADR-0104: clients cannot write structure rows; table guards are checked with a privileged writer.
+reset role;
 select throws_ok($$update public.training_blocks set name='Mutation'$$,'55000',null,'active structure update rejected'); select throws_ok($$delete from public.prescription_sets$$,'55000',null,'active structure delete rejected');
+set local role authenticated;
 select throws_ok($$update public.training_programs set status='draft',activated_at=null where id='a2000000-0000-4000-8000-000000000001'$$,'55000',null,'direct lifecycle bypass rejected'); select throws_ok($$update public.training_programs set name='Rewritten' where id='a2000000-0000-4000-8000-000000000001'$$,'55000',null,'active metadata rewrite rejected'); select throws_ok($$delete from public.training_programs where id='a2000000-0000-4000-8000-000000000001'$$,'55000',null,'active history delete rejected');
 select lives_ok($$select public.clone_training_program_as_draft('a2000000-0000-4000-8000-000000000001')$$,'active program clones');
 select is((select count(*) from public.training_programs),2::bigint,'clone creates program');
@@ -73,13 +79,19 @@ select is((select supersedes_program_id from public.training_programs where stat
 select is((select name from public.training_programs where id='a2000000-0000-4000-8000-000000000001'),'Programa A','revision replacement preserves original metadata');
 select is((select name from public.training_blocks where training_program_id='a2000000-0000-4000-8000-000000000001'),'Base','revision replacement preserves original structure');
 select is((select count(*) from public.training_programs where status='active'),1::bigint,'revision replacement keeps one active program');
+-- ADR-0104: clients cannot write structure rows; table guards are checked with a privileged writer.
+reset role;
 select throws_ok($$update public.training_blocks set name='Historical rewrite' where training_program_id='a2000000-0000-4000-8000-000000000001'$$,'55000',null,'archived structure remains immutable');
+set local role authenticated;
 
 select lives_ok($$select public.transition_training_program((select id from public.training_programs where status='active'),'completed')$$,'explicit completion succeeds');
 select is((select status from public.training_programs where supersedes_program_id='a2000000-0000-4000-8000-000000000001'),'completed','explicit completion marks active program completed');
 select ok((select completed_at is not null from public.training_programs where supersedes_program_id='a2000000-0000-4000-8000-000000000001'),'explicit completion stamps completed_at');
 select is((select archived_at from public.training_programs where supersedes_program_id='a2000000-0000-4000-8000-000000000001'),null::timestamptz,'explicit completion does not stamp archived_at');
+-- ADR-0104: clients cannot write structure rows; table guards are checked with a privileged writer.
+reset role;
 select throws_ok($$update public.training_blocks set name='Completed rewrite' where training_program_id=(select id from public.training_programs where status='completed')$$,'55000',null,'completed structure remains immutable');
+set local role authenticated;
 reset role; set local request.jwt.claim.sub='22222222-2222-4222-8222-222222222222'; set local role authenticated;
 select is((select count(*) from public.training_programs),0::bigint,'other athlete cannot select programs'); select is((select count(*) from public.training_blocks),0::bigint,'other athlete cannot select children'); select is((select count(*) from public.prescription_sets),0::bigint,'other athlete cannot select sets'); select is((select count(*) from public.training_programs where id='a2000000-0000-4000-8000-000000000001'),0::bigint,'cross-athlete access blocked');
 reset role; select * from finish(); rollback;

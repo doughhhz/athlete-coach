@@ -204,3 +204,7 @@ Criar um programa novo agora é uma única operação: o programa e toda a sua e
 ## Correção pós-criação atômica — Criação de programa só pela fronteira atômica
 
 O banco agora impede que qualquer cliente crie um programa inserindo uma linha diretamente em `training_programs`: não existe mais permissão de INSERT para `authenticated` nem `anon`. Programa novo só nasce pela operação atômica `create_training_program_with_structure`, e revisões só pelas operações controladas de revisão e materialização. O app já usava esse caminho; nada muda para o atleta.
+
+## Correção pós-fronteira de criação — Estrutura do programa só muda pelo salvamento completo
+
+Blocos, semanas, dias, exercícios e séries não podem mais ser alterados linha a linha por nenhum cliente. O app sempre salvou o programa inteiro de uma vez, e agora o banco também exige isso: toda alteração de estrutura de rascunho passa pelo salvamento completo, que valida o programa inteiro. Nada muda para o atleta.

@@ -184,3 +184,9 @@ Sem mudança em Coach, Auto-Draft, Review Evidence, outcomes, dossier, prompts o
 A dívida registrada na correção de criação atômica (INSERT direto via RLS) foi fechada. Criar uma raiz agora só é possível pela RPC atômica, e as revisões continuam pelos caminhos controlados.
 
 Nada mudou em UX, Coach, Auto-Draft, prompts, dossier ou Edge.
+
+## Correção pós-fronteira de criação — Training Structure Mutation Boundary Enforcement — complete
+
+A dívida registrada após a ADR-0103 (escrita direta nas tabelas de estrutura) foi fechada. Toda mutação de estrutura de rascunho acontece pelo salvamento completo ou pelos caminhos controlados de criação, revisão e materialização.
+
+Nada mudou em UX, Coach, Auto-Draft, prompts, dossier ou Edge.

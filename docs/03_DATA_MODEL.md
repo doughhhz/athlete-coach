@@ -249,3 +249,22 @@ Endurecimento das duas funções (já presente no corpo):
 - `anon` não pode executar nenhuma das duas.
 
 Materialização e auto-draft já eram SECURITY DEFINER e restritos a `service_role`; não mudaram. O trigger de identidade de criação continua como defesa em profundidade.
+
+## Correção pós-fronteira de criação — Tabelas de estrutura somente leitura
+
+Migration `20261008120000_enforce_training_structure_mutation_boundary.sql` (apenas para frente):
+
+- revoga INSERT, UPDATE e DELETE das cinco tabelas de estrutura para `authenticated` e `anon`; o SELECT continua;
+- substitui as policies `*_own` (`for all`) por `*_own_select`, com o mesmo predicado de dono; a RLS continua ativa;
+- passa `replace_training_program_structure` para SECURITY DEFINER sem mudar o corpo.
+
+Por que o SECURITY DEFINER é seguro nessa função (tudo já presente no corpo):
+
+- `search_path=''`;
+- atleta resolvido só pela sessão, sem parâmetro de atleta;
+- exige um programa próprio em `draft`, com lock da linha, antes de qualquer escrita, e todas as escritas se limitam a esse id;
+- rejeita árvore incompleta, valida linhagem (desconhecida, duplicada, de outro nível ou de outro programa) e verifica o resultado antes do commit;
+- não usa SQL dinâmico;
+- só `authenticated` e `service_role` podem executá-la.
+
+UPDATE e DELETE em `training_programs` não mudaram (fora do escopo).

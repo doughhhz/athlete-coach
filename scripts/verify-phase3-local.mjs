@@ -4208,9 +4208,148 @@ assert.deepEqual(
   );
 }
 
+// Corrective pass — structure mutation boundary enforcement (ADR-0104). ---
+{
+  // 1. Signed-up, onboarded athlete (the session above).
+  const set = (sequence) => ({
+    sequence,
+    targetMetric: "reps",
+    targetMin: 8,
+    targetMax: 10,
+    rirMin: 2,
+    rirMax: 3,
+    restMinSeconds: 90,
+    restMaxSeconds: 150,
+    tempo: null,
+    loadKind: "athlete_selected",
+    loadKg: null,
+  });
+  const day = (sequence, name, exerciseId) => ({
+    sequence,
+    name,
+    prescriptions: [{ sequence: 1, exerciseId, sets: [set(1), set(2)] }],
+  });
+  // 2. Atomic root creation.
+  const root = await reloaded.createProgramWithStructure.execute({
+    creationRequestId: crypto.randomUUID(),
+    name: "Estrutura protegida",
+    structure: {
+      blocks: [
+        {
+          sequence: 1,
+          name: "Base",
+          weeks: [
+            {
+              sequence: 1,
+              days: [day(1, "Treino A", EX_X), day(2, "Treino B", EX_Y)],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  const firstSet = root.blocks[0].weeks[0].days[0].prescriptions[0].sets[0];
+  // 3-5. Direct child DML is denied at the table level.
+  const blockInsert = await reloadedClient
+    .from("training_blocks")
+    .insert({ training_program_id: root.id, sequence: 2, name: "Sem semana" });
+  assert.equal(blockInsert.error?.code, "42501", "direct child INSERT denied");
+  const setUpdate = await reloadedClient
+    .from("prescription_sets")
+    .update({ rir_min: 0, rir_max: 0 })
+    .eq("id", firstSet.id);
+  assert.equal(setUpdate.error?.code, "42501", "direct child UPDATE denied");
+  const setDelete = await reloadedClient
+    .from("prescription_sets")
+    .delete()
+    .eq("id", firstSet.id);
+  assert.equal(setDelete.error?.code, "42501", "direct child DELETE denied");
+  // 6. Structure unchanged.
+  assert.deepEqual(await reloaded.getProgram.execute(root.id), root);
+  // 7-8. Builder full-tree save succeeds; reload is exact.
+  let structure = programToStructureInput(root);
+  structure = structureEdits.updateSet(
+    structure,
+    { block: 0, week: 0, day: 1 },
+    0,
+    0,
+    { rirMin: 1, rirMax: 1 },
+  );
+  const saved = await reloaded.saveProgram.execute(root.id, structure);
+  const reloadedDraft = await reloaded.getProgram.execute(root.id);
+  assert.deepEqual(reloadedDraft, saved);
+  assert.equal(
+    reloadedDraft.blocks[0].weeks[0].days[1].prescriptions[0].sets[0].rirMin,
+    1,
+  );
+  // 12-13. Explicit structure editing (Implementation Phase 19) through the same
+  // boundary; existing lineage survives, new nodes get fresh lineage.
+  structure = programToStructureInput(reloadedDraft);
+  structure = structureEdits.addWeek(structure, { block: 0, week: 0, day: 0 });
+  structure = structureEdits.addPrescription(
+    structure,
+    { block: 0, week: 1, day: 0 },
+    EX_Z,
+  );
+  structure = structureEdits.moveDay(
+    structure,
+    { block: 0, week: 0, day: 1 },
+    -1,
+  );
+  const edited = await reloaded.saveProgram.execute(root.id, structure);
+  assert.deepEqual(
+    edited.blocks[0].weeks[0].days.map((item) => item.lineageId),
+    [
+      reloadedDraft.blocks[0].weeks[0].days[1].lineageId,
+      reloadedDraft.blocks[0].weeks[0].days[0].lineageId,
+    ],
+  );
+  assert.ok(edited.blocks[0].weeks[1].lineageId);
+  assert.notEqual(
+    edited.blocks[0].weeks[1].lineageId,
+    edited.blocks[0].weeks[0].lineageId,
+  );
+  // 14. Activation only by explicit human action.
+  assert.equal(edited.status, "draft");
+  const active = await reloaded.activateProgram.execute(root.id);
+  // 9. Manual clone still works (definer revision boundary).
+  const revision = await reloaded.cloneProgram.execute(active.id);
+  assert.equal(revision.supersedesProgramId, active.id);
+  assert.equal(
+    revision.blocks[0].weeks[1].days[0].prescriptions[0].lineageId,
+    active.blocks[0].weeks[1].days[0].prescriptions[0].lineageId,
+  );
+  // 10-11. Coach materialization and auto-draft ran earlier in this run, after
+  // the boundary migration: both origins produced drafts.
+  const { data: materialized } = await reloadedClient
+    .from("coach_decisions")
+    .select("materialization_origin")
+    .not("materialized_program_id", "is", null);
+  assert.deepEqual(
+    [
+      ...new Set(materialized.map((item) => item.materialization_origin)),
+    ].sort(),
+    ["auto_draft", "human"],
+  );
+  // 15. Logout/login: rebuild identical.
+  const before = JSON.stringify([
+    await reloaded.getProgram.execute(active.id),
+    await reloaded.getProgram.execute(revision.id),
+  ]);
+  await reloaded.signOut.execute();
+  await reloaded.signIn.execute(credentials);
+  assert.equal(
+    JSON.stringify([
+      await reloaded.getProgram.execute(active.id),
+      await reloaded.getProgram.execute(revision.id),
+    ]),
+    before,
+  );
+}
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage/full-structure/structure-editing/atomic-creation/creation-boundary flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage/full-structure/structure-editing/atomic-creation/creation-boundary/structure-boundary flow passed.",
 );

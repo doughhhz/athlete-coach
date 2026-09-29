@@ -234,3 +234,20 @@ A atomicidade da criação agora é garantida pelo banco, não só pelo app.
 **API removida:** `CreateTrainingProgramDraft`, `createProgramDraftInputSchema`/`CreateProgramDraftInput` e `TrainingProgramRepository.createDraft`, que faziam insert direto. Os helpers de integração passaram a usar `createProgramWithStructure`.
 
 **Guardas de arquitetura:** nenhum código de produção faz `.from("training_programs").insert/upsert`, e a migration revoga o INSERT e mantém os criadores controlados.
+
+## Correção pós-fronteira de criação — Fronteira do agregado imposta pelo servidor
+
+`training_blocks`, `training_weeks`, `training_days`, `exercise_prescriptions` e `prescription_sets` agora são somente leitura para clientes.
+
+**Quem escreve nessas tabelas:**
+
+| Caminho                                                                         | Quem executa    |
+| ------------------------------------------------------------------------------- | --------------- |
+| `replace_training_program_structure` (salvamento da árvore inteira do rascunho) | `authenticated` |
+| `create_training_program_with_structure` (usa a mesma função)                   | `authenticated` |
+| `clone_training_program_as_draft`                                               | `authenticated` |
+| `materialize_coach_decision` e `auto_draft_coach_decision`                      | `service_role`  |
+
+Todas são SECURITY DEFINER.
+
+Nenhum repositório, caso de uso ou tela escrevia diretamente nessas tabelas, então não havia API morta a remover. A guarda de arquitetura `structure-mutation-boundary.test.mjs` impede `.from(<tabela de estrutura>).insert/update/delete/upsert` em código de produção, incluindo Edge.

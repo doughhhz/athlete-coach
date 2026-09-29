@@ -882,3 +882,18 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - pgTAP `program_creation_boundary` (privilégios, policies, definer e search_path, negação direta, RPC, idempotência, rollback, revisão, isolamento entre atletas, `anon`);
   - integração completa, com clone, materialização e auto-draft executados depois da revogação.
 - Afetados: migration `20261007120000`; 13 arquivos pgTAP; aplicação; data-access; integração; testes de arquitetura; docs 00/02/03/04/10.
+
+### ADR-0104 — Training Structure Mutation Is Aggregate-RPC Only
+
+- Data: 2026-10-10
+- Status: accepted
+- Complementa as ADR-0095, ADR-0096 e ADR-0103, sem substituí-las.
+- Regra anterior (limitação declarada após a ADR-0103): as tabelas de estrutura aceitavam INSERT, UPDATE e DELETE diretos via RLS em rascunhos do próprio atleta. Reproduzido: um cliente `authenticated` inseriu um bloco sem semanas, alterou o RIR de uma série e apagou a única série de um exercício.
+- Regra nova: **"Training structure mutation is an aggregate operation, not table-level client authority."** **"RLS ownership grants visibility, not permission to bypass aggregate validation."**
+  - As tabelas de estrutura ficam somente leitura para clientes, com policies só de SELECT.
+  - `replace_training_program_structure` vira SECURITY DEFINER e é a única fronteira de mutação de rascunho para clientes.
+  - As fixtures pgTAP que testam as guardas de tabela (unicidade, FK, CHECK, imutabilidade, trigger de linhagem) passam a rodar com um escritor privilegiado explícito.
+- Evidência:
+  - pgTAP `structure_mutation_boundary` com 44 testes (privilégios, policies, DML negado nos cinco níveis, leitura, salvamento completo, rollback, linhagem, dono e rascunho, clone, isolamento entre atletas);
+  - integração completa depois da revogação.
+- Afetados: migration `20261008120000`; pgTAP (`training_programs`, `training_lineage`, novo arquivo); integração; testes de arquitetura; docs 00/02/03/04/10.

@@ -79,8 +79,11 @@ select is(public.t18_node_lineages((select id from t18_b)),public.t18_node_linea
 select throws_ok(format($$select public.replace_training_program_structure(%L, jsonb_set(public.t18_structure(),'{blocks,0,lineageId}',to_jsonb(%L::text)))$$,(select id from t18_b),gen_random_uuid()),'22023','Unknown structure lineage','unknown lineage rejected');
 select throws_ok(format($$select public.replace_training_program_structure(%L, jsonb_set(public.t18_structure(),'{blocks,0,weeks,0,days,0,prescriptions,0,lineageId}',to_jsonb(%L::text)))$$,(select id from t18_b),(select sets[1] from t18_l where sequence=1)),'22023','Unknown structure lineage','cross-level lineage rejected');
 select throws_ok(format($$select public.replace_training_program_structure(%L, jsonb_set(jsonb_set(public.t18_structure(),'{blocks,0,weeks,0,days,0,prescriptions,0,lineageId}',to_jsonb(%L::text)),'{blocks,0,weeks,0,days,0,prescriptions,1,lineageId}',to_jsonb(%L::text)))$$,(select id from t18_b),(select lineage from t18_l where sequence=1),(select lineage from t18_l where sequence=1)),'22023','Duplicate structure lineage','duplicate lineage rejected');
+-- ADR-0104: clients cannot write structure rows at all (see structure_mutation_boundary);
+-- the lineage trigger still protects any writer outside the trusted RPCs.
+reset role;
 insert into public.exercise_prescriptions(training_day_id,exercise_id,sequence,lineage_id) select d.id,'50000000-0000-4000-8000-000000000001',9,(select lineage from t18_l where sequence=1) from public.training_days d join public.training_weeks w on w.id=d.training_week_id join public.training_blocks b on b.id=w.training_block_id where b.training_program_id=(select id from t18_b);
-select isnt((select lineage_id from public.exercise_prescriptions where sequence=9),(select lineage from t18_l where sequence=1),'direct client insert cannot attach an existing lineage');
+select isnt((select lineage_id from public.exercise_prescriptions where sequence=9),(select lineage from t18_l where sequence=1),'a writer outside the trusted RPCs cannot attach an existing lineage');
 select throws_ok($$update public.exercise_prescriptions set lineage_id=gen_random_uuid() where sequence=9$$,'55000','Structure lineage is immutable','lineage immutable');
 delete from public.exercise_prescriptions where sequence=9;
 reset role;

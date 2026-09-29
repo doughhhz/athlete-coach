@@ -123,3 +123,8 @@ Ativação de programa é sempre uma ação humana explícita. Ativação autom�
 
 - **Initial TrainingProgram creation is only permitted through the atomic creation boundary.**
 - **RLS ownership is not sufficient authority to create a TrainingProgram root.**
+
+## Correção pós-fronteira de criação — Autoridade sobre a estrutura
+
+- **Training structure mutation is an aggregate operation, not table-level client authority.**
+- **RLS ownership grants visibility, not permission to bypass aggregate validation.**

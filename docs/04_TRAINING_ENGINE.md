@@ -185,3 +185,7 @@ Criar uma raiz e criar uma revisão são autoridades diferentes.
 - **Revisão:** clone manual, materialização de Coach, set-count, troca de exercício e auto-draft, pelos seus caminhos controlados, sem passar pela RPC de raiz.
 
 Nenhum cliente consegue criar um rascunho vazio por inserção direta.
+
+## Correção pós-fronteira de criação — Validação do agregado sem atalhos
+
+Antes, um cliente conseguia, por RLS, criar um bloco sem semanas ou apagar a única série de um exercício no próprio rascunho, contornando as invariantes de estrutura completa. Agora toda mutação de estrutura passa pela validação canônica do agregado. As operações de edição do builder (Implementation Phase 19) continuam locais e são enviadas como uma árvore inteira em uma única RPC.
