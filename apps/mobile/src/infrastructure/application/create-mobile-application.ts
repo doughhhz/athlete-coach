@@ -45,6 +45,8 @@ import {
   ListInterventionOutcomes,
   GetCoachDecisionOutcome,
   GetIndividualResponseEvidence,
+  GetCoachAutonomyMode,
+  SetCoachAutonomyMode,
 } from "@athlete-coach/application";
 import {
   SupabaseAthleteGoalRepository,
@@ -59,6 +61,7 @@ import {
   SupabaseTrainingProgramRepository,
   SupabaseWorkoutSessionRepository,
   SupabasePerformanceReadRepository,
+  SupabaseCoachPreferenceRepository,
   type AthleteCoachSupabaseClient,
 } from "@athlete-coach/data-access";
 import { SupabaseCoachGateway } from "@/infrastructure/coach/supabase-coach-gateway";
@@ -77,6 +80,7 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
   const workouts = new SupabaseWorkoutSessionRepository(client);
   const performance = new SupabasePerformanceReadRepository(client);
   const coach = new SupabaseCoachGateway(client);
+  const coachPreferences = new SupabaseCoachPreferenceRepository(client);
 
   const loadProfile = new LoadCurrentAthleteProfile(
     athleteRepository,
@@ -152,7 +156,11 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
       coach.analyze(input),
     generateCoachProposal: (
       analysis: Parameters<SupabaseCoachGateway["propose"]>[0],
-    ) => coach.propose(analysis),
+      analysisRequestId: string | null,
+    ) => coach.propose(analysis, analysisRequestId),
+    // Own preference only (RLS); explicit opt-in, default manual.
+    getCoachAutonomyMode: new GetCoachAutonomyMode(coachPreferences),
+    setCoachAutonomyMode: new SetCoachAutonomyMode(coachPreferences),
     listCoachDecisions: () => coach.listDecisions(),
     listInterventionOutcomes: new ListInterventionOutcomes(
       interventionOutcomes,
@@ -162,7 +170,10 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
       interventionOutcomes,
     ),
     getResponseMemoryGroup: new GetResponseMemoryGroup(interventionOutcomes),
-    materializeCoachProposal: (id: string) => coach.materialize(id),
+    materializeCoachProposal: (
+      id: string,
+      input?: Parameters<SupabaseCoachGateway["materialize"]>[1],
+    ) => coach.materialize(id, input),
     rejectCoachProposal: (
       id: string,
       reason: Parameters<SupabaseCoachGateway["reject"]>[1],

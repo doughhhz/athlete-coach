@@ -1,10 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
-import { AnalyzeAthleteWithCoach, BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, CoachProviderError, EnsureCurrentAthlete, LoadCurrentAthleteProfile } from "../../../packages/application/src/index.ts";
-import { GeminiHttpCoachModelProvider, DeterministicCoachSafetyPolicy } from "../../../packages/ai/src/index.ts";
-import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachDecisionRepository, SupabaseExerciseCatalogRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
+import { AnalyzeAthleteWithCoach, AnalyzeAthleteWithCoachAndGovernance, GenerateCoachProposal, memoizeDossier, BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, CoachProviderError, EnsureCurrentAthlete, LoadCurrentAthleteProfile } from "../../../packages/application/src/index.ts";
+import { GeminiHttpCoachModelProvider, GeminiHttpCoachProposalProvider, DeterministicCoachSafetyPolicy } from "../../../packages/ai/src/index.ts";
+import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachDecisionRepository, SupabaseCoachPreferenceRepository, SupabaseExerciseCatalogRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
 
 const cors = { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type, x-client-info" };
 const buckets = new Map<string, number[]>();
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function reply(status: number, body: unknown) { return new Response(JSON.stringify(body), { status, headers: cors }); }
 function allowed(userId: string, now = Date.now()) { const recent = (buckets.get(userId) ?? []).filter((value) => now - value < 60_000); if (recent.length >= 10) return false; buckets.set(userId, [...recent, now]); return true; }
 
@@ -22,10 +23,11 @@ Deno.serve(async (request) => {
     const { data: auth, error: authError } = await client.auth.getUser();
     if (authError || !auth.user) return reply(401, { error: { code: "unauthenticated", requestId } });
     if (!allowed(auth.user.id)) return reply(429, { error: { code: "rate_limited", requestId } });
-    const body = await request.json() as { userRequest?: unknown; analysisMode?: unknown; conversationContext?: unknown; athleteId?: unknown };
-    if (body.athleteId !== undefined || typeof body.userRequest !== "string" || !["general_review", "workout_review", "exercise_review", "question"].includes(String(body.analysisMode))) return reply(400, { error: { code: "invalid_request", requestId } });
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) return reply(503, { error: { code: "coach_unavailable", requestId } });
+    const body = await request.json() as { userRequest?: unknown; analysisMode?: unknown; conversationContext?: unknown; athleteId?: unknown; analysisRequestId?: unknown };
+    // analysisRequestId is only an idempotency key (UUID, athlete-scoped); origin, autonomy and review class are never accepted from the client (ADR-0077).
+    if (body.athleteId !== undefined || typeof body.userRequest !== "string" || !["general_review", "workout_review", "exercise_review", "question"].includes(String(body.analysisMode)) || (body.analysisRequestId !== undefined && (typeof body.analysisRequestId !== "string" || !uuidPattern.test(body.analysisRequestId)))) return reply(400, { error: { code: "invalid_request", requestId } });
+    const apiKey = Deno.env.get("GEMINI_API_KEY"), service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!apiKey || !service) return reply(503, { error: { code: "coach_unavailable", requestId } });
     const athletes = new SupabaseAthleteRepository(client);
     await new EnsureCurrentAthlete(athletes).execute();
     const bodyWeights = new SupabaseBodyWeightRepository(client), programs = new SupabaseTrainingProgramRepository(client), performance = new SupabasePerformanceReadRepository(client);
@@ -33,11 +35,18 @@ Deno.serve(async (request) => {
     // Decision history is read with the caller JWT (RLS), never with the service role.
     const catalog = new SupabaseExerciseCatalogRepository(client);
     const interventionContext = new BuildInterventionContext(new BuildInterventionOutcomes(new SupabaseCoachDecisionRepository(client, auth.user.id), programs, performance, bodyWeights, undefined, catalog));
-    const dossier = new BuildAthleteTrainingDossier(profile, programs, new SupabaseWorkoutSessionRepository(client), performance, undefined, interventionContext, new GetExerciseReplacementCandidates(catalog));
-    const provider = new GeminiHttpCoachModelProvider({ apiKey, model: Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash", temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "20000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "4096") });
-    const analysis = await new AnalyzeAthleteWithCoach(dossier, provider, new DeterministicCoachSafetyPolicy(), () => requestId).execute({ userRequest: body.userRequest, analysisMode: body.analysisMode as "question", conversationContext: Array.isArray(body.conversationContext) ? body.conversationContext.slice(-6) : [] });
-    console.log(JSON.stringify({ requestId, provider: analysis.metadata.provider, model: analysis.metadata.model, schemaVersion: analysis.schemaVersion, latencyMs: Date.now() - started, success: true }));
-    return reply(200, { analysis });
+    // One dossier per request: the proactive proposal is grounded on the same evidence as the analysis.
+    const dossier = memoizeDossier(new BuildAthleteTrainingDossier(profile, programs, new SupabaseWorkoutSessionRepository(client), performance, undefined, interventionContext, new GetExerciseReplacementCandidates(catalog)));
+    const providerConfig = { apiKey, model: Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash", temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "20000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "4096") };
+    const analyze = new AnalyzeAthleteWithCoach(dossier, new GeminiHttpCoachModelProvider(providerConfig), new DeterministicCoachSafetyPolicy(), () => requestId);
+    // The service client is used only for the governed ledger write (never materialize/activate).
+    const ledger = new SupabaseCoachDecisionRepository(createClient(url, service, { auth: { persistSession: false } }), auth.user.id);
+    const propose = new GenerateCoachProposal(dossier, programs, new GeminiHttpCoachProposalProvider(providerConfig), ledger, () => crypto.randomUUID());
+    const userId = auth.user.id;
+    const result = await new AnalyzeAthleteWithCoachAndGovernance(analyze, propose, new SupabaseCoachPreferenceRepository(client), { tryConsume: () => allowed(userId) }).execute({ userRequest: body.userRequest, analysisMode: body.analysisMode as "question", conversationContext: Array.isArray(body.conversationContext) ? body.conversationContext.slice(-6) : [], analysisRequestId: body.analysisRequestId as string | undefined });
+    const { analysis, proactiveProposal } = result;
+    console.log(JSON.stringify({ requestId, provider: analysis.metadata.provider, model: analysis.metadata.model, schemaVersion: analysis.schemaVersion, autonomyMode: result.autonomyMode, proactiveStatus: proactiveProposal.status, reviewClass: proactiveProposal.decision?.governance?.reviewClass ?? null, latencyMs: Date.now() - started, success: true }));
+    return reply(200, result);
   } catch (error) {
     const code = error instanceof CoachProviderError && error.code === "timeout" ? "coach_timeout" : error instanceof CoachProviderError ? "coach_unavailable" : "coach_failed";
     console.error(JSON.stringify({ requestId, latencyMs: Date.now() - started, success: false, errorCategory: code }));

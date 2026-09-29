@@ -135,3 +135,7 @@ Import map versionado e extensões `.ts` explícitas tornaram as três Edge Func
 ## Phase 14 — Exercise Replacement Intelligence & Cross-Exercise Outcome Semantics — complete
 
 Auth antes da configuração do provider, candidatos determinísticos por relação, `coach-proposal-v3` com transição de carga, RPC revalidando no banco, outcome v3 com pares entre exercícios sem deltas, IRE v4, memória v3 com pares direcionados, dossier v5, prompts v5, UI e cenário integrado foram implementados. Fora de escopo: troca automática, ranking/melhor exercício, conversão de carga, delta de 1RM/carga entre exercícios, transferência de PR, frequência, volume muscular, aprovação/ativação automáticas, Coach autônomo, causalidade, ML/RL, HealthKit, nutrição, web/RAG e multi-agentes.
+
+## Phase 15 — Coach Governance, Proactive Mode & Risk-Based Review Classes — complete
+
+Numeração de fase de implementação (a "Phase 15 — Apple Health / HealthKit" acima pertence ao plano original de produto e continua futura). Política determinística `coach-governance-v1`, preferência de autonomia manual/proativa com opt-in, envelope de governança no ledger, idempotência por `analysisRequestId`, orquestração proativa isolada em `coach-analyze`, revalidação e confirmação de revisão reforçada na materialização, UI e cenário integrado. Fora de escopo: materialização ou ativação automáticas, agente em background/agendado, escore de risco médico, ML/RL, "Conservative Auto-Draft" (apenas documentado), Phase 16.

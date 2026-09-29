@@ -43,6 +43,9 @@ import {
   BuildInterventionContext,
   GetResponseMemoryGroup,
   GetExerciseReplacementCandidates,
+  AnalyzeAthleteWithCoachAndGovernance,
+  ApproveCoachProposal,
+  ElevatedReviewConfirmationRequiredError,
 } from "../packages/application/src/index.ts";
 import {
   DeterministicCoachSafetyPolicy,
@@ -62,7 +65,10 @@ import {
 import { SupabaseTrainingProgramRepository } from "../packages/data-access/src/supabase/training-program-repository.ts";
 import { SupabaseWorkoutSessionRepository } from "../packages/data-access/src/supabase/workout-session-repository.ts";
 import { SupabasePerformanceReadRepository } from "../packages/data-access/src/supabase/performance-read-repository.ts";
-import { SupabaseCoachDecisionRepository } from "../packages/data-access/src/supabase/coach-decision-repository.ts";
+import {
+  SupabaseCoachDecisionRepository,
+  SupabaseCoachPreferenceRepository,
+} from "../packages/data-access/src/supabase/coach-decision-repository.ts";
 import { SupabaseExerciseCatalogRepository } from "../packages/data-access/src/supabase/exercise-catalog-repositories.ts";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
@@ -1701,9 +1707,241 @@ assert.deepEqual(
   outcomeXBeforeReload,
 );
 
+// Phase 15 — governed proactive mode (ADR-0074..0077). ----------------------
+{
+  const preferences = new SupabaseCoachPreferenceRepository(reloadedClient);
+  const readDecisions = new SupabaseCoachDecisionRepository(
+    reloadedClient,
+    identity.userId,
+  );
+  assert.equal((await reloaded.activeProgram.execute()).id, programT.id);
+  const dayT = programT.blocks[0].weeks[0].days[0];
+  const setT = dayT.prescriptions[0].sets[0];
+  const dossierNow = await rApi.dossier.execute();
+  const programEvidence = dossierNow.evidence.find(
+    (item) => item.kind === "training_program" && item.id === programT.id,
+  );
+  assert.ok(programEvidence);
+  const at = {
+    trainingDayId: dayT.id,
+    exercisePrescriptionId: dayT.prescriptions[0].id,
+    prescriptionSetId: setT.id,
+    rationale: "Ajuste proposto para revisão.",
+    evidence: [programEvidence],
+  };
+  const standardAction = {
+    kind: "adjust_prescription_rir",
+    ...at,
+    rirMin: setT.rirMin + 1,
+    rirMax: setT.rirMax + 1,
+  };
+  const elevatedAction = {
+    kind: "adjust_prescription_target",
+    ...at,
+    targetMetric: setT.targetMetric,
+    targetMin: setT.targetMin,
+    targetMax: setT.targetMax + 1,
+  };
+  const calls = { provider: 0 };
+  const providerFor = (actions) => ({
+    async generate(input, requestId) {
+      calls.provider += 1;
+      if (actions === null) return null;
+      return new FixtureCoachProposalProvider({
+        ...proposalFixture,
+        schemaVersion: "coach-proposal-v3",
+        id: crypto.randomUUID(),
+        sourceProgramId: programT.id,
+        sourceProgramRevision: programT.revision,
+        evidenceReferences: [programEvidence],
+        actions,
+      }).generate(input, requestId);
+    },
+  });
+  const analyzeWith = (analysisValue) =>
+    new AnalyzeAthleteWithCoach(
+      { execute: async () => dossierNow },
+      {
+        async analyze(_request, requestId) {
+          return {
+            analysis: { ...analysisValue, requestId },
+            provider: "fixture",
+            model: "deterministic",
+            inputTokens: null,
+            outputTokens: null,
+          };
+        },
+      },
+      new DeterministicCoachSafetyPolicy(),
+    );
+  const generator = (actions) =>
+    new GenerateCoachProposal(
+      { execute: async () => dossierNow },
+      new SupabaseTrainingProgramRepository(reloadedClient),
+      providerFor(actions),
+      decisions,
+    );
+  const ask = (
+    actions,
+    analysisRequestId = crypto.randomUUID(),
+    analysisValue = coachFixture,
+  ) =>
+    new AnalyzeAthleteWithCoachAndGovernance(
+      analyzeWith(analysisValue),
+      generator(actions),
+      preferences,
+    ).execute({
+      userRequest: "Como está meu treino?",
+      analysisMode: "question",
+      analysisRequestId,
+    });
+  const ledgerSize = async () => (await readDecisions.list()).length;
+
+  // 1-3. Default is manual; a manual analysis never makes the second call.
+  assert.equal(await preferences.getAutonomyMode(), "manual");
+  const sizeStart = await ledgerSize();
+  const manualRun = await ask([standardAction]);
+  assert.equal(manualRun.proactiveProposal.status, "not_enabled");
+  assert.equal(manualRun.analysis.analysisId, coachFixture.analysisId);
+  assert.equal(calls.provider, 0);
+  assert.equal(await ledgerSize(), sizeStart);
+  // 4-5. Explicit opt-in persists; an unknown mode is rejected.
+  assert.equal(await preferences.setAutonomyMode("proactive"), "proactive");
+  assert.equal(await preferences.getAutonomyMode(), "proactive");
+  const invalidMode = await reloadedClient
+    .from("athlete_coach_preferences")
+    .update({ autonomy_mode: "autonomous" })
+    .eq("autonomy_mode", "proactive");
+  assert.ok(invalidMode.error, "invalid autonomy mode rejected");
+  // 6-10. Proactive prepares a standard proposal for review only.
+  const requestA = crypto.randomUUID();
+  const proactiveRun = await ask([standardAction], requestA);
+  assert.equal(proactiveRun.proactiveProposal.status, "prepared");
+  const prepared = proactiveRun.proactiveProposal.decision;
+  assert.equal(prepared.status, "proposed");
+  assert.equal(prepared.proposalOrigin, "proactive");
+  assert.equal(prepared.autonomyModeAtCreation, "proactive");
+  assert.equal(prepared.analysisRequestId, requestA);
+  assert.deepEqual(prepared.governance, {
+    policyVersion: "coach-governance-v1",
+    reviewClass: "standard_review",
+    reasons: ["planned_rir_increase"],
+  });
+  assert.equal(calls.provider, 1);
+  assert.equal((await reloaded.activeProgram.execute()).id, programT.id);
+  // 11-13. Retries of the same analysis request are idempotent.
+  const retry = await ask([standardAction], requestA);
+  assert.equal(retry.proactiveProposal.decision.id, prepared.id);
+  const manualSame = await generator([standardAction]).execute(coachFixture, {
+    analysisRequestId: requestA,
+  });
+  assert.equal(manualSame.id, prepared.id);
+  assert.equal(calls.provider, 1);
+  // 14-16. Clients cannot forge origin/review class; history is immutable.
+  const forgedInsert = await reloadedClient
+    .from("coach_decisions")
+    .insert({ athlete_id: prepared.athleteId, proposal_origin: "proactive" });
+  assert.ok(forgedInsert.error, "client cannot insert decisions");
+  const forgedRpc = await reloadedClient.rpc("create_coach_decision", {
+    p_user_id: identity.userId,
+    p_proposal: prepared.proposal,
+    p_envelope: { proposalOrigin: "proactive", reviewClass: "standard_review" },
+  });
+  assert.ok(forgedRpc.error, "client cannot call governed creation");
+  const downgrade = await serviceClient
+    .from("coach_decisions")
+    .update({ review_class: "standard_review", proposal_origin: "manual" })
+    .eq("id", prepared.id);
+  assert.ok(downgrade.error, "governance envelope is immutable history");
+  // 17-19. No change, invalid and safety-blocked runs keep the analysis.
+  const sizeBeforeFailures = await ledgerSize();
+  assert.equal((await ask(null)).proactiveProposal.status, "no_change");
+  const invalid = await ask([
+    { ...standardAction, prescriptionSetId: crypto.randomUUID() },
+  ]);
+  assert.equal(invalid.proactiveProposal.status, "invalid");
+  assert.equal(invalid.analysis.analysisId, coachFixture.analysisId);
+  const providerCallsBeforeSafety = calls.provider;
+  const blocked = await ask([standardAction], crypto.randomUUID(), {
+    ...coachFixture,
+    safetyFlags: [
+      {
+        kind: "acute_pain",
+        message: "Procure avaliação profissional.",
+        blocksTrainingAdvice: true,
+      },
+    ],
+  });
+  assert.equal(blocked.proactiveProposal.status, "blocked");
+  assert.equal(calls.provider, providerCallsBeforeSafety);
+  assert.equal(await ledgerSize(), sizeBeforeFailures);
+  // 20-22. The backend (not the model) classifies an elevated proposal.
+  const elevated = (await ask([elevatedAction])).proactiveProposal.decision;
+  assert.equal(elevated.governance.reviewClass, "elevated_review");
+  assert.deepEqual(elevated.governance.reasons, ["target_change"]);
+  const approve = new ApproveCoachProposal(
+    readDecisions,
+    new SupabaseTrainingProgramRepository(reloadedClient),
+    decisions,
+  );
+  // 23-25. Elevated review requires explicit confirmation.
+  await assert.rejects(
+    () => approve.execute(elevated.id, { reviewClass: "standard_review" }),
+    ElevatedReviewConfirmationRequiredError,
+  );
+  assert.equal((await readDecisions.get(elevated.id)).status, "proposed");
+  const confirmed = await approve.execute(elevated.id, {
+    confirmElevatedReview: true,
+  });
+  assert.equal(confirmed.status, "materialized");
+  // 26. Materialization creates only a draft; nothing is activated.
+  const confirmedDraft = await reloaded.getProgram.execute(
+    confirmed.materializedProgramId,
+  );
+  assert.equal(confirmedDraft.status, "draft");
+  assert.equal((await reloaded.activeProgram.execute()).id, programT.id);
+  // 27. Legacy (pre-governance) rows stay readable with a null envelope.
+  const legacy = await serviceClient.rpc("create_coach_decision", {
+    p_user_id: identity.userId,
+    p_proposal: {
+      ...prepared.proposal,
+      id: crypto.randomUUID(),
+      analysisId: crypto.randomUUID(),
+    },
+  });
+  assert.equal(legacy.error, null);
+  const legacyRead = await readDecisions.get(legacy.data.id);
+  assert.equal(legacyRead.governance, null);
+  assert.equal(legacyRead.proposalOrigin, "manual");
+  // 28-29. Only an explicit human activation changes the active program;
+  // a standard review then needs no confirmation but the ledger marks the
+  // outdated proposal stale instead of creating a second draft.
+  await reloaded.activateProgram.execute(confirmedDraft.id);
+  const standardAfterActivation = await approve.execute(prepared.id);
+  assert.equal(standardAfterActivation.status, "stale");
+  assert.equal((await reloaded.activeProgram.execute()).id, confirmedDraft.id);
+  // 30. History exposes origin and review class, never a risk score.
+  const history = await readDecisions.list();
+  const byId = Object.fromEntries(history.map((item) => [item.id, item]));
+  assert.equal(byId[prepared.id].proposalOrigin, "proactive");
+  assert.equal(byId[elevated.id].governance.reviewClass, "elevated_review");
+  assert.doesNotMatch(
+    JSON.stringify(history.map((item) => item.governance)),
+    /risk|score|baixo|alto/i,
+  );
+  // 31. Opt-out returns to manual and survives sign-out/sign-in.
+  await preferences.setAutonomyMode("manual");
+  await reloaded.signOut.execute();
+  await reloaded.signIn.execute(credentials);
+  assert.equal(await preferences.getAutonomyMode(), "manual");
+  // 32. Outcomes/memory still build over governed decisions.
+  const memoryAfter = await replacementApi().memory.execute();
+  assert.ok(memoryAfter.groups.items.length >= 2);
+}
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance flow passed.",
 );

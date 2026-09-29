@@ -26,6 +26,13 @@ import {
 } from "@/presentation/outcomes/outcome-labels";
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
+import {
+  ELEVATED_REVIEW_CONFIRMATION,
+  ELEVATED_REVIEW_NOTICE,
+  displayReviewClass,
+  proposalOriginLabels,
+  reviewClassLabels,
+} from "@/presentation/coach/governance-labels";
 
 const labels = {
   adjust_prescription_target: "Faixa de execução",
@@ -95,6 +102,8 @@ export default function CoachProposalReview() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Always starts unchecked; the backend re-checks the class and this flag.
+  const [reviewed, setReviewed] = useState(false);
 
   useEffect(() => {
     void listCoachDecisions()
@@ -121,13 +130,27 @@ export default function CoachProposalReview() {
     setLoading(true);
     setError(null);
     try {
-      setDecision(await materializeCoachProposal(decision.id));
-    } catch {
-      setError("A proposta ficou desatualizada ou não pôde ser materializada.");
+      setDecision(
+        await materializeCoachProposal(decision.id, {
+          confirmElevatedReview: elevated && reviewed,
+        }),
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error &&
+          caught.message === "Confirme que revisou as alterações propostas."
+          ? caught.message
+          : "A proposta ficou desatualizada ou não pôde ser materializada.",
+      );
     } finally {
       setLoading(false);
     }
   }
+
+  const reviewClass = decision
+    ? displayReviewClass(decision, sourceProgram)
+    : "elevated_review";
+  const elevated = reviewClass === "elevated_review";
 
   if (loading && !decision) return <ActivityIndicator />;
   if (!decision) return <Text>{error ?? "Proposta não encontrada."}</Text>;
@@ -141,6 +164,27 @@ export default function CoachProposalReview() {
       <Text style={[styles.title, { color: theme.colors.text }]}>
         Revisar proposta
       </Text>
+      <View style={styles.badges}>
+        {[
+          proposalOriginLabels[decision.proposalOrigin],
+          reviewClassLabels[reviewClass],
+        ].map((label) => (
+          <Text
+            key={label}
+            style={[
+              styles.badge,
+              { color: theme.colors.text, borderColor: theme.colors.border },
+            ]}
+          >
+            {label}
+          </Text>
+        ))}
+      </View>
+      {elevated && decision.status === "proposed" && (
+        <Text style={{ color: theme.colors.text }}>
+          {ELEVATED_REVIEW_NOTICE}
+        </Text>
+      )}
       <Text style={{ color: theme.colors.text }}>
         {decision.proposal.rationale}
       </Text>
@@ -282,12 +326,37 @@ export default function CoachProposalReview() {
         A proposta será aplicada a uma nova revisão do programa. Seu programa
         ativo não será alterado até você revisar e ativar a nova versão.
       </Text>
+      {decision.status === "proposed" && elevated && (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: reviewed }}
+          onPress={() => setReviewed((value) => !value)}
+          style={styles.checkboxRow}
+        >
+          <View
+            style={[
+              styles.checkbox,
+              {
+                borderColor: theme.colors.border,
+                backgroundColor: reviewed ? theme.colors.accent : "transparent",
+              },
+            ]}
+          />
+          <Text style={{ color: theme.colors.text }}>
+            {ELEVATED_REVIEW_CONFIRMATION}
+          </Text>
+        </Pressable>
+      )}
       {decision.status === "proposed" && (
         <Pressable
           accessibilityRole="button"
-          disabled={loading}
+          disabled={loading || (elevated && !reviewed)}
           onPress={() => void materialize()}
-          style={[styles.button, { backgroundColor: theme.colors.accent }]}
+          style={[
+            styles.button,
+            { backgroundColor: theme.colors.accent },
+            (loading || (elevated && !reviewed)) && styles.disabled,
+          ]}
         >
           <Text style={styles.buttonText}>
             {loading ? "Criando revisão…" : "Criar revisão em rascunho"}
@@ -331,4 +400,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonText: { color: "#FFF", fontWeight: "700" },
+  disabled: { opacity: 0.45 },
+  badges: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  badge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    fontSize: 13,
+  },
+  checkboxRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  checkbox: { width: 22, height: 22, borderWidth: 2, borderRadius: 4 },
 });

@@ -288,10 +288,18 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
         throw new Error("O Personal está temporariamente indisponível.");
       return application.analyzeWithCoach(input);
     },
-    generateCoachProposal: async (analysis) => {
+    generateCoachProposal: async (analysis, analysisRequestId) => {
       if (!application)
         throw new Error("O Personal está temporariamente indisponível.");
-      return application.generateCoachProposal(analysis);
+      return application.generateCoachProposal(analysis, analysisRequestId);
+    },
+    getCoachAutonomyMode: async () => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.getCoachAutonomyMode.execute();
+    },
+    setCoachAutonomyMode: async (mode) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.setCoachAutonomyMode.execute(mode);
     },
     listCoachDecisions: async () => application?.listCoachDecisions() ?? [],
     listInterventionOutcomes: async () => {
@@ -310,10 +318,10 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
       if (!application) throw new Error("Backend não configurado.");
       return application.getResponseMemoryGroup.execute(key);
     },
-    materializeCoachProposal: async (id) => {
+    materializeCoachProposal: async (id, input) => {
       if (!application)
         throw new Error("O Personal está temporariamente indisponível.");
-      return application.materializeCoachProposal(id);
+      return application.materializeCoachProposal(id, input);
     },
     rejectCoachProposal: async (id, reason) => {
       if (!application)

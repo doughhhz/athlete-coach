@@ -1,3 +1,8 @@
+import type {
+  CoachAutonomyMode,
+  CoachDecisionGovernance,
+  CoachProposalOrigin,
+} from "../coach-governance/governance.ts";
 import type { EvidenceReference } from "../dossier/dossier.ts";
 import {
   relationsBetween,
@@ -202,6 +207,12 @@ export type CoachDecision = Readonly<{
   staleAt: string | null;
   materializedAt: string | null;
   materializedProgramId: string | null;
+  /** Governance envelope (ADR-0074/0075); never part of the model payload. */
+  proposalOrigin: CoachProposalOrigin;
+  autonomyModeAtCreation: CoachAutonomyMode | null;
+  analysisRequestId: string | null;
+  /** `null` for decisions recorded before coach-governance-v1. */
+  governance: CoachDecisionGovernance | null;
   createdAt: string;
   updatedAt: string;
 }>;

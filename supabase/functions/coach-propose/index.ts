@@ -1,9 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
-import { BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, GenerateCoachProposal, LoadCurrentAthleteProfile, coachAnalysisSchema } from "../../../packages/application/src/index.ts";
+import { BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, GenerateCoachProposal, CoachProposalBlockedError, CoachProviderError, LoadCurrentAthleteProfile, coachAnalysisSchema } from "../../../packages/application/src/index.ts";
 import { GeminiHttpCoachProposalProvider } from "../../../packages/ai/src/index.ts";
-import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachDecisionRepository, SupabaseExerciseCatalogRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
+import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachDecisionRepository, SupabaseCoachPreferenceRepository, SupabaseExerciseCatalogRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
 const headers = { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type, x-client-info" };
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers });
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers });
   if (request.method !== "POST") return reply(405, { error: { code: "method_not_allowed" } });
@@ -19,7 +20,9 @@ Deno.serve(async (request) => {
     if (!service || !apiKey) return reply(503, { error: { code: "coach_unavailable", requestId } });
     const rawBody = await request.text();
     if (new TextEncoder().encode(rawBody).byteLength > 16_384) return reply(413, { error: { code: "request_too_large", requestId } });
-    const body = JSON.parse(rawBody) as { analysis?: unknown };
+    const body = JSON.parse(rawBody) as { analysis?: unknown; analysisRequestId?: unknown };
+    // Only an idempotency key is accepted; origin is always manual here and governance is computed server-side.
+    if (body.analysisRequestId !== undefined && (typeof body.analysisRequestId !== "string" || !uuidPattern.test(body.analysisRequestId))) return reply(400, { error: { code: "invalid_request", requestId } });
     const analysis = coachAnalysisSchema.parse(body.analysis);
     const athletes = new SupabaseAthleteRepository(userClient), programs = new SupabaseTrainingProgramRepository(userClient), workouts = new SupabaseWorkoutSessionRepository(userClient), performance = new SupabasePerformanceReadRepository(userClient);
     const bodyWeights = new SupabaseBodyWeightRepository(userClient);
@@ -31,7 +34,12 @@ Deno.serve(async (request) => {
     const serviceClient = createClient(url, service, { auth: { persistSession: false } });
     const decisions = new SupabaseCoachDecisionRepository(serviceClient, auth.user.id);
     const provider = new GeminiHttpCoachProposalProvider({ apiKey, model: Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash", temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "20000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "4096") });
-    const decision = await new GenerateCoachProposal(dossier, programs, provider, decisions, () => requestId).execute(analysis);
+    const autonomyMode = await new SupabaseCoachPreferenceRepository(userClient).getAutonomyMode();
+    const decision = await new GenerateCoachProposal(dossier, programs, provider, decisions, () => requestId).execute(analysis, { origin: "manual", autonomyModeAtCreation: autonomyMode, analysisRequestId: (body.analysisRequestId as string | undefined) ?? null });
     return reply(200, { decision });
-  } catch { return reply(422, { error: { code: "proposal_invalid", requestId } }); }
+  } catch (error) {
+    if (error instanceof CoachProposalBlockedError && error.reasons.some((reason) => reason !== "proposal_validation_failed")) return reply(422, { error: { code: "proposal_blocked", requestId } });
+    if (error instanceof CoachProviderError) return reply(503, { error: { code: error.code === "timeout" ? "coach_timeout" : "coach_unavailable", requestId } });
+    return reply(422, { error: { code: "proposal_invalid", requestId } });
+  }
 });

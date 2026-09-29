@@ -88,3 +88,7 @@ Adicionar ou remover séries é proposta revisada por humano, materializada apen
 ## Phase 14 — Troca não é tratamento
 
 Dor aguda, possível lesão ou questões médicas continuam bloqueadas pelo safety gate antes de qualquer proposta; o prompt v5 proíbe usar `replace_exercise` como tratamento. Autenticação agora precede qualquer revelação de configuração do provider nas Edge Functions (ADR-0073).
+
+## Phase 15 — Proatividade não contorna safety
+
+Safety bloqueante impede a chamada de proposta proativa e resulta em status `blocked` sem persistência. A classe de revisão é governança operacional, não risco médico ou fisiológico, e nunca é exibida como "baixo/alto risco". Revisão reforçada exige confirmação humana verificada no servidor; o cliente não pode rebaixar a classe nem escolher origem. Nenhuma materialização ou ativação automática.

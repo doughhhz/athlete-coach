@@ -76,3 +76,11 @@ Conflitos devem ser explicitados e resolvidos documentalmente antes de implement
 - telemetria sem exposição indevida de dados;
 - acessibilidade e estados offline/erro considerados desde o desenho;
 - relatório final a cada etapa e revisão humana antes de avançar de fase.
+
+## Phase 15 — Iniciativa sem autoridade
+
+- **The Coach may act proactively in preparing advice, but training state changes remain governed by deterministic policy and human authority.**
+- **Initiative does not imply authority.**
+- **Review class is an operational governance classification, not a medical or physiological risk score.**
+
+A classe de revisão é calculada por política determinística e versionada no domínio; o LLM nunca define, reduz ou influencia essa classe. Nenhum modo permite materialização ou ativação automáticas (ADR-0074, ADR-0075).

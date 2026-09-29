@@ -123,3 +123,7 @@ O dossier v3 envia `responseMemory` bounded; o Coach pode citar `response_memory
 ## Phase 14 — Prompts v5 e candidatos
 
 O dossier v5 traz `exerciseReplacementCandidates` apenas para os exercícios do programa ativo. `coach-system-v5` afirma que troca muda identidade do movimento, relação é contexto e não equivalência, nunca comparar carga ou 1RM entre exercícios, nunca transferir PR nem converter carga, histórico de trocas é observacional e safety prevalece. `coach-proposal-prompt-v5` gera `coach-proposal-v3`: IDs só dos candidatos, relação obrigatória, transição de carga explícita, sem uso de troca como tratamento, sem repetir troca por observação passada; a proposta continua opcional.
+
+## Phase 15 — Iniciativa proativa governada
+
+Nenhum prompt ou contrato de IA foi alterado (`coach-proposal-v3`, `coach-system-v5`, `coach-proposal-prompt-v5` permanecem). O modelo não recebe nem produz classe de revisão; texto do modelo como "baixo risco" não tem efeito. Em modo proativo, `coach-analyze` pode fazer uma segunda chamada (proposta) após a análise, contando no rate limit; safety que bloqueia orientação de treino impede a chamada. `coach-propose` (manual) aceita `analysisRequestId` e devolve a proposta já existente sem nova chamada. Limitação conhecida: o fluxo manual ainda recebe a análise de volta do cliente, e o rate limit é em memória por instância.

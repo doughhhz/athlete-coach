@@ -135,3 +135,13 @@ Uma `CoachProposal` nunca é um `ProgramRevision`. O validator reutiliza `assert
 - Materialização: séries, alvos, RIR, descanso e tempo preservados; carga pela `loadTransition` (`preserve_non_absolute` só sem carga absoluta, `athlete_selected`, `explicit_absolute` nova). Sem conversão de carga.
 - Outcome: baseline do exercício de origem e pós do exercício ativado lado a lado (séries planejadas/concluídas, reps por exposição, alvo, cobertura de RIR/descanso); carga registrada e 1RM estimado não comparáveis entre exercícios; PRs nunca transferidos; histórico prévio do novo exercício separado.
 - Futuro, não implementado: intervenção de frequência e modelagem de volume por músculo.
+
+## Phase 15 — Governança de mudanças na prescrição
+
+`coach-governance-v1` classifica pela direção estrutural em demanda de treino, sem limiares de magnitude e sem escore numérico:
+
+- **Revisão padrão** (menos exigente por construção): aumento de RIR planejado, aumento de descanso planejado, redução de carga absoluta, redução de séries — somente quando é a única ação.
+- **Revisão reforçada**: troca de exercício (sempre; carga absoluta explícita na troca adiciona razão), mudança de alvo (sempre), aumento de séries ou mudança de estrutura, redução de RIR ou descanso, aumento ou introdução de carga absoluta, múltiplas ações, múltiplas prescrições, direções mistas de demanda e qualquer dúvida (baseline ausente, faixa que não muda de forma inequívoca).
+- **Bloqueada** (nunca persistida): safety bloqueia orientação de treino, proposta inválida, ação desconhecida ou vazia.
+
+Toda avaliação tem `requiresHumanReview: true`, `allowsAutomaticMaterialization: false` e `allowsAutomaticActivation: false`.

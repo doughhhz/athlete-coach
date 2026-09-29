@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import type {
   CoachAnalysis,
+  CoachAutonomyMode,
   CoachConversationMessage,
   CoachDecision,
   InterventionOutcomeEvaluation,
@@ -18,6 +19,121 @@ import type {
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import { outcomeStatusLabels } from "@/presentation/outcomes/outcome-labels";
+import {
+  PROACTIVE_CONSENT_TEXT,
+  PROACTIVE_COST_NOTICE,
+  autonomyModeCopy,
+  proactiveStatusMessages,
+  proposalOriginLabels,
+  reviewClassLabels,
+  type ProactiveStatus,
+} from "@/presentation/coach/governance-labels";
+import { newAnalysisRequestId } from "@/presentation/coach/analysis-request-id";
+
+/** Origin and backend review class; legacy decisions show origin only. */
+function DecisionBadges({ decision }: { decision: CoachDecision }) {
+  const theme = useAppTheme();
+  const labels = [
+    proposalOriginLabels[decision.proposalOrigin],
+    ...(decision.governance
+      ? [reviewClassLabels[decision.governance.reviewClass]]
+      : []),
+  ];
+  return (
+    <View style={styles.badges}>
+      {labels.map((label) => (
+        <Text
+          key={label}
+          style={[
+            styles.badge,
+            { color: theme.colors.text, borderColor: theme.colors.border },
+          ]}
+        >
+          {label}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+/** Explicit opt-in; nothing is preselected and proactive needs confirmation. */
+function AutonomyModeSection({
+  mode,
+  onChange,
+}: {
+  mode: CoachAutonomyMode | null;
+  onChange(mode: CoachAutonomyMode): Promise<void>;
+}) {
+  const theme = useAppTheme();
+  const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
+  async function save(next: CoachAutonomyMode) {
+    setSaving(true);
+    try {
+      await onChange(next);
+      setConfirming(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Section title="Modo do Personal">
+      {(["manual", "proactive"] as const).map((value) => (
+        <Pressable
+          key={value}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: mode === value, disabled: saving }}
+          disabled={saving || mode === value}
+          onPress={() =>
+            value === "manual" ? void save("manual") : setConfirming(true)
+          }
+          style={[
+            styles.option,
+            {
+              borderColor:
+                mode === value ? theme.colors.accent : theme.colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.optionTitle, { color: theme.colors.text }]}>
+            {autonomyModeCopy[value].title}
+            {mode === value ? " (atual)" : ""}
+          </Text>
+          <Text style={[styles.muted, { color: theme.colors.textMuted }]}>
+            {autonomyModeCopy[value].description}
+          </Text>
+        </Pressable>
+      ))}
+      {confirming && mode !== "proactive" && (
+        <View style={styles.consent}>
+          <Text style={{ color: theme.colors.text }}>
+            {PROACTIVE_CONSENT_TEXT}
+          </Text>
+          <Text style={[styles.muted, { color: theme.colors.textMuted }]}>
+            {PROACTIVE_COST_NOTICE}
+          </Text>
+          <View style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setConfirming(false)}
+            >
+              <Text style={{ color: theme.colors.text }}>Manter manual</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={saving}
+              onPress={() => void save("proactive")}
+            >
+              <Text style={{ color: theme.colors.accent, fontWeight: "700" }}>
+                Ativar modo proativo
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+    </Section>
+  );
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const theme = useAppTheme();
@@ -105,9 +221,18 @@ export default function CoachScreen() {
       listCoachDecisions,
       listInterventionOutcomes,
       rejectCoachProposal,
+      getCoachAutonomyMode,
+      setCoachAutonomyMode,
     } = useAppSession();
   const [question, setQuestion] = useState(""),
     [analysis, setAnalysis] = useState<CoachAnalysis | null>(null),
+    [analysisRequestId, setAnalysisRequestId] = useState<string | null>(null),
+    // Same key while retrying the same question (idempotent backend).
+    [pending, setPending] = useState<{ text: string; id: string } | null>(null),
+    [proactiveStatus, setProactiveStatus] = useState<ProactiveStatus | null>(
+      null,
+    ),
+    [autonomyMode, setAutonomyMode] = useState<CoachAutonomyMode | null>(null),
     [history, setHistory] = useState<CoachConversationMessage[]>([]),
     [loading, setLoading] = useState(false),
     [error, setError] = useState<string | null>(null),
@@ -125,18 +250,46 @@ export default function CoachScreen() {
       .then(setOutcomes)
       .catch(() => undefined);
   }, [listCoachDecisions, listInterventionOutcomes]);
+  useEffect(() => {
+    void getCoachAutonomyMode()
+      .then(setAutonomyMode)
+      .catch(() => undefined);
+  }, [getCoachAutonomyMode]);
+  async function changeMode(next: CoachAutonomyMode) {
+    try {
+      setAutonomyMode(await setCoachAutonomyMode(next));
+    } catch {
+      setError("Não foi possível salvar o modo do Personal.");
+    }
+  }
   async function send() {
-    const text = question.trim();
+    const text = (question.trim() || pending?.text) ?? "";
     if (!text || loading) return;
+    const requestId =
+      pending?.text === text ? pending.id : newAnalysisRequestId();
+    setPending({ text, id: requestId });
     setLoading(true);
     setError(null);
     try {
-      const result = await analyzeWithCoach({
+      const response = await analyzeWithCoach({
         userRequest: text,
         analysisMode: "question",
         conversationContext: history.slice(-6),
+        analysisRequestId: requestId,
       });
+      const result = response.analysis;
       setAnalysis(result);
+      setAnalysisRequestId(response.analysisRequestId);
+      if (response.autonomyMode) setAutonomyMode(response.autonomyMode);
+      setProactiveStatus(response.proactiveProposal.status);
+      const prepared = response.proactiveProposal.decision;
+      setDecision(prepared);
+      if (prepared)
+        setDecisions((items) => [
+          prepared,
+          ...items.filter((item) => item.id !== prepared.id),
+        ]);
+      setPending(null);
       setHistory((items) =>
         [
           ...items,
@@ -160,9 +313,14 @@ export default function CoachScreen() {
     setProposalLoading(true);
     setError(null);
     try {
-      const value = await generateCoachProposal(analysis);
+      // Reuses an existing decision for the same analysis (no new AI call).
+      const value = await generateCoachProposal(analysis, analysisRequestId);
       setDecision(value);
-      if (value) setDecisions((items) => [value, ...items]);
+      if (value)
+        setDecisions((items) => [
+          value,
+          ...items.filter((item) => item.id !== value.id),
+        ]);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -202,6 +360,7 @@ export default function CoachScreen() {
         Analisa seu dossier de treino e responde com interpretações, incertezas
         e sugestões. Seus fatos e seu programa não são alterados.
       </Text>
+      <AutonomyModeSection mode={autonomyMode} onChange={changeMode} />
       <TextInput
         accessibilityLabel="Pergunte ao seu Personal"
         multiline
@@ -245,6 +404,15 @@ export default function CoachScreen() {
         </Section>
       )}
       {analysis && <Analysis value={analysis} />}
+      {analysis &&
+        proactiveStatus &&
+        proactiveStatusMessages[proactiveStatus] && (
+          <Section title="Proposta preparada pelo Personal">
+            <Text style={{ color: theme.colors.text }}>
+              {proactiveStatusMessages[proactiveStatus]}
+            </Text>
+          </Section>
+        )}
       {analysis?.recommendations.some(
         (item) => item.category === "training_adjustment",
       ) &&
@@ -263,6 +431,7 @@ export default function CoachScreen() {
         )}
       {decision && (
         <Section title="Proposta de ajuste">
+          <DecisionBadges decision={decision} />
           <Text style={{ color: theme.colors.text }}>
             {decision.proposal.summary}
           </Text>
@@ -314,6 +483,7 @@ export default function CoachScreen() {
                 <Text style={[styles.item, { color: theme.colors.text }]}>
                   • {item.proposal.summary} — {item.status}
                 </Text>
+                <DecisionBadges decision={item} />
                 {outcome ? (
                   <Text
                     style={[styles.muted, { color: theme.colors.textMuted }]}
@@ -375,6 +545,17 @@ const styles = StyleSheet.create({
   muted: { lineHeight: 22 },
   retry: { fontWeight: "700", marginTop: 10 },
   historyItem: { gap: 4 },
+  badges: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  badge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    fontSize: 13,
+  },
+  option: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 4 },
+  optionTitle: { fontWeight: "700", fontSize: 16 },
+  consent: { gap: 8 },
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",

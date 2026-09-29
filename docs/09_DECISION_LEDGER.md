@@ -394,7 +394,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0041 — Safety e controle humano
 
 - Data: 2026-09-26
-- Status: accepted
+- Status: accepted; a parte "nenhuma autonomia" foi parcialmente superseded pela ADR-0075 (preparação proativa de propostas, opt-in; nenhuma mutação de estado de treino sem ação humana). Safety determinístico e ausência de mutation/tool call permanecem.
 - Decisão: safety determinístico antes/depois do modelo; recomendações são propostas textuais com revisão humana. Nenhuma mutation, tool call ou autonomia.
 - Motivo: risco de saúde e controle do atleta.
 - Impacto: policy, prompt, gateway, UX e roadmap.
@@ -658,3 +658,34 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Contexto: `coach-propose` respondia `503 coach_unavailable` a requisições com anon key e sem usuário porque checava `GEMINI_API_KEY`/service role antes de autenticar; `coach-decide` fazia o mesmo com o service role.
 - Decisão: antes de `auth.getUser()` só são verificados os pré-requisitos da plataforma para validar o JWT (`SUPABASE_URL`, `SUPABASE_ANON_KEY`); configuração do provider e do service role só após usuário autenticado. Teste de arquitetura `tests/architecture/edge-auth-order.test.mjs` e smoke HTTP no runtime real. Contratos de erro inalterados.
 - Impacto: supabase/functions, testes, segurança.
+
+### ADR-0074 — Coach Governance Policy e classes de revisão determinísticas
+
+- Data: 2026-10-01
+- Status: accepted
+- Decisão: `coach-governance-v1`, função pura no domínio (`assessCoachProposalGovernance`), produz `CoachGovernanceAssessment` com `reviewClass` `standard_review | elevated_review | blocked`, razões ordenadas e `requiresHumanReview: true`, `allowsAutomaticMaterialization: false`, `allowsAutomaticActivation: false`. Classificação pela direção estrutural em demanda de treino, sem limiares de magnitude e sem escore numérico; dúvida → reforçada; bloqueada nunca é persistida. O LLM nunca define a classe. **Review class is an operational governance classification, not a medical or physiological risk score.**
+- Motivo: iniciativa proativa exige uma fronteira determinística, auditável e testável; escores numéricos de risco seriam interpretação clínica indevida.
+- Impacto: domain `coach-governance`, application, ledger, mobile.
+
+### ADR-0075 — Manual vs Proactive mode e fronteira de autoridade humana
+
+- Data: 2026-10-01
+- Status: accepted
+- Regra anterior (ADR-0041): "Nenhuma mutation, tool call ou autonomia."
+- Regra nova: preferência por atleta `manual` (padrão) | `proactive` (opt-in explícito). Em proativo, o Personal pode apenas continuar uma análise iniciada pelo atleta: analisar, gerar proposta e persisti-la como `proposed` para revisão. Nunca materializa, nunca ativa, nunca cria ProgramRevision sem ação humana; sem scheduler, timer, background, push ou cron. Mutation e tool call continuam proibidas ao modelo. **The Coach may act proactively in preparing advice, but training state changes remain governed by deterministic policy and human authority.** **Initiative does not imply authority.**
+- Motivo/evidência: pedido de produto da Phase 15; a autoridade sobre estado de treino permanece no fluxo humano da ADR-0045.
+- Impacto: DB (`athlete_coach_preferences`), application (`AnalyzeAthleteWithCoachAndGovernance`, preferências), `coach-analyze`, mobile. ADR-0041 marcada como parcialmente superseded, sem apagar o histórico.
+
+### ADR-0076 — Revalidação no servidor e confirmação de revisão reforçada
+
+- Data: 2026-10-01
+- Status: accepted
+- Decisão: antes de materializar, `ApproveCoachProposal` recalcula a governança com o programa de origem lido pelo JWT do usuário; a classe efetiva nunca é inferior à persistida (sem rebaixamento pelo cliente); revisão ou baseline divergente é dúvida → reforçada; reforçada exige `confirmElevatedReview: true` (resposta `409 elevated_review_confirmation_required` caso contrário); padrão mantém o passo único. O cliente só envia a confirmação humana, nunca a classe.
+- Impacto: application, `coach-decide`, mobile.
+
+### ADR-0077 — Idempotência proativa e isolamento de falhas
+
+- Data: 2026-10-01
+- Status: accepted
+- Decisão: `analysisRequestId` é uma chave de idempotência do cliente (UUID validado, escopo do atleta, nunca autoridade). Índice único parcial `(athlete_id, analysis_request_id)` e a RPC backend-only `create_coach_decision(uuid,jsonb,jsonb)` retornam a decisão existente em retentativas; a aplicação procura a decisão existente antes de chamar o provider. `source_analysis_id` (gerado pelo modelo) não é chave. A análise é sempre devolvida; a proposta proativa informa `not_enabled | no_change | prepared | blocked | unavailable | invalid`, sem proposta falsa; a segunda chamada consome o rate limit. Futuro "Conservative Auto-Draft" apenas documentado, não implementado.
+- Impacto: DB, data-access, application, Edge Functions, mobile, integração.

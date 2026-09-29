@@ -21,3 +21,4 @@ export * from "./coach/proposal-ports.ts";
 export * from "./coach/proposal-use-cases.ts";
 export * from "./outcomes/ports.ts";
 export * from "./outcomes/use-cases.ts";
+export * from "./coach/governance-use-cases.ts";

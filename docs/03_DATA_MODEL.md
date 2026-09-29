@@ -165,3 +165,12 @@ Sem persistência: `individual-response-memory-v1` é reconstruída de `coach_de
 ## Phase 14 — Proposal v3 e troca de exercício
 
 `coach_decisions.proposal_schema_version` aceita v1, v2 e v3, com snapshot na mesma versão. A troca altera `exercise_prescriptions.exercise_id` apenas no draft criado; `workout_exercises.exercise_id`, sets executados, prescrições e programas históricos nunca são reescritos. `exercise_relations` continua a fonte das relações (sem novas tabelas). Outcome v3 inclui `crossExercisePairs`; IRE v4, memória v3 e dossier v5 carregam pares direcionados e candidatos bounded.
+
+## Phase 15 — Preferência e envelope de governança
+
+Migration `20261001120000_coach_governance_proactive_mode.sql` (forward, sem reescrever migrations anteriores):
+
+- `athlete_coach_preferences` (1:1 com `athletes`, `autonomy_mode` `manual|proactive`, default `manual`; ausência de linha = manual; RLS próprio para select/insert/update; sem delete; anon sem acesso).
+- `coach_decisions` ganha `proposal_origin` (`manual|proactive`, default `manual`), `autonomy_mode_at_creation`, `analysis_request_id` (uuid), `governance_policy_version`, `review_class` (`standard_review|elevated_review`; `blocked` nunca persiste) e `governance_reasons` (jsonb array). Linhas legadas mantêm governança nula e origem manual. Proativas exigem classe, request id e modo `proactive`.
+- Índice único parcial `(athlete_id, analysis_request_id)` garante idempotência; a nova RPC backend-only `create_coach_decision(uuid, jsonb, jsonb)` devolve a decisão existente em retentativas. A RPC legada de 2 argumentos permanece para compatibilidade.
+- O trigger de histórico passa a proteger também origem, modo, request id, política, classe e razões. Nenhuma cadeia de raciocínio do modelo é armazenada.

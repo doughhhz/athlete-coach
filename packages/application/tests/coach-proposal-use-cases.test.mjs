@@ -201,6 +201,11 @@ test("decision commands delegate validated human intent", async () => {
       status: "rejected",
       rejectionReason: reason,
     }),
+    get: async () => ({
+      proposal,
+      proposalOrigin: "manual",
+      governance: null,
+    }),
     materialize: async () => ({ status: "materialized" }),
   };
   assert.equal(
@@ -212,7 +217,11 @@ test("decision commands delegate validated human intent", async () => {
     "rejected",
   );
   assert.equal(
-    (await new ApproveCoachProposal(repository).execute("d")).status,
+    (
+      await new ApproveCoachProposal(repository, {
+        get: async () => program,
+      }).execute("d")
+    ).status,
     "materialized",
   );
 });

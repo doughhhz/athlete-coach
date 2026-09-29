@@ -168,3 +168,7 @@ As Edge Functions do Personal agora inicializam no runtime Deno local do Supabas
 ## Phase 14 — Troca de exercício revisada
 
 O Personal pode propor trocar um exercício por outro com relação registrada no catálogo (`coach-proposal-v3`), sempre com transição de carga explícita, revisão humana e materialização só em rascunho. Outcomes mostram o exercício anterior e o ativado lado a lado sem comparar carga ou 1RM estimado; cada exercício mantém seu histórico e seus recordes. Dossier `athlete-training-dossier-v5`, prompts v5. Edge Functions autenticam antes de revelar configuração do provider. Próximo passo recomendado: revisão humana da Phase 14.
+
+## Phase 15 — Modo do Personal (manual ou proativo) com governança
+
+O atleta escolhe o modo do Personal: **Manual** (padrão) ou **Proativo** (opt-in explícito com consentimento). No modo proativo, depois de uma análise pedida pelo atleta, o Personal pode preparar e registrar uma proposta para revisão — nunca materializa, nunca ativa, nunca roda em segundo plano. Toda proposta recebe uma classificação determinística `coach-governance-v1` ("Revisão padrão" ou "Revisão reforçada"), calculada pelo backend e nunca pelo modelo; revisão reforçada exige confirmar "Revisei as alterações propostas" antes de criar o rascunho. Retentativas da mesma análise são idempotentes (`analysisRequestId`). Próximo passo recomendado: revisão humana da Phase 15.

@@ -8,6 +8,7 @@ import type {
   CreateProgramDraftInput,
   ProgramStructureInput,
   RecordWorkoutSetInput,
+  AnalyzeWithGovernanceResult as CoachAnalysisResult,
 } from "@athlete-coach/application";
 import type {
   AthleteSnapshot,
@@ -26,6 +27,7 @@ import type {
   AthleteTrainingDossier,
   CoachAnalysis,
   CoachAnalysisMode,
+  CoachAutonomyMode,
   CoachConversationMessage,
   CoachDecision,
   CoachRejectionReason,
@@ -103,9 +105,15 @@ export type AppSessionValue = Readonly<{
       userRequest: string;
       analysisMode: CoachAnalysisMode;
       conversationContext: readonly CoachConversationMessage[];
+      analysisRequestId: string;
     }>,
-  ): Promise<CoachAnalysis>;
-  generateCoachProposal(analysis: CoachAnalysis): Promise<CoachDecision | null>;
+  ): Promise<CoachAnalysisResult>;
+  generateCoachProposal(
+    analysis: CoachAnalysis,
+    analysisRequestId: string | null,
+  ): Promise<CoachDecision | null>;
+  getCoachAutonomyMode(): Promise<CoachAutonomyMode>;
+  setCoachAutonomyMode(mode: CoachAutonomyMode): Promise<CoachAutonomyMode>;
   listCoachDecisions(): Promise<readonly CoachDecision[]>;
   listInterventionOutcomes(): Promise<readonly InterventionOutcomeEvaluation[]>;
   getCoachDecisionOutcome(
@@ -117,7 +125,10 @@ export type AppSessionValue = Readonly<{
   getResponseMemoryGroup(
     key: string,
   ): Promise<ComparableInterventionGroup | null>;
-  materializeCoachProposal(id: string): Promise<CoachDecision>;
+  materializeCoachProposal(
+    id: string,
+    input?: Readonly<{ confirmElevatedReview?: boolean }>,
+  ): Promise<CoachDecision>;
   rejectCoachProposal(
     id: string,
     reason: CoachRejectionReason,

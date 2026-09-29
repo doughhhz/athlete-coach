@@ -127,3 +127,9 @@ O Personal pode, opcionalmente, propor adicionar ou remover uma série de um exe
 ## Phase 14 — Troca de exercício revisada
 
 O Personal pode, opcionalmente, propor trocar o exercício de uma prescrição por um exercício relacionado no catálogo (apenas candidatos com relação registrada). A revisão mostra antes/proposto, as relações conhecidas com um aviso de que não significam equivalência, e a carga anterior versus a carga após a troca (nunca convertida). Aprovar cria só um rascunho, que o atleta pode editar — inclusive trocando por outro exercício — antes de ativar. A resposta observada compara lado a lado o exercício anterior e o ativado sem calcular diferença de carga ou 1RM, e cada exercício mantém seu histórico e seus recordes. Não há ranking de exercícios nem "melhor exercício".
+
+## Phase 15 — Modo do Personal e classes de revisão
+
+O atleta escolhe o "Modo do Personal". **Manual** (padrão): "O Personal analisa seus dados, mas só prepara uma proposta quando você pedir." **Proativo** (opt-in com consentimento explícito e aviso de chamada adicional ao serviço de IA): "Após uma análise, o Personal pode preparar uma proposta automaticamente. Nenhuma alteração será aplicada ao programa sem sua revisão." O modo proativo só continua uma análise iniciada pelo atleta: não há agendamento, timer, background, push ou cron. Propostas mostram a origem ("Solicitada por você" / "Preparada pelo Personal") e a classe de revisão ("Revisão padrão" / "Revisão reforçada"). Revisão reforçada exige marcar "Revisei as alterações propostas" (desmarcado por padrão) antes de "Criar revisão em rascunho". Nunca há "baixo/alto risco". Falhas da preparação proativa não escondem a análise.
+
+Futuro documentado, **não implementado**: "Conservative Auto-Draft" — criação automática de rascunho apenas para propostas de revisão padrão, se um dia aprovada por nova ADR; ativação continuaria sempre humana.
