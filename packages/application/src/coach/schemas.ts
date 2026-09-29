@@ -1,6 +1,7 @@
 import {
   COACH_ANALYSIS_SCHEMA_VERSION,
   athleteTrainingDossierSchemaVersions,
+  coachAnalysisModes,
   coachConfidenceLevels,
   coachRecommendationCategories,
   coachSafetyFlagKinds,
@@ -83,3 +84,27 @@ export const coachAnalysisSchema = z.object({
     outputTokens: z.number().int().nonnegative().nullable(),
   }),
 });
+
+/**
+ * coach-analyze request. Strict: the client cannot send athlete identity,
+ * analyses, safety state, origin or review class; `analysisRequestId` is
+ * only an idempotency key (ADR-0078).
+ */
+export const coachAnalyzeRequestSchema = z
+  .object({
+    userRequest: z.string().max(2000),
+    analysisMode: z.enum(coachAnalysisModes),
+    conversationContext: z
+      .array(
+        z
+          .object({
+            role: z.enum(["user", "assistant"]),
+            content: z.string().max(2000),
+          })
+          .strict(),
+      )
+      .max(6)
+      .optional(),
+    analysisRequestId: z.uuid().optional(),
+  })
+  .strict();

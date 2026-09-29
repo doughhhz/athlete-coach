@@ -91,3 +91,7 @@ Revisão: "Troca de exercício", Antes/Proposto, relações conhecidas ("X é va
 ## Phase 15 — Modo do Personal e revisão reforçada
 
 Seção "Modo do Personal" com Manual e Proativo; escolher Proativo abre o consentimento ("Após uma análise, o Personal poderá preparar propostas de ajuste automaticamente. Nenhuma alteração será aplicada ao seu treino sem sua revisão." + "Esse modo pode realizar uma chamada adicional ao serviço de IA.") e exige "Ativar modo proativo"; "Manter manual" é igualmente visível — sem dark patterns. Após a análise, um cartão informa o status proativo sem inventar proposta. Badges: "Solicitada por você" / "Preparada pelo Personal", "Revisão padrão" / "Revisão reforçada" na proposta, na revisão e no histórico. Revisão reforçada mostra "Esta proposta altera uma parte mais estrutural/intensa da prescrição. Revise os detalhes antes de criar a revisão." e o checkbox "Revisei as alterações propostas" desmarcado; revisão padrão mantém "Criar revisão em rascunho" em um passo.
+
+## Correção pós-Implementation Phase 15 — Proposta por identidade da análise
+
+Sem mudança visível no fluxo: analisar → ver resposta → "Ver proposta de ajuste". O app envia só o `analysisRequestId`. Se o programa mudou ou a análise não é reconhecida, a mensagem é "Seu programa ou a análise mudou. Faça uma nova análise para ver uma proposta."; se safety bloqueia, "Por segurança, nenhuma proposta de treino pode ser preparada para esta análise." O id vive só em memória da tela: após reiniciar o app, uma nova análise é necessária (sem persistência de conversa).

@@ -309,12 +309,13 @@ export default function CoachScreen() {
     }
   }
   async function propose() {
-    if (!analysis) return;
+    if (!analysis || !analysisRequestId) return;
     setProposalLoading(true);
     setError(null);
     try {
-      // Reuses an existing decision for the same analysis (no new AI call).
-      const value = await generateCoachProposal(analysis, analysisRequestId);
+      // Only the server-owned analysis identity is sent; an existing decision
+      // for the same analysis is reused (no new AI call).
+      const value = await generateCoachProposal(analysisRequestId);
       setDecision(value);
       if (value)
         setDecisions((items) => [

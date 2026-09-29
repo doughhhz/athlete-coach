@@ -25,7 +25,6 @@ import type {
   ExercisePersonalBest,
   SessionDerivedMetrics,
   AthleteTrainingDossier,
-  CoachAnalysis,
   CoachAnalysisMode,
   CoachAutonomyMode,
   CoachConversationMessage,
@@ -108,9 +107,9 @@ export type AppSessionValue = Readonly<{
       analysisRequestId: string;
     }>,
   ): Promise<CoachAnalysisResult>;
+  /** Sends only the server-owned analysis identity, never the analysis. */
   generateCoachProposal(
-    analysis: CoachAnalysis,
-    analysisRequestId: string | null,
+    analysisRequestId: string,
   ): Promise<CoachDecision | null>;
   getCoachAutonomyMode(): Promise<CoachAutonomyMode>;
   setCoachAutonomyMode(mode: CoachAutonomyMode): Promise<CoachAutonomyMode>;

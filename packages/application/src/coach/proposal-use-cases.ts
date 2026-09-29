@@ -3,7 +3,6 @@ import {
   collectDossierEvidenceIds,
   toDecisionGovernance,
   validateCoachProposal,
-  type CoachAnalysis,
   type CoachAutonomyMode,
   type CoachDecision,
   type CoachGovernanceAssessment,
@@ -18,6 +17,8 @@ import {
   rejectCoachProposalSchema,
 } from "./proposal-schemas.ts";
 import type {
+  CoachAnalysisRecord,
+  CoachAnalysisRepository,
   CoachDecisionRepository,
   CoachProposalProvider,
 } from "./proposal-ports.ts";
@@ -45,8 +46,30 @@ export const analysisRequestIdSchema = z.uuid();
 export type GenerateCoachProposalOptions = Readonly<{
   origin?: CoachProposalOrigin;
   autonomyModeAtCreation?: CoachAutonomyMode | null;
-  analysisRequestId?: string | null;
 }>;
+/** Unknown or other-athlete request id: indistinguishable by design. */
+export class CoachAnalysisNotFoundError extends Error {
+  constructor() {
+    super("Análise do Personal não encontrada.");
+  }
+}
+/**
+ * The active program changed since the analysis; a fresh analysis is needed
+ * before any provider call (ADR-0079).
+ */
+export class StaleCoachAnalysisError extends Error {
+  constructor() {
+    super("O programa mudou desde a análise. Faça uma nova análise.");
+  }
+}
+/**
+ * Proposal requests carry only the idempotency key of a server-owned
+ * analysis. Any other field (analysis, safety, origin, review class) is
+ * rejected, which keeps the trust boundary visible (ADR-0078).
+ */
+export const coachProposalRequestSchema = z
+  .object({ analysisRequestId: z.uuid() })
+  .strict();
 export class GenerateCoachProposal {
   private readonly dossier;
   private readonly programs;
@@ -79,15 +102,24 @@ export class GenerateCoachProposal {
       analysisRequestIdSchema.parse(analysisRequestId),
     );
   }
+  /**
+   * Accepts only an authoritative record loaded by the backend; the analysis
+   * snapshot is the interpretation, while proposal validity is checked
+   * against the current deterministic program and dossier (ADR-0079).
+   */
   async execute(
-    analysis: CoachAnalysis,
+    record: CoachAnalysisRecord,
     options: GenerateCoachProposalOptions = {},
   ): Promise<CoachDecision | null> {
     const origin = options.origin ?? "manual";
-    const analysisRequestId = options.analysisRequestId
-      ? analysisRequestIdSchema.parse(options.analysisRequestId)
-      : null;
-    if (analysis.safetyFlags.some((flag) => flag.blocksTrainingAdvice))
+    const { analysis } = record;
+    const analysisRequestId = analysisRequestIdSchema.parse(
+      record.analysisRequestId,
+    );
+    if (
+      record.trainingAdviceBlocked ||
+      analysis.safetyFlags.some((flag) => flag.blocksTrainingAdvice)
+    )
       throw new CoachProposalBlockedError(
         ["safety_blocks_training_advice"],
         ["Safety bloqueou proposta de treinamento."],
@@ -98,6 +130,12 @@ export class GenerateCoachProposal {
       this.dossier.execute(),
       this.programs.getActive(),
     ]);
+    if (
+      (sourceProgram?.id ?? null) !== (record.sourceProgram?.id ?? null) ||
+      (sourceProgram?.revision ?? null) !==
+        (record.sourceProgram?.revision ?? null)
+    )
+      throw new StaleCoachAnalysisError();
     if (!sourceProgram) return null;
     const output = await this.provider.generate(
       { analysis, dossier, sourceProgram },
@@ -133,6 +171,30 @@ export class GenerateCoachProposal {
       analysisRequestId,
       governance,
     });
+  }
+}
+/**
+ * Manual handoff: the client sends only `analysisRequestId`; the analysis,
+ * its safety state and provenance are loaded from the server-owned record.
+ */
+export class GenerateCoachProposalForAnalysisRequest {
+  private readonly analyses: Pick<CoachAnalysisRepository, "findByRequestId">;
+  private readonly generate: Pick<GenerateCoachProposal, "execute">;
+  constructor(
+    analyses: Pick<CoachAnalysisRepository, "findByRequestId">,
+    generate: Pick<GenerateCoachProposal, "execute">,
+  ) {
+    this.analyses = analyses;
+    this.generate = generate;
+  }
+  async execute(
+    input: unknown,
+    options: Omit<GenerateCoachProposalOptions, "origin"> = {},
+  ): Promise<CoachDecision | null> {
+    const { analysisRequestId } = coachProposalRequestSchema.parse(input);
+    const record = await this.analyses.findByRequestId(analysisRequestId);
+    if (!record) throw new CoachAnalysisNotFoundError();
+    return this.generate.execute(record, { ...options, origin: "manual" });
   }
 }
 export class ListCoachDecisions {

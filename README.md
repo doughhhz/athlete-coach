@@ -172,3 +172,7 @@ O Personal pode propor trocar um exercício por outro com relação registrada n
 ## Phase 15 — Modo do Personal (manual ou proativo) com governança
 
 O atleta escolhe o modo do Personal: **Manual** (padrão) ou **Proativo** (opt-in explícito com consentimento). No modo proativo, depois de uma análise pedida pelo atleta, o Personal pode preparar e registrar uma proposta para revisão — nunca materializa, nunca ativa, nunca roda em segundo plano. Toda proposta recebe uma classificação determinística `coach-governance-v1` ("Revisão padrão" ou "Revisão reforçada"), calculada pelo backend e nunca pelo modelo; revisão reforçada exige confirmar "Revisei as alterações propostas" antes de criar o rascunho. Retentativas da mesma análise são idempotentes (`analysisRequestId`). Próximo passo recomendado: revisão humana da Phase 15.
+
+## Correção pós-Implementation Phase 15 — Análise autoritativa no servidor
+
+Propostas do Personal agora partem de um registro de análise mantido pelo servidor (`coach_analysis_runs`), identificado por `analysisRequestId`. O app mostra a análise, mas nunca a devolve ao backend: para pedir uma proposta envia apenas `{ analysisRequestId }`. Estado de safety, evidências e proveniência vêm do registro imutável. Retentativas da mesma análise reutilizam o registro sem nova chamada à IA. Isso não é persistência de chat: a pergunta, a conversa, o prompt e o dossier completo não são armazenados.

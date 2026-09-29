@@ -74,3 +74,10 @@ test("proactive statuses have honest copy and no fake proposal", () => {
     assert.ok(labels.includes(text), text);
   assert.doesNotMatch(personal, /activateProgram|materializeCoachProposal/);
 });
+
+test("proposal requests send the analysis identity, never the displayed analysis", () => {
+  assert.match(personal, /generateCoachProposal\(analysisRequestId\)/);
+  assert.doesNotMatch(personal, /generateCoachProposal\(analysis[,)]/);
+  assert.match(gateway, /body: \{ analysisRequestId \}/);
+  assert.match(gateway, /stale_analysis/);
+});

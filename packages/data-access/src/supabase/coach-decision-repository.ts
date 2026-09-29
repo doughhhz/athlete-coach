@@ -6,12 +6,16 @@ import {
   coachProposalStatuses,
   coachRejectionReasons,
   persistedReviewClasses,
+  type CoachAnalysis,
   type CoachAutonomyMode,
   type CoachDecision,
   type CoachProposal,
 } from "@athlete-coach/domain";
 import {
+  coachAnalysisSchema,
   coachProposalSchema,
+  type CoachAnalysisRecord,
+  type CoachAnalysisRepository,
   type CoachDecisionEnvelope,
   type CoachDecisionRepository,
   type CoachPreferenceRepository,
@@ -86,18 +90,22 @@ export class SupabaseCoachDecisionRepository implements CoachDecisionRepository 
     this.userId = userId;
   }
   async create(proposal: CoachProposal, envelope: CoachDecisionEnvelope) {
-    const { data, error } = await this.client.rpc("create_coach_decision", {
-      p_user_id: this.userId,
-      p_proposal: JSON.parse(JSON.stringify(proposal)) as Json,
-      p_envelope: {
-        proposalOrigin: envelope.proposalOrigin,
-        autonomyModeAtCreation: envelope.autonomyModeAtCreation,
-        analysisRequestId: envelope.analysisRequestId,
-        governancePolicyVersion: envelope.governance.policyVersion,
-        reviewClass: envelope.governance.reviewClass,
-        governanceReasons: [...envelope.governance.reasons],
+    // Handoff through the server-owned analysis record (ADR-0080).
+    const { data, error } = await this.client.rpc(
+      "create_coach_decision_for_analysis",
+      {
+        p_user_id: this.userId,
+        p_proposal: JSON.parse(JSON.stringify(proposal)) as Json,
+        p_envelope: {
+          proposalOrigin: envelope.proposalOrigin,
+          autonomyModeAtCreation: envelope.autonomyModeAtCreation,
+          analysisRequestId: envelope.analysisRequestId,
+          governancePolicyVersion: envelope.governance.policyVersion,
+          reviewClass: envelope.governance.reviewClass,
+          governanceReasons: [...envelope.governance.reasons],
+        },
       },
-    });
+    );
     if (error) fail(error);
     return map(data);
   }
@@ -184,5 +192,67 @@ export class SupabaseCoachPreferenceRepository implements CoachPreferenceReposit
       .single();
     if (error) fail(error);
     return preferenceSchema.parse(data).autonomy_mode;
+  }
+}
+
+const analysisRunSchema = z.object({
+  analysis_request_id: z.uuid(),
+  analysis_snapshot: z.unknown(),
+  training_advice_blocked: z.boolean(),
+  source_program_id: z.uuid().nullable(),
+  source_program_revision: z.number().int().positive().nullable(),
+  created_at: z.iso.datetime({ offset: true }),
+});
+function mapAnalysisRun(input: unknown): CoachAnalysisRecord {
+  const row = analysisRunSchema.parse(input);
+  return {
+    analysisRequestId: row.analysis_request_id,
+    analysis: coachAnalysisSchema.parse(row.analysis_snapshot) as CoachAnalysis,
+    trainingAdviceBlocked: row.training_advice_blocked,
+    sourceProgram:
+      row.source_program_id && row.source_program_revision
+        ? { id: row.source_program_id, revision: row.source_program_revision }
+        : null,
+    createdAt: row.created_at,
+  };
+}
+/**
+ * Backend-only (service client): the table has no client grants. Every read
+ * is explicitly scoped to the authenticated user, so an id owned by another
+ * athlete is indistinguishable from an unknown id.
+ */
+export class SupabaseCoachAnalysisRepository implements CoachAnalysisRepository {
+  private readonly client: AthleteCoachSupabaseClient;
+  private readonly userId: string;
+  constructor(client: AthleteCoachSupabaseClient, userId: string) {
+    this.client = client;
+    this.userId = userId;
+  }
+  async findByRequestId(analysisRequestId: string) {
+    const { data, error } = await this.client
+      .from("coach_analysis_runs")
+      .select("*, athletes!inner(user_id)")
+      .eq("analysis_request_id", analysisRequestId)
+      .eq("athletes.user_id", this.userId)
+      .maybeSingle();
+    if (error) fail(error);
+    return data ? mapAnalysisRun(data) : null;
+  }
+  async recordCompleted(
+    input: Parameters<CoachAnalysisRepository["recordCompleted"]>[0],
+  ) {
+    const { data, error } = await this.client.rpc("record_coach_analysis_run", {
+      p_user_id: this.userId,
+      p_analysis_request_id: input.analysisRequestId,
+      p_analysis: JSON.parse(JSON.stringify(input.analysis)) as Json,
+      ...(input.sourceProgram
+        ? {
+            p_source_program_id: input.sourceProgram.id,
+            p_source_program_revision: input.sourceProgram.revision,
+          }
+        : {}),
+    });
+    if (error) fail(error);
+    return mapAnalysisRun(data);
   }
 }

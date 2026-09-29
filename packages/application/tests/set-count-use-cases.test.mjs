@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { analysisRecord } from "./fixtures/analysis-record.mjs";
 import {
   BuildIndividualResponseMemory,
   CoachProposalValidationError,
@@ -173,6 +174,7 @@ const dossier = {
   responseMemory: null,
 };
 const analysis = { safetyFlags: [] };
+const record = () => analysisRecord(analysis, sourceProgram());
 function generator(output) {
   const created = [];
   const use = new GenerateCoachProposal(
@@ -184,6 +186,7 @@ function generator(output) {
         created.push(proposal),
         { id: "d", proposal }
       ),
+      findByAnalysisRequestId: async () => null,
     },
     () => "request",
   );
@@ -194,7 +197,7 @@ test("a valid v2 add-set proposal is validated and persisted as proposed", async
   const { use, created } = generator(
     snapshot("coach-proposal-v2", [addAction()]),
   );
-  await use.execute(analysis);
+  await use.execute(record());
   assert.equal(created.length, 1);
   assert.equal(created[0].schemaVersion, "coach-proposal-v2");
 });
@@ -204,7 +207,7 @@ test("removing the only set is rejected before persistence", async () => {
     snapshot("coach-proposal-v2", [removeAction()]),
   );
   await assert.rejects(
-    () => use.execute(analysis),
+    () => use.execute(record()),
     CoachProposalValidationError,
   );
   assert.equal(created.length, 0);
@@ -212,7 +215,7 @@ test("removing the only set is rejected before persistence", async () => {
 
 test("no-change remains valid with the new vocabulary", async () => {
   const { use, created } = generator(null);
-  assert.equal(await use.execute(analysis), null);
+  assert.equal(await use.execute(record()), null);
   assert.equal(created.length, 0);
 });
 

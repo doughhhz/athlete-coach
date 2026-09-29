@@ -92,3 +92,7 @@ Dor aguda, possível lesão ou questões médicas continuam bloqueadas pelo safe
 ## Phase 15 — Proatividade não contorna safety
 
 Safety bloqueante impede a chamada de proposta proativa e resulta em status `blocked` sem persistência. A classe de revisão é governança operacional, não risco médico ou fisiológico, e nunca é exibida como "baixo/alto risco". Revisão reforçada exige confirmação humana verificada no servidor; o cliente não pode rebaixar a classe nem escolher origem. Nenhuma materialização ou ativação automática.
+
+## Correção pós-Implementation Phase 15 — Safety com proveniência no servidor
+
+O cliente não consegue remover `safetyFlags` ou `blocksTrainingAdvice`: `coach-propose` rejeita (400) qualquer campo além de `analysisRequestId` e carrega o estado de safety do registro imutável. Análise bloqueada → `422 proposal_blocked` sem chamada ao provider e sem decisão; o banco também recusa criar decisão a partir de registro bloqueado. IDs desconhecidos ou de outro atleta → mesmo `404 analysis_not_found`.

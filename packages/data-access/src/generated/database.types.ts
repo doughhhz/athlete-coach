@@ -279,6 +279,65 @@ export type Database = {
           },
         ]
       }
+      coach_analysis_runs: {
+        Row: {
+          analysis_request_id: string
+          analysis_schema_version: string
+          analysis_snapshot: Json
+          athlete_id: string
+          created_at: string
+          dossier_schema_version: string
+          id: string
+          model_identifier: string
+          prompt_version: string
+          provider: string
+          safety_policy_version: string
+          source_program_id: string | null
+          source_program_revision: number | null
+          training_advice_blocked: boolean
+        }
+        Insert: {
+          analysis_request_id: string
+          analysis_schema_version: string
+          analysis_snapshot: Json
+          athlete_id: string
+          created_at?: string
+          dossier_schema_version: string
+          id?: string
+          model_identifier: string
+          prompt_version: string
+          provider: string
+          safety_policy_version: string
+          source_program_id?: string | null
+          source_program_revision?: number | null
+          training_advice_blocked: boolean
+        }
+        Update: {
+          analysis_request_id?: string
+          analysis_schema_version?: string
+          analysis_snapshot?: Json
+          athlete_id?: string
+          created_at?: string
+          dossier_schema_version?: string
+          id?: string
+          model_identifier?: string
+          prompt_version?: string
+          provider?: string
+          safety_policy_version?: string
+          source_program_id?: string | null
+          source_program_revision?: number | null
+          training_advice_blocked?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_analysis_runs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_decisions: {
         Row: {
           analysis_request_id: string | null
@@ -1513,6 +1572,46 @@ export type Database = {
               isSetofReturn: false
             }
           }
+      create_coach_decision_for_analysis: {
+        Args: { p_envelope: Json; p_proposal: Json; p_user_id: string }
+        Returns: {
+          analysis_request_id: string | null
+          approved_at: string | null
+          athlete_id: string
+          autonomy_mode_at_creation: string | null
+          created_at: string
+          dossier_schema_version: string
+          governance_policy_version: string | null
+          governance_reasons: Json
+          id: string
+          materialized_at: string | null
+          materialized_program_id: string | null
+          model_identifier: string
+          prompt_version: string
+          proposal_origin: string
+          proposal_schema_version: string
+          proposal_snapshot: Json
+          proposed_at: string
+          provider: string
+          rejected_at: string | null
+          rejection_notes: string | null
+          rejection_reason: string | null
+          review_class: string | null
+          safety_policy_version: string
+          source_analysis_id: string
+          source_program_id: string
+          source_program_revision: number
+          stale_at: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "coach_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_athlete_id: { Args: never; Returns: string }
       ensure_current_athlete: {
         Args: never
@@ -1566,6 +1665,37 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "coach_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      record_coach_analysis_run: {
+        Args: {
+          p_analysis: Json
+          p_analysis_request_id: string
+          p_source_program_id?: string
+          p_source_program_revision?: number
+          p_user_id: string
+        }
+        Returns: {
+          analysis_request_id: string
+          analysis_schema_version: string
+          analysis_snapshot: Json
+          athlete_id: string
+          created_at: string
+          dossier_schema_version: string
+          id: string
+          model_identifier: string
+          prompt_version: string
+          provider: string
+          safety_policy_version: string
+          source_program_id: string | null
+          source_program_revision: number | null
+          training_advice_blocked: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "coach_analysis_runs"
           isOneToOne: true
           isSetofReturn: false
         }

@@ -84,3 +84,8 @@ Conflitos devem ser explicitados e resolvidos documentalmente antes de implement
 - **Review class is an operational governance classification, not a medical or physiological risk score.**
 
 A classe de revisão é calculada por política determinística e versionada no domínio; o LLM nunca define, reduz ou influencia essa classe. Nenhum modo permite materialização ou ativação automáticas (ADR-0074, ADR-0075).
+
+## Correção pós-Implementation Phase 15 — Autoridade da análise
+
+- **Client-returned Coach analysis is display data, never authoritative coaching state.**
+- **Safety state used for proposal generation must originate from a server-owned analysis record.**

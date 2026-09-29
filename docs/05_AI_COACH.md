@@ -127,3 +127,7 @@ O dossier v5 traz `exerciseReplacementCandidates` apenas para os exercícios do 
 ## Phase 15 — Iniciativa proativa governada
 
 Nenhum prompt ou contrato de IA foi alterado (`coach-proposal-v3`, `coach-system-v5`, `coach-proposal-prompt-v5` permanecem). O modelo não recebe nem produz classe de revisão; texto do modelo como "baixo risco" não tem efeito. Em modo proativo, `coach-analyze` pode fazer uma segunda chamada (proposta) após a análise, contando no rate limit; safety que bloqueia orientação de treino impede a chamada. `coach-propose` (manual) aceita `analysisRequestId` e devolve a proposta já existente sem nova chamada. Limitação conhecida: o fluxo manual ainda recebe a análise de volta do cliente, e o rate limit é em memória por instância.
+
+## Correção pós-Implementation Phase 15 — Análise autoritativa
+
+Nenhum contrato de IA mudou (`coach-analysis-v1`, `coach-system-v5`, `coach-proposal-prompt-v5`, `coach-proposal-v3`, dossier v5). A análise validada (schema + grounding contra o dossier da análise + safety de saída) é gravada como registro autoritativo antes de ser devolvida. A proposta usa o snapshot como interpretação e valida evidências, IDs e candidatos contra o dossier e o programa **atuais**; se o programa ativo mudou desde a análise, responde `409 stale_analysis` sem chamar o provider. Resolve a limitação da Implementation Phase 15 (análise devolvida pelo cliente no fluxo manual). O rate limit continua em memória por instância.

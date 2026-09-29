@@ -139,3 +139,14 @@ Auth antes da configuração do provider, candidatos determinísticos por relaç
 ## Phase 15 — Coach Governance, Proactive Mode & Risk-Based Review Classes — complete
 
 Numeração de fase de implementação (a "Phase 15 — Apple Health / HealthKit" acima pertence ao plano original de produto e continua futura). Política determinística `coach-governance-v1`, preferência de autonomia manual/proativa com opt-in, envelope de governança no ledger, idempotência por `analysisRequestId`, orquestração proativa isolada em `coach-analyze`, revalidação e confirmação de revisão reforçada na materialização, UI e cenário integrado. Fora de escopo: materialização ou ativação automáticas, agente em background/agendado, escore de risco médico, ML/RL, "Conservative Auto-Draft" (apenas documentado), Phase 16.
+
+## Convenção de numeração (ADR-0081)
+
+- **Product Roadmap Phase N**: plano original de produto neste documento (ex.: Product Roadmap Phase 15 — Apple Health / HealthKit, ainda futura).
+- **Implementation Phase N**: sequência de execução (ex.: Implementation Phase 15 — Coach Governance, Proactive Mode & Risk-Based Review Classes, concluída).
+
+Seções históricas não foram renumeradas. Relatórios e prompts futuros devem sempre qualificar a numeração; "Phase 16" sem qualificador é ambíguo.
+
+## Correção pós-Implementation Phase 15 — Authoritative Coach Analysis Handoff — complete
+
+Registro autoritativo `coach_analysis_runs`, handoff de proposta só por `analysisRequestId`, rejeição de payload forjado, análise idempotente, semântica de desatualização antes do provider e decisões ligadas a registros não bloqueados. Fora de escopo: Conservative Auto-Draft, materialização/ativação automáticas, Coach em background, persistência de chat, memória vetorial, web/RAG, ML/RL, Apple Health, nutrição e qualquer Implementation Phase 16.

@@ -154,10 +154,8 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     ),
     analyzeWithCoach: (input: Parameters<SupabaseCoachGateway["analyze"]>[0]) =>
       coach.analyze(input),
-    generateCoachProposal: (
-      analysis: Parameters<SupabaseCoachGateway["propose"]>[0],
-      analysisRequestId: string | null,
-    ) => coach.propose(analysis, analysisRequestId),
+    generateCoachProposal: (analysisRequestId: string) =>
+      coach.propose(analysisRequestId),
     // Own preference only (RLS); explicit opt-in, default manual.
     getCoachAutonomyMode: new GetCoachAutonomyMode(coachPreferences),
     setCoachAutonomyMode: new SetCoachAutonomyMode(coachPreferences),

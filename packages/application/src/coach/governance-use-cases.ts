@@ -9,7 +9,10 @@ import {
   type CoachGovernanceReason,
 } from "@athlete-coach/domain";
 import { z } from "zod";
-import type { CoachPreferenceRepository } from "./proposal-ports.ts";
+import type {
+  CoachAnalysisRepository,
+  CoachPreferenceRepository,
+} from "./proposal-ports.ts";
 import {
   CoachProposalBlockedError,
   CoachProposalValidationError,
@@ -78,9 +81,25 @@ export type ProactiveProposalResult = Readonly<{
 export type AnalyzeWithGovernanceResult = Readonly<{
   analysis: CoachAnalysis;
   analysisRequestId: string;
+  /** True when a retry returned the existing authoritative record (no provider call). */
+  analysisReused: boolean;
   autonomyMode: CoachAutonomyMode | null;
   proactiveProposal: ProactiveProposalResult;
 }>;
+/** Active program represented in the analysis-time dossier. */
+export type AnalysisProgramContext = () => Promise<Readonly<{
+  id: string;
+  revision: number;
+}> | null>;
+/** Builds the provenance reader from the same memoized dossier as the analysis. */
+export function analysisProgramFrom(
+  dossier: Readonly<{ execute(): Promise<AthleteTrainingDossier> }>,
+): AnalysisProgramContext {
+  return async () => {
+    const program = (await dossier.execute()).activeProgram;
+    return program ? { id: program.id, revision: program.revision } : null;
+  };
+}
 /** Second-call budget (rate limit must count the proactive proposal call). */
 export type ProactiveCallBudget = Readonly<{ tryConsume(): boolean }>;
 
@@ -111,6 +130,8 @@ export class AnalyzeAthleteWithCoachAndGovernance {
       }>,
     ): Promise<CoachAnalysis>;
   }>;
+  private readonly analyses: CoachAnalysisRepository;
+  private readonly analysisProgram: AnalysisProgramContext;
   private readonly propose: Pick<
     GenerateCoachProposal,
     "execute" | "findExisting"
@@ -118,14 +139,22 @@ export class AnalyzeAthleteWithCoachAndGovernance {
   private readonly preferences: CoachPreferenceRepository;
   private readonly budget: ProactiveCallBudget;
   private readonly ids: () => string;
+  /**
+   * `analysisProgram` must read the same (memoized) dossier the analysis used,
+   * so the persisted program provenance matches what the athlete saw.
+   */
   constructor(
     analyze: AnalyzeAthleteWithCoachAndGovernance["analyze"],
+    analyses: CoachAnalysisRepository,
+    analysisProgram: AnalysisProgramContext,
     propose: Pick<GenerateCoachProposal, "execute" | "findExisting">,
     preferences: CoachPreferenceRepository,
     budget: ProactiveCallBudget = { tryConsume: () => true },
     ids: () => string = () => crypto.randomUUID(),
   ) {
     this.analyze = analyze;
+    this.analyses = analyses;
+    this.analysisProgram = analysisProgram;
     this.propose = propose;
     this.preferences = preferences;
     this.budget = budget;
@@ -143,7 +172,19 @@ export class AnalyzeAthleteWithCoachAndGovernance {
       input.analysisRequestId == null
         ? this.ids()
         : analysisRequestIdSchema.parse(input.analysisRequestId);
-    const analysis = await this.analyze.execute(input);
+    // Idempotent analysis: a retry of the same request returns the stored,
+    // validated analysis without rebuilding the dossier or calling the provider.
+    const existingRecord =
+      await this.analyses.findByRequestId(analysisRequestId);
+    const record =
+      existingRecord ??
+      (await this.analyses.recordCompleted({
+        analysisRequestId,
+        analysis: await this.analyze.execute(input),
+        sourceProgram: await this.analysisProgram(),
+      }));
+    const analysis = record.analysis;
+    const analysisReused = existingRecord !== null;
     let autonomyMode: CoachAutonomyMode;
     try {
       autonomyMode = await this.preferences.getAutonomyMode();
@@ -151,6 +192,7 @@ export class AnalyzeAthleteWithCoachAndGovernance {
       return {
         analysis,
         analysisRequestId,
+        analysisReused,
         autonomyMode: null,
         proactiveProposal: outcome("unavailable", {
           unavailableReason: "preference_unavailable",
@@ -160,11 +202,12 @@ export class AnalyzeAthleteWithCoachAndGovernance {
     const result = (proactiveProposal: ProactiveProposalResult) => ({
       analysis,
       analysisRequestId,
+      analysisReused,
       autonomyMode,
       proactiveProposal,
     });
     if (autonomyMode !== "proactive") return result(outcome("not_enabled"));
-    if (analysis.safetyFlags.some((flag) => flag.blocksTrainingAdvice))
+    if (record.trainingAdviceBlocked)
       return result(
         outcome("blocked", { reasons: ["safety_blocks_training_advice"] }),
       );
@@ -175,10 +218,11 @@ export class AnalyzeAthleteWithCoachAndGovernance {
         return result(
           outcome("unavailable", { unavailableReason: "rate_limited" }),
         );
-      const decision = await this.propose.execute(analysis, {
+      // The freshly persisted server record is handed over directly; the
+      // analysis never round-trips through the client (ADR-0078).
+      const decision = await this.propose.execute(record, {
         origin: "proactive",
         autonomyModeAtCreation: autonomyMode,
-        analysisRequestId,
       });
       return result(
         decision ? outcome("prepared", { decision }) : outcome("no_change"),

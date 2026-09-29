@@ -686,6 +686,37 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0077 — Idempotência proativa e isolamento de falhas
 
 - Data: 2026-10-01
-- Status: accepted
+- Status: accepted; complementada pelas ADR-0078/0080 (a chave passa a identificar um registro de análise mantido pelo servidor; decisões novas exigem esse registro)
 - Decisão: `analysisRequestId` é uma chave de idempotência do cliente (UUID validado, escopo do atleta, nunca autoridade). Índice único parcial `(athlete_id, analysis_request_id)` e a RPC backend-only `create_coach_decision(uuid,jsonb,jsonb)` retornam a decisão existente em retentativas; a aplicação procura a decisão existente antes de chamar o provider. `source_analysis_id` (gerado pelo modelo) não é chave. A análise é sempre devolvida; a proposta proativa informa `not_enabled | no_change | prepared | blocked | unavailable | invalid`, sem proposta falsa; a segunda chamada consome o rate limit. Futuro "Conservative Auto-Draft" apenas documentado, não implementado.
 - Impacto: DB, data-access, application, Edge Functions, mobile, integração.
+
+### ADR-0078 — Authoritative Coach Analysis Records; client analysis is non-authoritative
+
+- Data: 2026-10-02
+- Status: accepted
+- Regra anterior (Implementation Phase 15, ADR-0077 e limitação registrada em 05_AI_COACH): o fluxo manual `coach-propose` recebia a `CoachAnalysis` de volta do cliente e usava seus `safetyFlags`.
+- Regra nova: **Client-returned Coach analysis is display data, never authoritative coaching state.** **Safety state used for proposal generation must originate from a server-owned analysis record.** Toda análise concluída e validada é gravada em `coach_analysis_runs` (snapshot estruturado imutável, safety derivado, proveniência de provider/modelo/versões e do programa ativo). `coach-propose` aceita somente `{ analysisRequestId }` (schema estrito; campos extras → 400). O gerador aceita apenas o registro autoritativo. Não é persistência de chat. Retenção até política futura explícita; removido com o atleta.
+- Evidência: auditoria mostrou que remover `blocksTrainingAdvice` do corpo levaria à chamada do provider; teste de regressão cobre o caso.
+- Impacto: DB, data-access, application, Edge Functions, mobile, docs.
+
+### ADR-0079 — Analysis request identity, idempotency and drift semantics
+
+- Data: 2026-10-02
+- Status: accepted
+- Decisão: `analysisRequestId` (UUID do cliente ou gerado pelo servidor, nunca do modelo) é a identidade; `UNIQUE (athlete_id, analysis_request_id)`. Retentativa com registro existente devolve o registro (`analysisReused: true`) sem reconstruir dossier nem chamar o provider — mesmo que o texto da pergunta mude (a identidade é o id). Falhas não são gravadas. Drift: o snapshot é a interpretação exibida; a validade da proposta usa o programa e o dossier atuais; programa ativo diferente do registrado (id ou revisão, ou existência) → `StaleCoachAnalysisError` (`409 stale_analysis`) antes do provider. A staleness da materialização (ADR-0045) continua.
+- Impacto: application, Edge Functions, mobile.
+
+### ADR-0080 — Proposal handoff through server-owned analysis
+
+- Data: 2026-10-02
+- Status: accepted
+- Decisão: decisões novas são criadas por `create_coach_decision_for_analysis`, que exige um registro do mesmo atleta e não bloqueado, e delega à criação governada da ADR-0077 (idempotência de uma decisão por análise preservada; manual e proativo compartilham a mesma decisão). A RPC de 3 argumentos da Implementation Phase 15 permanece backend-only por compatibilidade, sem uso pela aplicação (teste de arquitetura). FK composta não adicionada: linhas e testes existentes da Implementation Phase 15 têm request ids sem registro; a integridade para novas decisões é garantida pela RPC. Modo proativo entrega o registro recém-gravado ao gerador, sem ida e volta pelo cliente.
+- Impacto: DB, data-access, application, testes.
+
+### ADR-0081 — Numeração: Product Roadmap vs Implementation Sequence
+
+- Data: 2026-10-02
+- Status: accepted
+- Contexto: o roadmap original de produto numera "Phase 15 — Apple Health / HealthKit"; a sequência de execução usou "Phase 15" para Coach Governance & Proactive Mode.
+- Decisão: documentos históricos não são renumerados. A partir de agora, prompts, relatórios e docs identificam a numeração: **Product Roadmap Phase N** (plano original em 10_ROADMAP) ou **Implementation Phase N** (sequência executada). "Phase 16" sem qualificador é ambíguo e deve ser evitado.
+- Impacto: 10_ROADMAP, relatórios futuros.

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { analysisRecord } from "./fixtures/analysis-record.mjs";
 import {
   BuildAthleteTrainingDossier,
   BuildInterventionOutcomes,
@@ -239,9 +240,13 @@ async function generate(output) {
         created.push(value),
         { id: "d", proposal: value }
       ),
+      findByAnalysisRequestId: async () => null,
     },
   );
-  return { run: () => use.execute({ safetyFlags: [] }), created };
+  return {
+    run: () => use.execute(analysisRecord({ safetyFlags: [] }, active)),
+    created,
+  };
 }
 
 test("a replacement from the system-built candidates is validated and persisted", async () => {

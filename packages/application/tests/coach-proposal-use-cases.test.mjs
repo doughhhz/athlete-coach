@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { analysisRecord } from "./fixtures/analysis-record.mjs";
 import {
   GenerateCoachProposal,
   CoachProposalValidationError,
@@ -151,6 +152,7 @@ function dependencies(output = proposal) {
           saved.push(value);
           return { id: "decision", proposal: value };
         },
+        findByAnalysisRequestId: async () => null,
       },
       () => "request",
     ),
@@ -159,13 +161,13 @@ function dependencies(output = proposal) {
 
 test("generates, validates and persists a structured proposal", async () => {
   const { useCase, saved } = dependencies();
-  const result = await useCase.execute(analysis);
+  const result = await useCase.execute(analysisRecord(analysis, program));
   assert.equal(result.id, "decision");
   assert.equal(saved.length, 1);
 });
 test("accepts a provider no-change result without persistence", async () => {
   const { useCase, saved } = dependencies(null);
-  assert.equal(await useCase.execute(analysis), null);
+  assert.equal(await useCase.execute(analysisRecord(analysis, program)), null);
   assert.equal(saved.length, 0);
 });
 test("rejects dangling IDs before persistence", async () => {
@@ -179,7 +181,7 @@ test("rejects dangling IDs before persistence", async () => {
     ],
   });
   await assert.rejects(
-    () => useCase.execute(analysis),
+    () => useCase.execute(analysisRecord(analysis, program)),
     CoachProposalValidationError,
   );
   assert.equal(saved.length, 0);
@@ -188,10 +190,12 @@ test("blocks proposal generation for safety-sensitive analysis", async () => {
   const { useCase } = dependencies();
   await assert.rejects(
     () =>
-      useCase.execute({
-        ...analysis,
-        safetyFlags: [{ blocksTrainingAdvice: true }],
-      }),
+      useCase.execute(
+        analysisRecord(
+          { ...analysis, safetyFlags: [{ blocksTrainingAdvice: true }] },
+          program,
+        ),
+      ),
     CoachProposalValidationError,
   );
 });

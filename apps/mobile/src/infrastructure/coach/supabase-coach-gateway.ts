@@ -1,5 +1,4 @@
 import type {
-  CoachAnalysis,
   CoachAnalysisMode,
   CoachConversationMessage,
   CoachDecision,
@@ -14,7 +13,11 @@ export class MobileCoachError extends Error {
         ? "O Personal está temporariamente indisponível."
         : code === "elevated_review_confirmation_required"
           ? "Confirme que revisou as alterações propostas."
-          : "Não foi possível obter a análise do Personal.",
+          : code === "stale_analysis" || code === "analysis_not_found"
+            ? "Seu programa ou a análise mudou. Faça uma nova análise para ver uma proposta."
+            : code === "proposal_blocked"
+              ? "Por segurança, nenhuma proposta de treino pode ser preparada para esta análise."
+              : "Não foi possível obter a análise do Personal.",
     );
   }
 }
@@ -54,6 +57,7 @@ export class SupabaseCoachGateway {
     return {
       analysis: payload.analysis,
       analysisRequestId: payload.analysisRequestId ?? input.analysisRequestId,
+      analysisReused: payload.analysisReused ?? false,
       autonomyMode: payload.autonomyMode ?? null,
       proactiveProposal: payload.proactiveProposal ?? {
         status: "not_enabled",
@@ -63,20 +67,17 @@ export class SupabaseCoachGateway {
       },
     };
   }
-  /** Manual request; an existing decision for the same analysis is reused. */
-  async propose(
-    analysis: CoachAnalysis,
-    analysisRequestId: string | null,
-  ): Promise<CoachDecision | null> {
+  /**
+   * Manual request by analysis identity only: the displayed analysis is never
+   * sent back (ADR-0078). An existing decision for the same analysis is reused.
+   */
+  async propose(analysisRequestId: string): Promise<CoachDecision | null> {
     const { data, error } = await this.client.functions.invoke(
       "coach-propose",
-      {
-        body: analysisRequestId
-          ? { analysis, analysisRequestId }
-          : { analysis },
-      },
+      { body: { analysisRequestId } },
     );
-    if (error) throw new MobileCoachError("proposal_failed");
+    if (error)
+      throw new MobileCoachError(await errorCode(error, "proposal_failed"));
     return (data as { decision: CoachDecision | null }).decision;
   }
   async listDecisions(): Promise<readonly CoachDecision[]> {

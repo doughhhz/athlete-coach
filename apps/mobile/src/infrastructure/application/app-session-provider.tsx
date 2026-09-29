@@ -288,10 +288,10 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
         throw new Error("O Personal está temporariamente indisponível.");
       return application.analyzeWithCoach(input);
     },
-    generateCoachProposal: async (analysis, analysisRequestId) => {
+    generateCoachProposal: async (analysisRequestId) => {
       if (!application)
         throw new Error("O Personal está temporariamente indisponível.");
-      return application.generateCoachProposal(analysis, analysisRequestId);
+      return application.generateCoachProposal(analysisRequestId);
     },
     getCoachAutonomyMode: async () => {
       if (!application) throw new Error("Backend não configurado.");

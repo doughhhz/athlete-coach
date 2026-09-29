@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { analysisRecord } from "./fixtures/analysis-record.mjs";
 import {
   AnalyzeAthleteWithCoachAndGovernance,
   ApproveCoachProposal,
   CoachProviderError,
   ElevatedReviewConfirmationRequiredError,
+  CoachAnalysisNotFoundError,
+  CoachProposalBlockedError,
   GenerateCoachProposal,
+  GenerateCoachProposalForAnalysisRequest,
   GetCoachAutonomyMode,
+  StaleCoachAnalysisError,
   SetCoachAutonomyMode,
   memoizeDossier,
 } from "../src/index.ts";
@@ -184,6 +189,31 @@ function generator(output = proposal(), fail = null) {
   );
   return { useCase, decisions, calls };
 }
+/** In-memory authoritative store, scoped to one athlete like the adapter. */
+function analysisStore() {
+  const records = new Map();
+  const calls = { record: 0 };
+  return {
+    records,
+    calls,
+    findByRequestId: async (id) => records.get(id) ?? null,
+    recordCompleted: async ({ analysisRequestId, analysis, sourceProgram }) => {
+      calls.record += 1;
+      if (!records.has(analysisRequestId))
+        records.set(analysisRequestId, {
+          analysisRequestId,
+          analysis,
+          trainingAdviceBlocked: analysis.safetyFlags.some(
+            (flag) => flag.blocksTrainingAdvice,
+          ),
+          sourceProgram,
+          createdAt: "2026-10-02T00:00:00.000Z",
+        });
+      return records.get(analysisRequestId);
+    },
+  };
+}
+const record = (change) => analysisRecord(analysis, program, change);
 const preferences = (mode) => ({
   getAutonomyMode: async () => {
     if (mode instanceof Error) throw mode;
@@ -197,9 +227,12 @@ function orchestrator(
 ) {
   const generated = generator(output, fail);
   const analyzeCalls = [];
+  const analyses = analysisStore();
   return {
     ...generated,
+    generate: generated.useCase,
     analyzeCalls,
+    analyses,
     useCase: new AnalyzeAthleteWithCoachAndGovernance(
       {
         execute: async (input) => {
@@ -207,6 +240,8 @@ function orchestrator(
           return analysisValue;
         },
       },
+      analyses,
+      async () => ({ id: program.id, revision: program.revision }),
       generated.useCase,
       preferences(mode),
       budget,
@@ -222,9 +257,9 @@ const input = {
 
 test("manual generation persists a backend-computed governance envelope", async () => {
   const { useCase, decisions } = generator();
-  const decision = await useCase.execute(analysis);
+  const decision = await useCase.execute(record());
   assert.equal(decision.proposalOrigin, "manual");
-  assert.equal(decision.analysisRequestId, null);
+  assert.equal(decision.analysisRequestId, record().analysisRequestId);
   assert.deepEqual(decision.governance, {
     policyVersion: "coach-governance-v1",
     reviewClass: "standard_review",
@@ -235,9 +270,8 @@ test("manual generation persists a backend-computed governance envelope", async 
 
 test("manual retry of the same analysis reuses the decision without the provider", async () => {
   const { useCase, calls, decisions } = generator();
-  const options = { analysisRequestId: ids.request };
-  const first = await useCase.execute(analysis, options);
-  const second = await useCase.execute(analysis, options);
+  const first = await useCase.execute(record());
+  const second = await useCase.execute(record());
   assert.equal(first.id, second.id);
   assert.equal(calls.provider, 1);
   assert.equal(decisions.rows.length, 1);
@@ -246,7 +280,7 @@ test("manual retry of the same analysis reuses the decision without the provider
 test("invalid idempotency keys are rejected before any provider call", async () => {
   const { useCase, calls } = generator();
   await assert.rejects(() =>
-    useCase.execute(analysis, { analysisRequestId: "not-a-uuid" }),
+    useCase.execute(record({ analysisRequestId: "not-a-uuid" })),
   );
   assert.equal(calls.provider, 0);
 });
@@ -444,4 +478,179 @@ test("a changed source revision is doubt, hence elevated", async () => {
     () => useCase.execute("d"),
     ElevatedReviewConfirmationRequiredError,
   );
+});
+
+// Authoritative analysis handoff (ADR-0078..0080) -------------------------------
+
+test("a new analysis is persisted as the authoritative record", async () => {
+  const { useCase, analyses } = orchestrator("manual");
+  const result = await useCase.execute(input);
+  const stored = analyses.records.get(ids.request);
+  assert.equal(stored.analysis, analysis);
+  assert.deepEqual(stored.sourceProgram, { id: program.id, revision: 1 });
+  assert.equal(stored.trainingAdviceBlocked, false);
+  assert.equal(result.analysisReused, false);
+  assert.deepEqual(Object.keys(stored).sort(), [
+    "analysis",
+    "analysisRequestId",
+    "createdAt",
+    "sourceProgram",
+    "trainingAdviceBlocked",
+  ]);
+});
+
+test("retrying the same analysis request reuses the record without the provider", async () => {
+  const { useCase, analyzeCalls, analyses } = orchestrator("manual");
+  await useCase.execute(input);
+  const retry = await useCase.execute({ ...input, userRequest: "Outra coisa" });
+  assert.equal(analyzeCalls.length, 1);
+  assert.equal(analyses.calls.record, 1);
+  assert.equal(retry.analysisReused, true);
+  assert.equal(retry.analysis, analysis);
+});
+
+test("safety state is persisted server-side and drives the proactive block", async () => {
+  const blocked = {
+    ...analysis,
+    safetyFlags: [{ blocksTrainingAdvice: true }],
+  };
+  const { useCase, analyses, calls } = orchestrator("proactive", {
+    analysisValue: blocked,
+  });
+  const result = await useCase.execute(input);
+  assert.equal(analyses.records.get(ids.request).trainingAdviceBlocked, true);
+  assert.equal(result.proactiveProposal.status, "blocked");
+  assert.equal(calls.provider, 0);
+});
+
+test("a failed analysis is not persisted", async () => {
+  const analyses = analysisStore();
+  const useCase = new AnalyzeAthleteWithCoachAndGovernance(
+    {
+      execute: async () => {
+        throw new CoachProviderError("unavailable", "down");
+      },
+    },
+    analyses,
+    async () => null,
+    generator().useCase,
+    preferences("proactive"),
+  );
+  await assert.rejects(() => useCase.execute(input), CoachProviderError);
+  assert.equal(analyses.records.size, 0);
+});
+
+function handoff(records = [record()], output = proposal()) {
+  const generated = generator(output);
+  const store = analysisStore();
+  for (const item of records) store.records.set(item.analysisRequestId, item);
+  return {
+    ...generated,
+    useCase: new GenerateCoachProposalForAnalysisRequest(
+      store,
+      generated.useCase,
+    ),
+  };
+}
+const request = { analysisRequestId: record().analysisRequestId };
+
+test("manual handoff loads the server-owned analysis by request id", async () => {
+  const { useCase, decisions } = handoff();
+  const decision = await useCase.execute(request);
+  assert.equal(decision.proposalOrigin, "manual");
+  assert.equal(decision.analysisRequestId, request.analysisRequestId);
+  assert.equal(decisions.rows.length, 1);
+});
+
+test("a client-returned analysis or safety override is rejected", async () => {
+  const { useCase, calls } = handoff();
+  for (const forged of [
+    { ...request, analysis },
+    { ...request, safetyFlags: [] },
+    { ...request, blocksTrainingAdvice: false },
+    { ...request, reviewClass: "standard_review" },
+    { ...request, proposalOrigin: "proactive" },
+    { ...request, governance: {} },
+    { analysis },
+    {},
+  ])
+    await assert.rejects(() => useCase.execute(forged));
+  assert.equal(calls.provider, 0);
+});
+
+test("forged safety cannot unblock a blocked authoritative analysis", async () => {
+  const blocked = record({
+    analysis: { ...analysis, safetyFlags: [{ blocksTrainingAdvice: true }] },
+    trainingAdviceBlocked: true,
+  });
+  const { useCase, calls, decisions } = handoff([blocked]);
+  await assert.rejects(() =>
+    useCase.execute({
+      ...request,
+      safetyFlags: [],
+      blocksTrainingAdvice: false,
+    }),
+  );
+  await assert.rejects(
+    () => useCase.execute(request),
+    CoachProposalBlockedError,
+  );
+  assert.equal(calls.provider, 0);
+  assert.equal(decisions.rows.length, 0);
+});
+
+test("the server flag alone blocks, even if the snapshot flags were altered", async () => {
+  const { useCase, calls } = handoff([record({ trainingAdviceBlocked: true })]);
+  await assert.rejects(
+    () => useCase.execute(request),
+    CoachProposalBlockedError,
+  );
+  assert.equal(calls.provider, 0);
+});
+
+test("unknown and other-athlete request ids are indistinguishable", async () => {
+  const { useCase, calls } = handoff([]);
+  await assert.rejects(
+    () => useCase.execute({ analysisRequestId: ids.request }),
+    CoachAnalysisNotFoundError,
+  );
+  assert.equal(calls.provider, 0);
+});
+
+test("a changed active program makes the analysis stale before any provider call", async () => {
+  for (const sourceProgram of [
+    { id: program.id, revision: 2 },
+    { id: "00000000-0000-4000-8000-0000000000ff", revision: 1 },
+    null,
+  ]) {
+    const { useCase, calls, decisions } = handoff([record({ sourceProgram })]);
+    await assert.rejects(
+      () => useCase.execute(request),
+      StaleCoachAnalysisError,
+    );
+    assert.equal(calls.provider, 0);
+    assert.equal(decisions.rows.length, 0);
+  }
+});
+
+test("repeated manual requests reuse the existing decision", async () => {
+  const { useCase, calls, decisions } = handoff();
+  const first = await useCase.execute(request);
+  const second = await useCase.execute(request);
+  assert.equal(first.id, second.id);
+  assert.equal(calls.provider, 1);
+  assert.equal(decisions.rows.length, 1);
+});
+
+test("proactive and manual share one decision per authoritative analysis", async () => {
+  const { useCase, generate, decisions, analyses, calls } =
+    orchestrator("proactive");
+  const run = await useCase.execute(input);
+  const manual = await new GenerateCoachProposalForAnalysisRequest(
+    analyses,
+    generate,
+  ).execute({ analysisRequestId: run.analysisRequestId });
+  assert.equal(manual.id, run.proactiveProposal.decision.id);
+  assert.equal(decisions.rows.length, 1);
+  assert.equal(calls.provider, 1);
 });

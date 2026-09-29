@@ -46,6 +46,11 @@ import {
   AnalyzeAthleteWithCoachAndGovernance,
   ApproveCoachProposal,
   ElevatedReviewConfirmationRequiredError,
+  GenerateCoachProposalForAnalysisRequest,
+  CoachAnalysisNotFoundError,
+  CoachProposalBlockedError,
+  StaleCoachAnalysisError,
+  analysisProgramFrom,
 } from "../packages/application/src/index.ts";
 import {
   DeterministicCoachSafetyPolicy,
@@ -66,6 +71,7 @@ import { SupabaseTrainingProgramRepository } from "../packages/data-access/src/s
 import { SupabaseWorkoutSessionRepository } from "../packages/data-access/src/supabase/workout-session-repository.ts";
 import { SupabasePerformanceReadRepository } from "../packages/data-access/src/supabase/performance-read-repository.ts";
 import {
+  SupabaseCoachAnalysisRepository,
   SupabaseCoachDecisionRepository,
   SupabaseCoachPreferenceRepository,
 } from "../packages/data-access/src/supabase/coach-decision-repository.ts";
@@ -552,12 +558,28 @@ const decisions = new SupabaseCoachDecisionRepository(
   serviceClient,
   identity.userId,
 );
+// Proposals start from a server-owned analysis record (ADR-0078); the
+// fixture analysis is recorded as the backend would after validation.
+const analysisRuns = new SupabaseCoachAnalysisRepository(
+  serviceClient,
+  identity.userId,
+);
+async function authoritative(analysis = coachFixture) {
+  const active = await new SupabaseTrainingProgramRepository(
+    reloadedClient,
+  ).getActive();
+  return analysisRuns.recordCompleted({
+    analysisRequestId: crypto.randomUUID(),
+    analysis,
+    sourceProgram: active ? { id: active.id, revision: active.revision } : null,
+  });
+}
 const generatedDecision = await new GenerateCoachProposal(
   reloaded.dossier,
   new SupabaseTrainingProgramRepository(reloadedClient),
   new FixtureCoachProposalProvider(proposalFixture),
   decisions,
-).execute(coachFixture);
+).execute(await authoritative());
 assert.equal(generatedDecision?.status, "proposed");
 const materialized = await decisions.materialize(generatedDecision.id);
 assert.equal(materialized.status, "materialized");
@@ -769,7 +791,7 @@ const decisionC = await new GenerateCoachProposal(
     ],
   }),
   decisions,
-).execute(coachFixture);
+).execute(await authoritative());
 const materializedC = await decisions.materialize(decisionC.id);
 const programC = await reloaded.activateProgram.execute(
   materializedC.materializedProgramId,
@@ -845,7 +867,7 @@ const decisionD = await new GenerateCoachProposal(
     ],
   }),
   decisions,
-).execute(coachFixture);
+).execute(await authoritative());
 const materializedD = await decisions.materialize(decisionD.id);
 const programD = await reloaded.activateProgram.execute(
   materializedD.materializedProgramId,
@@ -1092,7 +1114,7 @@ async function proposeOn(programX, actions) {
       })),
     }),
     decisions,
-  ).execute(coachFixture);
+  ).execute(await authoritative());
   assert.equal(generated.proposal.schemaVersion, "coach-proposal-v2");
   return generated;
 }
@@ -1473,10 +1495,10 @@ async function proposeReplacement(
       ],
     }),
     decisions,
-  ).execute(coachFixture);
+  ).execute(await authoritative());
 }
 // An invented / unrelated target is rejected before persistence.
-await assert.rejects(() =>
+await assert.rejects(async () =>
   new GenerateCoachProposal(
     rApi.dossier,
     new SupabaseTrainingProgramRepository(reloadedClient),
@@ -1504,7 +1526,7 @@ await assert.rejects(() =>
       ],
     }),
     decisions,
-  ).execute(coachFixture),
+  ).execute(await authoritative()),
 );
 const decisionX = await proposeReplacement(programR, dayR, EX_X, EX_Y, {
   mode: "athlete_selected",
@@ -1788,6 +1810,8 @@ assert.deepEqual(
   ) =>
     new AnalyzeAthleteWithCoachAndGovernance(
       analyzeWith(analysisValue),
+      analysisRuns,
+      analysisProgramFrom({ execute: async () => dossierNow }),
       generator(actions),
       preferences,
     ).execute({
@@ -1832,9 +1856,10 @@ assert.deepEqual(
   // 11-13. Retries of the same analysis request are idempotent.
   const retry = await ask([standardAction], requestA);
   assert.equal(retry.proactiveProposal.decision.id, prepared.id);
-  const manualSame = await generator([standardAction]).execute(coachFixture, {
-    analysisRequestId: requestA,
-  });
+  const manualSame = await new GenerateCoachProposalForAnalysisRequest(
+    analysisRuns,
+    generator([standardAction]),
+  ).execute({ analysisRequestId: requestA });
   assert.equal(manualSame.id, prepared.id);
   assert.equal(calls.provider, 1);
   // 14-16. Clients cannot forge origin/review class; history is immutable.
@@ -1855,7 +1880,8 @@ assert.deepEqual(
   assert.ok(downgrade.error, "governance envelope is immutable history");
   // 17-19. No change, invalid and safety-blocked runs keep the analysis.
   const sizeBeforeFailures = await ledgerSize();
-  assert.equal((await ask(null)).proactiveProposal.status, "no_change");
+  const noChangeRun = await ask(null);
+  assert.equal(noChangeRun.proactiveProposal.status, "no_change");
   const invalid = await ask([
     { ...standardAction, prescriptionSetId: crypto.randomUUID() },
   ]);
@@ -1874,6 +1900,53 @@ assert.deepEqual(
   });
   assert.equal(blocked.proactiveProposal.status, "blocked");
   assert.equal(calls.provider, providerCallsBeforeSafety);
+  // Authoritative handoff: the server-owned safety state wins; a forged
+  // client payload is rejected and never reaches the provider.
+  const handoff = new GenerateCoachProposalForAnalysisRequest(
+    analysisRuns,
+    generator([standardAction]),
+  );
+  const storedBlocked = await analysisRuns.findByRequestId(
+    blocked.analysisRequestId,
+  );
+  assert.equal(storedBlocked.trainingAdviceBlocked, true);
+  for (const forged of [
+    {
+      analysisRequestId: blocked.analysisRequestId,
+      safetyFlags: [],
+      blocksTrainingAdvice: false,
+    },
+    { analysisRequestId: blocked.analysisRequestId, analysis: coachFixture },
+    { analysis: coachFixture },
+  ])
+    await assert.rejects(() => handoff.execute(forged));
+  await assert.rejects(
+    () => handoff.execute({ analysisRequestId: blocked.analysisRequestId }),
+    CoachProposalBlockedError,
+  );
+  // Another athlete's (or an unknown) id is indistinguishable: not found.
+  await assert.rejects(
+    () =>
+      new GenerateCoachProposalForAnalysisRequest(
+        new SupabaseCoachAnalysisRepository(serviceClient, crypto.randomUUID()),
+        generator([standardAction]),
+      ).execute({ analysisRequestId: requestA }),
+    CoachAnalysisNotFoundError,
+  );
+  await assert.rejects(
+    () => handoff.execute({ analysisRequestId: crypto.randomUUID() }),
+    CoachAnalysisNotFoundError,
+  );
+  assert.equal(calls.provider, providerCallsBeforeSafety);
+  const blockedRecordWrite = await serviceClient
+    .from("coach_analysis_runs")
+    .update({ training_advice_blocked: false })
+    .eq("analysis_request_id", blocked.analysisRequestId);
+  assert.ok(blockedRecordWrite.error, "authoritative analysis is immutable");
+  const clientRead = await reloadedClient
+    .from("coach_analysis_runs")
+    .select("id");
+  assert.ok(clientRead.error, "mobile client cannot read analysis runs");
   assert.equal(await ledgerSize(), sizeBeforeFailures);
   // 20-22. The backend (not the model) classifies an elevated proposal.
   const elevated = (await ask([elevatedAction])).proactiveProposal.decision;
@@ -1920,6 +1993,19 @@ assert.deepEqual(
   const standardAfterActivation = await approve.execute(prepared.id);
   assert.equal(standardAfterActivation.status, "stale");
   assert.equal((await reloaded.activeProgram.execute()).id, confirmedDraft.id);
+  // An analysis of the previous program is stale: no provider call, no decision.
+  const providerCallsBeforeStale = calls.provider;
+  const ledgerBeforeStale = await ledgerSize();
+  await assert.rejects(
+    () =>
+      new GenerateCoachProposalForAnalysisRequest(
+        analysisRuns,
+        generator([standardAction]),
+      ).execute({ analysisRequestId: noChangeRun.analysisRequestId }),
+    StaleCoachAnalysisError,
+  );
+  assert.equal(calls.provider, providerCallsBeforeStale);
+  assert.equal(await ledgerSize(), ledgerBeforeStale);
   // 30. History exposes origin and review class, never a risk score.
   const history = await readDecisions.list();
   const byId = Object.fromEntries(history.map((item) => [item.id, item]));
@@ -1943,5 +2029,5 @@ firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority flow passed.",
 );
