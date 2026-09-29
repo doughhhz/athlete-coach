@@ -27,6 +27,7 @@ import type {
   AthleteTrainingDossier,
   CoachAnalysisMode,
   CoachAutonomyMode,
+  CoachDraftAuthorityMode,
   CoachConversationMessage,
   CoachDecision,
   CoachRejectionReason,
@@ -113,6 +114,11 @@ export type AppSessionValue = Readonly<{
   ): Promise<CoachDecision | null>;
   getCoachAutonomyMode(): Promise<CoachAutonomyMode>;
   setCoachAutonomyMode(mode: CoachAutonomyMode): Promise<CoachAutonomyMode>;
+  /** Independent Conservative Auto-Draft opt-in (default manual_draft). */
+  getCoachDraftAuthorityMode(): Promise<CoachDraftAuthorityMode>;
+  setCoachDraftAuthorityMode(
+    mode: CoachDraftAuthorityMode,
+  ): Promise<CoachDraftAuthorityMode>;
   listCoachDecisions(): Promise<readonly CoachDecision[]>;
   listInterventionOutcomes(): Promise<readonly InterventionOutcomeEvaluation[]>;
   getCoachDecisionOutcome(

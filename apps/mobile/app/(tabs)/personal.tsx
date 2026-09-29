@@ -12,6 +12,7 @@ import {
 import type {
   CoachAnalysis,
   CoachAutonomyMode,
+  CoachDraftAuthorityMode,
   CoachConversationMessage,
   CoachDecision,
   InterventionOutcomeEvaluation,
@@ -29,6 +30,12 @@ import {
   type ProactiveStatus,
 } from "@/presentation/coach/governance-labels";
 import { newAnalysisRequestId } from "@/presentation/coach/analysis-request-id";
+import type { AutoDraftResult } from "@athlete-coach/application";
+import {
+  AutoDraftCard,
+  DraftAuthoritySection,
+} from "@/presentation/coach/auto-draft-components";
+import { materializationOriginLabels } from "@/presentation/coach/auto-draft-labels";
 
 /** Origin and backend review class; legacy decisions show origin only. */
 function DecisionBadges({ decision }: { decision: CoachDecision }) {
@@ -37,6 +44,10 @@ function DecisionBadges({ decision }: { decision: CoachDecision }) {
     proposalOriginLabels[decision.proposalOrigin],
     ...(decision.governance
       ? [reviewClassLabels[decision.governance.reviewClass]]
+      : []),
+    // Factual materialization source; an automatic draft is not an approval.
+    ...(decision.materializationOrigin
+      ? [materializationOriginLabels[decision.materializationOrigin]]
       : []),
   ];
   return (
@@ -223,6 +234,8 @@ export default function CoachScreen() {
       rejectCoachProposal,
       getCoachAutonomyMode,
       setCoachAutonomyMode,
+      getCoachDraftAuthorityMode,
+      setCoachDraftAuthorityMode,
     } = useAppSession();
   const [question, setQuestion] = useState(""),
     [analysis, setAnalysis] = useState<CoachAnalysis | null>(null),
@@ -233,6 +246,9 @@ export default function CoachScreen() {
       null,
     ),
     [autonomyMode, setAutonomyMode] = useState<CoachAutonomyMode | null>(null),
+    [draftAuthority, setDraftAuthority] =
+      useState<CoachDraftAuthorityMode | null>(null),
+    [autoDraft, setAutoDraft] = useState<AutoDraftResult | null>(null),
     [history, setHistory] = useState<CoachConversationMessage[]>([]),
     [loading, setLoading] = useState(false),
     [error, setError] = useState<string | null>(null),
@@ -255,6 +271,18 @@ export default function CoachScreen() {
       .then(setAutonomyMode)
       .catch(() => undefined);
   }, [getCoachAutonomyMode]);
+  useEffect(() => {
+    void getCoachDraftAuthorityMode()
+      .then(setDraftAuthority)
+      .catch(() => undefined);
+  }, [getCoachDraftAuthorityMode]);
+  async function changeDraftAuthority(next: CoachDraftAuthorityMode) {
+    try {
+      setDraftAuthority(await setCoachDraftAuthorityMode(next));
+    } catch {
+      setError("Não foi possível salvar a criação automática de rascunho.");
+    }
+  }
   async function changeMode(next: CoachAutonomyMode) {
     try {
       setAutonomyMode(await setCoachAutonomyMode(next));
@@ -282,7 +310,9 @@ export default function CoachScreen() {
       setAnalysisRequestId(response.analysisRequestId);
       if (response.autonomyMode) setAutonomyMode(response.autonomyMode);
       setProactiveStatus(response.proactiveProposal.status);
-      const prepared = response.proactiveProposal.decision;
+      setAutoDraft(response.autoDraft);
+      const prepared =
+        response.autoDraft.decision ?? response.proactiveProposal.decision;
       setDecision(prepared);
       if (prepared)
         setDecisions((items) => [
@@ -362,6 +392,11 @@ export default function CoachScreen() {
         e sugestões. Seus fatos e seu programa não são alterados.
       </Text>
       <AutonomyModeSection mode={autonomyMode} onChange={changeMode} />
+      <DraftAuthoritySection
+        mode={draftAuthority}
+        autonomyMode={autonomyMode}
+        onChange={changeDraftAuthority}
+      />
       <TextInput
         accessibilityLabel="Pergunte ao seu Personal"
         multiline
@@ -430,6 +465,7 @@ export default function CoachScreen() {
             </Text>
           </Pressable>
         )}
+      {analysis && autoDraft && <AutoDraftCard result={autoDraft} />}
       {decision && (
         <Section title="Proposta de ajuste">
           <DecisionBadges decision={decision} />

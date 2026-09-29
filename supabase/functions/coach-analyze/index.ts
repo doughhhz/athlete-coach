@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
-import { AnalyzeAthleteWithCoach, AnalyzeAthleteWithCoachAndGovernance, GenerateCoachProposal, analysisProgramFrom, coachAnalyzeRequestSchema, memoizeDossier, BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, CoachProviderError, EnsureCurrentAthlete, LoadCurrentAthleteProfile } from "../../../packages/application/src/index.ts";
+import { AnalyzeAthleteWithCoach, AnalyzeAthleteWithCoachAndGovernance, CoachAnalysisRequestConflictError, PrepareConservativeAutoDraft, GenerateCoachProposal, analysisProgramFrom, coachAnalyzeRequestSchema, memoizeDossier, BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, CoachProviderError, EnsureCurrentAthlete, LoadCurrentAthleteProfile } from "../../../packages/application/src/index.ts";
 import { GeminiHttpCoachModelProvider, GeminiHttpCoachProposalProvider, DeterministicCoachSafetyPolicy } from "../../../packages/ai/src/index.ts";
 import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachAnalysisRepository, SupabaseCoachDecisionRepository, SupabaseCoachPreferenceRepository, SupabaseExerciseCatalogRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
 
@@ -49,12 +49,20 @@ Deno.serve(async (request) => {
     const ledger = new SupabaseCoachDecisionRepository(serviceClient, auth.user.id);
     const propose = new GenerateCoachProposal(dossier, programs, apiKey ? new GeminiHttpCoachProposalProvider(providerConfig) : { generate: unavailableProvider }, ledger, () => crypto.randomUUID());
     const userId = auth.user.id;
-    const result = await new AnalyzeAthleteWithCoachAndGovernance(analyze, analyses, analysisProgramFrom(dossier), propose, new SupabaseCoachPreferenceRepository(client), { tryConsume: () => allowed(userId) }).execute({ userRequest: body.userRequest, analysisMode: body.analysisMode, conversationContext: body.conversationContext ?? [], analysisRequestId: body.analysisRequestId });
+    const preferences = new SupabaseCoachPreferenceRepository(client);
+    // Conservative Auto-Draft (Implementation Phase 16): server policy + persistent opt-in only;
+    // creates at most an inactive draft through the backend RPC, never activates (ADR-0086).
+    const autoDraft = new PrepareConservativeAutoDraft(preferences, programs, ledger);
+    const result = await new AnalyzeAthleteWithCoachAndGovernance(analyze, analyses, analysisProgramFrom(dossier), propose, preferences, { tryConsume: () => allowed(userId) }, autoDraft).execute({ userRequest: body.userRequest, analysisMode: body.analysisMode, conversationContext: body.conversationContext ?? [], analysisRequestId: body.analysisRequestId });
     const { analysis, proactiveProposal } = result;
     // Metadata only: never the analysis snapshot, question or proposal content.
-    console.log(JSON.stringify({ requestId, analysisRequestId: result.analysisRequestId, analysisReused: result.analysisReused, provider: analysis.metadata.provider, model: analysis.metadata.model, schemaVersion: analysis.schemaVersion, promptVersion: analysis.metadata.promptVersion, autonomyMode: result.autonomyMode, proactiveStatus: proactiveProposal.status, reviewClass: proactiveProposal.decision?.governance?.reviewClass ?? null, latencyMs: Date.now() - started, success: true }));
+    console.log(JSON.stringify({ requestId, analysisRequestId: result.analysisRequestId, analysisReused: result.analysisReused, provider: analysis.metadata.provider, model: analysis.metadata.model, schemaVersion: analysis.schemaVersion, promptVersion: analysis.metadata.promptVersion, autonomyMode: result.autonomyMode, proactiveStatus: proactiveProposal.status, reviewClass: proactiveProposal.decision?.governance?.reviewClass ?? null, autoDraftStatus: result.autoDraft.status, latencyMs: Date.now() - started, success: true }));
     return reply(200, result);
   } catch (error) {
+    if (error instanceof CoachAnalysisRequestConflictError) {
+      console.error(JSON.stringify({ requestId, latencyMs: Date.now() - started, success: false, errorCategory: "analysis_request_conflict" }));
+      return reply(409, { error: { code: "analysis_request_conflict", requestId } });
+    }
     const code = error instanceof CoachProviderError && error.code === "timeout" ? "coach_timeout" : error instanceof CoachProviderError ? "coach_unavailable" : "coach_failed";
     console.error(JSON.stringify({ requestId, latencyMs: Date.now() - started, success: false, errorCategory: code }));
     return reply(code === "coach_failed" ? 422 : 503, { error: { code, requestId } });

@@ -22,3 +22,5 @@ export * from "./coach/proposal-use-cases.ts";
 export * from "./outcomes/ports.ts";
 export * from "./outcomes/use-cases.ts";
 export * from "./coach/governance-use-cases.ts";
+export * from "./coach/analysis-request.ts";
+export * from "./coach/auto-draft-use-cases.ts";

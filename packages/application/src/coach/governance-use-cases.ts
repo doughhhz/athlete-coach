@@ -14,6 +14,15 @@ import type {
   CoachPreferenceRepository,
 } from "./proposal-ports.ts";
 import {
+  CoachAnalysisRequestConflictError,
+  fingerprintAnalysisRequest,
+} from "./analysis-request.ts";
+import {
+  autoDraftNotApplicable,
+  type AutoDraftResult,
+  type PrepareConservativeAutoDraft,
+} from "./auto-draft-use-cases.ts";
+import {
   CoachProposalBlockedError,
   CoachProposalValidationError,
   analysisRequestIdSchema,
@@ -85,6 +94,8 @@ export type AnalyzeWithGovernanceResult = Readonly<{
   analysisReused: boolean;
   autonomyMode: CoachAutonomyMode | null;
   proactiveProposal: ProactiveProposalResult;
+  /** Factual Conservative Auto-Draft state; never an approval. */
+  autoDraft: AutoDraftResult;
 }>;
 /** Active program represented in the analysis-time dossier. */
 export type AnalysisProgramContext = () => Promise<Readonly<{
@@ -138,6 +149,10 @@ export class AnalyzeAthleteWithCoachAndGovernance {
   >;
   private readonly preferences: CoachPreferenceRepository;
   private readonly budget: ProactiveCallBudget;
+  private readonly autoDraft: Pick<
+    PrepareConservativeAutoDraft,
+    "execute"
+  > | null;
   private readonly ids: () => string;
   /**
    * `analysisProgram` must read the same (memoized) dossier the analysis used,
@@ -150,8 +165,10 @@ export class AnalyzeAthleteWithCoachAndGovernance {
     propose: Pick<GenerateCoachProposal, "execute" | "findExisting">,
     preferences: CoachPreferenceRepository,
     budget: ProactiveCallBudget = { tryConsume: () => true },
+    autoDraft: Pick<PrepareConservativeAutoDraft, "execute"> | null = null,
     ids: () => string = () => crypto.randomUUID(),
   ) {
+    this.autoDraft = autoDraft;
     this.analyze = analyze;
     this.analyses = analyses;
     this.analysisProgram = analysisProgram;
@@ -174,12 +191,22 @@ export class AnalyzeAthleteWithCoachAndGovernance {
         : analysisRequestIdSchema.parse(input.analysisRequestId);
     // Idempotent analysis: a retry of the same request returns the stored,
     // validated analysis without rebuilding the dossier or calling the provider.
+    // The id is bound to the canonical request (ADR-0085): a different
+    // question or context under the same id is a conflict, never a reuse,
+    // and the provider is not called.
+    const requestFingerprint = await fingerprintAnalysisRequest(input);
     const existingRecord =
       await this.analyses.findByRequestId(analysisRequestId);
+    if (
+      existingRecord &&
+      existingRecord.requestFingerprint !== requestFingerprint
+    )
+      throw new CoachAnalysisRequestConflictError();
     const record =
       existingRecord ??
       (await this.analyses.recordCompleted({
         analysisRequestId,
+        requestFingerprint,
         analysis: await this.analyze.execute(input),
         sourceProgram: await this.analysisProgram(),
       }));
@@ -197,15 +224,28 @@ export class AnalyzeAthleteWithCoachAndGovernance {
         proactiveProposal: outcome("unavailable", {
           unavailableReason: "preference_unavailable",
         }),
+        autoDraft: autoDraftNotApplicable,
       };
     }
-    const result = (proactiveProposal: ProactiveProposalResult) => ({
+    const result = (
+      proactiveProposal: ProactiveProposalResult,
+      autoDraft: AutoDraftResult = autoDraftNotApplicable,
+    ) => ({
       analysis,
       analysisRequestId,
       analysisReused,
       autonomyMode,
       proactiveProposal,
+      autoDraft,
     });
+    // Conservative Auto-Draft runs only after a proactive decision exists.
+    const prepared = async (decision: CoachDecision) =>
+      result(
+        outcome("prepared", { decision }),
+        this.autoDraft
+          ? await this.autoDraft.execute(decision, record)
+          : autoDraftNotApplicable,
+      );
     if (autonomyMode !== "proactive") return result(outcome("not_enabled"));
     if (record.trainingAdviceBlocked)
       return result(
@@ -213,7 +253,7 @@ export class AnalyzeAthleteWithCoachAndGovernance {
       );
     try {
       const existing = await this.propose.findExisting(analysisRequestId);
-      if (existing) return result(outcome("prepared", { decision: existing }));
+      if (existing) return prepared(existing);
       if (!this.budget.tryConsume())
         return result(
           outcome("unavailable", { unavailableReason: "rate_limited" }),
@@ -224,9 +264,7 @@ export class AnalyzeAthleteWithCoachAndGovernance {
         origin: "proactive",
         autonomyModeAtCreation: autonomyMode,
       });
-      return result(
-        decision ? outcome("prepared", { decision }) : outcome("no_change"),
-      );
+      return decision ? prepared(decision) : result(outcome("no_change"));
     } catch (error) {
       if (
         error instanceof CoachProposalBlockedError &&

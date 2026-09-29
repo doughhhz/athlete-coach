@@ -89,3 +89,10 @@ A classe de revisão é calculada por política determinística e versionada no 
 
 - **Client-returned Coach analysis is display data, never authoritative coaching state.**
 - **Safety state used for proposal generation must originate from a server-owned analysis record.**
+
+## Implementation Phase 16 — Autoridade limitada de rascunho
+
+- **Automatic draft creation is limited authority over an inactive revision, never authority over the active training program.**
+- **Standard review is necessary but not sufficient for automatic draft eligibility.**
+
+Ativação de programa é sempre uma ação humana explícita. Ativação automática não é o "próximo toggle": exigiria uma decisão de autoridade independente e nova ADR.

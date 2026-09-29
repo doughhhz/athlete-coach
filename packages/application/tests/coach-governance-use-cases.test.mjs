@@ -12,6 +12,11 @@ import {
   GenerateCoachProposalForAnalysisRequest,
   GetCoachAutonomyMode,
   StaleCoachAnalysisError,
+  CoachAnalysisRequestConflictError,
+  PrepareConservativeAutoDraft,
+  SetCoachDraftAuthorityMode,
+  canonicalizeAnalysisRequest,
+  fingerprintAnalysisRequest,
   SetCoachAutonomyMode,
   memoizeDossier,
 } from "../src/index.ts";
@@ -197,7 +202,12 @@ function analysisStore() {
     records,
     calls,
     findByRequestId: async (id) => records.get(id) ?? null,
-    recordCompleted: async ({ analysisRequestId, analysis, sourceProgram }) => {
+    recordCompleted: async ({
+      analysisRequestId,
+      requestFingerprint,
+      analysis,
+      sourceProgram,
+    }) => {
       calls.record += 1;
       if (!records.has(analysisRequestId))
         records.set(analysisRequestId, {
@@ -208,6 +218,7 @@ function analysisStore() {
           ),
           sourceProgram,
           createdAt: "2026-10-02T00:00:00.000Z",
+          requestFingerprint,
         });
       return records.get(analysisRequestId);
     },
@@ -223,7 +234,7 @@ const preferences = (mode) => ({
 });
 function orchestrator(
   mode,
-  { output, fail, analysisValue = analysis, budget } = {},
+  { output, fail, analysisValue = analysis, budget, autoDraft = null } = {},
 ) {
   const generated = generator(output, fail);
   const analyzeCalls = [];
@@ -245,6 +256,7 @@ function orchestrator(
       generated.useCase,
       preferences(mode),
       budget,
+      autoDraft,
       () => ids.request,
     ),
   };
@@ -494,6 +506,7 @@ test("a new analysis is persisted as the authoritative record", async () => {
     "analysis",
     "analysisRequestId",
     "createdAt",
+    "requestFingerprint",
     "sourceProgram",
     "trainingAdviceBlocked",
   ]);
@@ -502,7 +515,7 @@ test("a new analysis is persisted as the authoritative record", async () => {
 test("retrying the same analysis request reuses the record without the provider", async () => {
   const { useCase, analyzeCalls, analyses } = orchestrator("manual");
   await useCase.execute(input);
-  const retry = await useCase.execute({ ...input, userRequest: "Outra coisa" });
+  const retry = await useCase.execute({ ...input });
   assert.equal(analyzeCalls.length, 1);
   assert.equal(analyses.calls.record, 1);
   assert.equal(retry.analysisReused, true);
@@ -653,4 +666,322 @@ test("proactive and manual share one decision per authoritative analysis", async
   assert.equal(manual.id, run.proactiveProposal.decision.id);
   assert.equal(decisions.rows.length, 1);
   assert.equal(calls.provider, 1);
+});
+
+// Implementation Phase 16 — request fingerprint (ADR-0085) --------------------
+
+test("canonical request is deterministic and ignores raw key order", async () => {
+  const context = [{ role: "user", content: "Oi" }];
+  const a = {
+    userRequest: " Como estou? ",
+    analysisMode: "question",
+    conversationContext: context,
+  };
+  const b = {
+    conversationContext: [{ content: "Oi", role: "user" }],
+    analysisMode: "question",
+    userRequest: "Como estou?",
+  };
+  assert.equal(canonicalizeAnalysisRequest(a), canonicalizeAnalysisRequest(b));
+  assert.equal(
+    await fingerprintAnalysisRequest(a),
+    await fingerprintAnalysisRequest(b),
+  );
+  assert.match(await fingerprintAnalysisRequest(a), /^[0-9a-f]{64}$/);
+});
+
+test("question, mode or bounded context changes change the fingerprint", async () => {
+  const base = {
+    userRequest: "Como estou?",
+    analysisMode: "question",
+    conversationContext: [],
+  };
+  const fingerprint = await fingerprintAnalysisRequest(base);
+  for (const changed of [
+    { ...base, userRequest: "Outra pergunta" },
+    { ...base, analysisMode: "general_review" },
+    { ...base, conversationContext: [{ role: "assistant", content: "Antes" }] },
+  ])
+    assert.notEqual(await fingerprintAnalysisRequest(changed), fingerprint);
+  // Only the bounded context actually used counts.
+  const long = Array.from({ length: 8 }, (_, index) => ({
+    role: "user",
+    content: String(index),
+  }));
+  assert.equal(
+    await fingerprintAnalysisRequest({ ...base, conversationContext: long }),
+    await fingerprintAnalysisRequest({
+      ...base,
+      conversationContext: long.slice(-6),
+    }),
+  );
+});
+
+test("same id with a different question is a conflict: no provider, record unchanged", async () => {
+  const { useCase, analyzeCalls, analyses } = orchestrator("manual");
+  const first = await useCase.execute(input);
+  const stored = analyses.records.get(ids.request);
+  await assert.rejects(
+    () => useCase.execute({ ...input, userRequest: "Outra pergunta" }),
+    CoachAnalysisRequestConflictError,
+  );
+  await assert.rejects(
+    () =>
+      useCase.execute({
+        ...input,
+        conversationContext: [{ role: "user", content: "x" }],
+      }),
+    CoachAnalysisRequestConflictError,
+  );
+  assert.equal(analyzeCalls.length, 1);
+  assert.equal(analyses.records.get(ids.request), stored);
+  assert.equal(first.analysis, stored.analysis);
+});
+
+test("an unbound legacy record is never reused", async () => {
+  const { useCase, analyses, analyzeCalls } = orchestrator("manual");
+  analyses.records.set(ids.request, {
+    ...record({ analysisRequestId: ids.request }),
+    requestFingerprint: null,
+  });
+  await assert.rejects(
+    () => useCase.execute(input),
+    CoachAnalysisRequestConflictError,
+  );
+  assert.equal(analyzeCalls.length, 0);
+});
+
+// Implementation Phase 16 — Conservative Auto-Draft (ADR-0082..0086) ----------
+
+function draftLedger(status = "materialized", fail = null) {
+  const calls = [];
+  return {
+    calls,
+    autoDraft: async (id) => {
+      calls.push(id);
+      if (fail) throw fail;
+      return {
+        status,
+        decision: {
+          id,
+          status: status === "materialized" ? "materialized" : "proposed",
+          materializationOrigin:
+            status === "materialized" ? "auto_draft" : null,
+          approvedAt: null,
+          materializedProgramId:
+            status === "materialized" ? "draft-program" : null,
+        },
+      };
+    },
+  };
+}
+const draftPreferences = (autonomyMode, draftAuthorityMode, flips = []) => {
+  let reads = 0;
+  return {
+    getAutonomyMode: async () => autonomyMode,
+    setAutonomyMode: async (value) => value,
+    getDraftAuthorityMode: async () => flips[reads++] ?? draftAuthorityMode,
+    setDraftAuthorityMode: async (value) => value,
+  };
+};
+async function proactiveDecision(actions = [action()]) {
+  const { useCase } = generator(proposal(actions));
+  return useCase.execute(record(), {
+    origin: "proactive",
+    autonomyModeAtCreation: "proactive",
+  });
+}
+const prepare = (prefs, ledgerStub, source = program) =>
+  new PrepareConservativeAutoDraft(
+    prefs,
+    { get: async () => source },
+    ledgerStub,
+  );
+const on = () => draftPreferences("proactive", "standard_auto_draft");
+
+test("the decision records the auto-draft assessment for proactive origin only", async () => {
+  const decision = await proactiveDecision();
+  assert.deepEqual(decision.autoDraft, {
+    policyVersion: "coach-auto-draft-v1",
+    eligibility: "eligible",
+    reasons: ["planned_rir_increase"],
+  });
+  const manual = await generator().useCase.execute(record());
+  assert.equal(manual.autoDraft, null);
+});
+
+test("preference off: proposal stays reviewable and no draft is requested", async () => {
+  const decision = await proactiveDecision();
+  for (const prefs of [
+    draftPreferences("proactive", "manual_draft"),
+    draftPreferences("manual", "standard_auto_draft"),
+  ]) {
+    const ledgerStub = draftLedger();
+    const result = await prepare(prefs, ledgerStub).execute(decision, record());
+    assert.equal(result.status, "not_enabled");
+    assert.equal(ledgerStub.calls.length, 0);
+  }
+});
+
+test("preference on + eligible: an inactive draft is requested, never an approval", async () => {
+  const decision = await proactiveDecision();
+  const ledgerStub = draftLedger();
+  const result = await prepare(on(), ledgerStub).execute(decision, record());
+  assert.equal(result.status, "materialized");
+  assert.equal(result.draftProgramId, "draft-program");
+  assert.equal(result.decision.approvedAt, null);
+  assert.equal(result.decision.materializationOrigin, "auto_draft");
+  assert.deepEqual(result.reasons, ["planned_rir_increase"]);
+  assert.equal(ledgerStub.calls.length, 1);
+});
+
+test("elevated or structural-standard proposals are never auto-drafted", async () => {
+  for (const actions of [
+    [action({ rirMin: 0, rirMax: 1 })],
+    [
+      {
+        kind: "remove_prescription_set",
+        trainingDayId: ids.day,
+        exercisePrescriptionId: ids.prescription,
+        prescriptionSetId: ids.set,
+        rationale: "r",
+        evidence: [evidence],
+      },
+    ],
+  ]) {
+    const ledgerStub = draftLedger();
+    const decision = {
+      id: "d",
+      proposal: proposal(actions),
+      proposalOrigin: "proactive",
+      autoDraft: {
+        policyVersion: "coach-auto-draft-v1",
+        eligibility: "eligible",
+        reasons: [],
+      },
+    };
+    const result = await prepare(on(), ledgerStub).execute(decision, record());
+    assert.equal(result.status, "ineligible");
+    assert.equal(ledgerStub.calls.length, 0);
+  }
+});
+
+test("a stored eligibility alone is not authority: recomputation must agree", async () => {
+  const ledgerStub = draftLedger();
+  const decision = {
+    ...(await proactiveDecision()),
+    autoDraft: {
+      policyVersion: "coach-auto-draft-v1",
+      eligibility: "ineligible",
+      reasons: [],
+    },
+  };
+  assert.equal(
+    (await prepare(on(), ledgerStub).execute(decision, record())).status,
+    "ineligible",
+  );
+  assert.equal(ledgerStub.calls.length, 0);
+});
+
+test("safety-blocked analysis never yields a draft", async () => {
+  const decision = await proactiveDecision();
+  const ledgerStub = draftLedger();
+  const result = await prepare(on(), ledgerStub).execute(
+    decision,
+    record({ trainingAdviceBlocked: true }),
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(ledgerStub.calls.length, 0);
+});
+
+test("a changed source program is stale: no draft", async () => {
+  const decision = await proactiveDecision();
+  for (const source of [
+    { ...program, revision: 2 },
+    { ...program, status: "completed" },
+    null,
+  ]) {
+    const ledgerStub = draftLedger();
+    const result = await prepare(on(), ledgerStub, source).execute(
+      decision,
+      record(),
+    );
+    assert.equal(result.status, "stale");
+    assert.equal(ledgerStub.calls.length, 0);
+  }
+});
+
+test("an existing draft is never overwritten", async () => {
+  const decision = await proactiveDecision();
+  const result = await prepare(on(), draftLedger("existing_draft")).execute(
+    decision,
+    record(),
+  );
+  assert.equal(result.status, "existing_draft");
+  assert.equal(result.draftProgramId, null);
+});
+
+test("disabling during the run: the transactional re-read wins", async () => {
+  const decision = await proactiveDecision();
+  const result = await prepare(on(), draftLedger("not_enabled")).execute(
+    decision,
+    record(),
+  );
+  assert.equal(result.status, "not_enabled");
+  const flipped = draftPreferences("proactive", "standard_auto_draft", [
+    "manual_draft",
+  ]);
+  const ledgerStub = draftLedger();
+  assert.equal(
+    (await prepare(flipped, ledgerStub).execute(decision, record())).status,
+    "not_enabled",
+  );
+  assert.equal(ledgerStub.calls.length, 0);
+});
+
+test("auto-draft failure is isolated; the decision stays reviewable", async () => {
+  const decision = await proactiveDecision();
+  const result = await prepare(
+    on(),
+    draftLedger("materialized", new Error("db")),
+  ).execute(decision, record());
+  assert.equal(result.status, "failed");
+  assert.equal(result.decision, decision);
+});
+
+test("orchestrated proactive run reports the draft; retries target the same decision", async () => {
+  const ledgerStub = draftLedger();
+  const autoDraft = {
+    execute: (decision, rec) =>
+      prepare(on(), ledgerStub).execute(decision, rec),
+  };
+  const { useCase, decisions } = orchestrator("proactive", { autoDraft });
+  const first = await useCase.execute(input);
+  assert.equal(first.proactiveProposal.status, "prepared");
+  assert.equal(first.autoDraft.status, "materialized");
+  const second = await useCase.execute(input);
+  assert.equal(second.analysisReused, true);
+  assert.equal(decisions.rows.length, 1);
+  assert.equal(new Set(ledgerStub.calls).size, 1);
+});
+
+test("manual mode never reaches auto-draft", async () => {
+  let called = false;
+  const { useCase } = orchestrator("manual", {
+    autoDraft: { execute: async () => ((called = true), null) },
+  });
+  const result = await useCase.execute(input);
+  assert.equal(result.autoDraft.status, "not_applicable");
+  assert.equal(called, false);
+});
+
+test("draft authority setting is explicit and validated", async () => {
+  const prefs = on();
+  assert.equal(
+    await new SetCoachDraftAuthorityMode(prefs).execute("standard_auto_draft"),
+    "standard_auto_draft",
+  );
+  await assert.rejects(() =>
+    new SetCoachDraftAuthorityMode(prefs).execute("auto_activate"),
+  );
 });

@@ -14,18 +14,21 @@ export type Database = {
           athlete_id: string
           autonomy_mode: string
           created_at: string
+          draft_authority_mode: string
           updated_at: string
         }
         Insert: {
           athlete_id: string
           autonomy_mode?: string
           created_at?: string
+          draft_authority_mode?: string
           updated_at?: string
         }
         Update: {
           athlete_id?: string
           autonomy_mode?: string
           created_at?: string
+          draft_authority_mode?: string
           updated_at?: string
         }
         Relationships: [
@@ -291,6 +294,7 @@ export type Database = {
           model_identifier: string
           prompt_version: string
           provider: string
+          request_fingerprint: string | null
           safety_policy_version: string
           source_program_id: string | null
           source_program_revision: number | null
@@ -307,6 +311,7 @@ export type Database = {
           model_identifier: string
           prompt_version: string
           provider: string
+          request_fingerprint?: string | null
           safety_policy_version: string
           source_program_id?: string | null
           source_program_revision?: number | null
@@ -323,6 +328,7 @@ export type Database = {
           model_identifier?: string
           prompt_version?: string
           provider?: string
+          request_fingerprint?: string | null
           safety_policy_version?: string
           source_program_id?: string | null
           source_program_revision?: number | null
@@ -343,12 +349,16 @@ export type Database = {
           analysis_request_id: string | null
           approved_at: string | null
           athlete_id: string
+          auto_draft_eligibility: string | null
+          auto_draft_policy_version: string | null
+          auto_draft_reasons: Json
           autonomy_mode_at_creation: string | null
           created_at: string
           dossier_schema_version: string
           governance_policy_version: string | null
           governance_reasons: Json
           id: string
+          materialization_origin: string | null
           materialized_at: string | null
           materialized_program_id: string | null
           model_identifier: string
@@ -374,12 +384,16 @@ export type Database = {
           analysis_request_id?: string | null
           approved_at?: string | null
           athlete_id: string
+          auto_draft_eligibility?: string | null
+          auto_draft_policy_version?: string | null
+          auto_draft_reasons?: Json
           autonomy_mode_at_creation?: string | null
           created_at?: string
           dossier_schema_version: string
           governance_policy_version?: string | null
           governance_reasons?: Json
           id?: string
+          materialization_origin?: string | null
           materialized_at?: string | null
           materialized_program_id?: string | null
           model_identifier: string
@@ -405,12 +419,16 @@ export type Database = {
           analysis_request_id?: string | null
           approved_at?: string | null
           athlete_id?: string
+          auto_draft_eligibility?: string | null
+          auto_draft_policy_version?: string | null
+          auto_draft_reasons?: Json
           autonomy_mode_at_creation?: string | null
           created_at?: string
           dossier_schema_version?: string
           governance_policy_version?: string | null
           governance_reasons?: Json
           id?: string
+          materialization_origin?: string | null
           materialized_at?: string | null
           materialized_program_id?: string | null
           model_identifier?: string
@@ -1402,6 +1420,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      auto_draft_coach_decision: {
+        Args: { p_decision_id: string; p_user_id: string }
+        Returns: Json
+      }
       catalog_search_text: { Args: { value: string }; Returns: string }
       change_current_athlete_goal: {
         Args: {
@@ -1498,12 +1520,16 @@ export type Database = {
               analysis_request_id: string | null
               approved_at: string | null
               athlete_id: string
+              auto_draft_eligibility: string | null
+              auto_draft_policy_version: string | null
+              auto_draft_reasons: Json
               autonomy_mode_at_creation: string | null
               created_at: string
               dossier_schema_version: string
               governance_policy_version: string | null
               governance_reasons: Json
               id: string
+              materialization_origin: string | null
               materialized_at: string | null
               materialized_program_id: string | null
               model_identifier: string
@@ -1538,12 +1564,16 @@ export type Database = {
               analysis_request_id: string | null
               approved_at: string | null
               athlete_id: string
+              auto_draft_eligibility: string | null
+              auto_draft_policy_version: string | null
+              auto_draft_reasons: Json
               autonomy_mode_at_creation: string | null
               created_at: string
               dossier_schema_version: string
               governance_policy_version: string | null
               governance_reasons: Json
               id: string
+              materialization_origin: string | null
               materialized_at: string | null
               materialized_program_id: string | null
               model_identifier: string
@@ -1578,12 +1608,16 @@ export type Database = {
           analysis_request_id: string | null
           approved_at: string | null
           athlete_id: string
+          auto_draft_eligibility: string | null
+          auto_draft_policy_version: string | null
+          auto_draft_reasons: Json
           autonomy_mode_at_creation: string | null
           created_at: string
           dossier_schema_version: string
           governance_policy_version: string | null
           governance_reasons: Json
           id: string
+          materialization_origin: string | null
           materialized_at: string | null
           materialized_program_id: string | null
           model_identifier: string
@@ -1635,12 +1669,16 @@ export type Database = {
           analysis_request_id: string | null
           approved_at: string | null
           athlete_id: string
+          auto_draft_eligibility: string | null
+          auto_draft_policy_version: string | null
+          auto_draft_reasons: Json
           autonomy_mode_at_creation: string | null
           created_at: string
           dossier_schema_version: string
           governance_policy_version: string | null
           governance_reasons: Json
           id: string
+          materialization_origin: string | null
           materialized_at: string | null
           materialized_program_id: string | null
           model_identifier: string
@@ -1669,37 +1707,72 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      record_coach_analysis_run: {
-        Args: {
-          p_analysis: Json
-          p_analysis_request_id: string
-          p_source_program_id?: string
-          p_source_program_revision?: number
-          p_user_id: string
-        }
-        Returns: {
-          analysis_request_id: string
-          analysis_schema_version: string
-          analysis_snapshot: Json
-          athlete_id: string
-          created_at: string
-          dossier_schema_version: string
-          id: string
-          model_identifier: string
-          prompt_version: string
-          provider: string
-          safety_policy_version: string
-          source_program_id: string | null
-          source_program_revision: number | null
-          training_advice_blocked: boolean
-        }
-        SetofOptions: {
-          from: "*"
-          to: "coach_analysis_runs"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      record_coach_analysis_run:
+        | {
+            Args: {
+              p_analysis: Json
+              p_analysis_request_id: string
+              p_source_program_id?: string
+              p_source_program_revision?: number
+              p_user_id: string
+            }
+            Returns: {
+              analysis_request_id: string
+              analysis_schema_version: string
+              analysis_snapshot: Json
+              athlete_id: string
+              created_at: string
+              dossier_schema_version: string
+              id: string
+              model_identifier: string
+              prompt_version: string
+              provider: string
+              request_fingerprint: string | null
+              safety_policy_version: string
+              source_program_id: string | null
+              source_program_revision: number | null
+              training_advice_blocked: boolean
+            }
+            SetofOptions: {
+              from: "*"
+              to: "coach_analysis_runs"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_analysis: Json
+              p_analysis_request_id: string
+              p_request_fingerprint: string
+              p_source_program_id?: string
+              p_source_program_revision?: number
+              p_user_id: string
+            }
+            Returns: {
+              analysis_request_id: string
+              analysis_schema_version: string
+              analysis_snapshot: Json
+              athlete_id: string
+              created_at: string
+              dossier_schema_version: string
+              id: string
+              model_identifier: string
+              prompt_version: string
+              provider: string
+              request_fingerprint: string | null
+              safety_policy_version: string
+              source_program_id: string | null
+              source_program_revision: number | null
+              training_advice_blocked: boolean
+            }
+            SetofOptions: {
+              from: "*"
+              to: "coach_analysis_runs"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       record_workout_set: {
         Args: {
           p_actual_load_kg?: number
@@ -1722,12 +1795,16 @@ export type Database = {
           analysis_request_id: string | null
           approved_at: string | null
           athlete_id: string
+          auto_draft_eligibility: string | null
+          auto_draft_policy_version: string | null
+          auto_draft_reasons: Json
           autonomy_mode_at_creation: string | null
           created_at: string
           dossier_schema_version: string
           governance_policy_version: string | null
           governance_reasons: Json
           id: string
+          materialization_origin: string | null
           materialized_at: string | null
           materialized_program_id: string | null
           model_identifier: string

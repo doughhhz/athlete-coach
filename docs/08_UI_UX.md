@@ -95,3 +95,7 @@ Seção "Modo do Personal" com Manual e Proativo; escolher Proativo abre o conse
 ## Correção pós-Implementation Phase 15 — Proposta por identidade da análise
 
 Sem mudança visível no fluxo: analisar → ver resposta → "Ver proposta de ajuste". O app envia só o `analysisRequestId`. Se o programa mudou ou a análise não é reconhecida, a mensagem é "Seu programa ou a análise mudou. Faça uma nova análise para ver uma proposta."; se safety bloqueia, "Por segurança, nenhuma proposta de treino pode ser preparada para esta análise." O id vive só em memória da tela: após reiniciar o app, uma nova análise é necessária (sem persistência de conversa).
+
+## Implementation Phase 16 — Rascunho automático visível
+
+Seção "Criação automática de rascunho" (Desligada/Conservadora), separada do "Modo do Personal", sem pré-seleção, com confirmação ("Ativar criação conservadora" / "Manter desligada") e aviso "Só tem efeito quando o modo do Personal é Proativo." Cartão "Rascunho preparado" (com "Rascunho preparado automaticamente", "Uma revisão em rascunho foi preparada.", o que muda, classe de revisão, regra, revisão de origem ativa, nova revisão e CTA "Revisar rascunho" para o builder). Mensagens factuais para `existing_draft`, `stale`, `ineligible`, `blocked` e `failed`. Histórico e revisão mostram "Rascunho criado por você" ou "Rascunho preparado automaticamente pelo Personal". Proibido: "Proposta aprovada" para rascunho automático e qualquer controle de ativação automática. Builder e ativação não mudaram.

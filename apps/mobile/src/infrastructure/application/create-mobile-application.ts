@@ -47,6 +47,8 @@ import {
   GetIndividualResponseEvidence,
   GetCoachAutonomyMode,
   SetCoachAutonomyMode,
+  GetCoachDraftAuthorityMode,
+  SetCoachDraftAuthorityMode,
 } from "@athlete-coach/application";
 import {
   SupabaseAthleteGoalRepository,
@@ -159,6 +161,12 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     // Own preference only (RLS); explicit opt-in, default manual.
     getCoachAutonomyMode: new GetCoachAutonomyMode(coachPreferences),
     setCoachAutonomyMode: new SetCoachAutonomyMode(coachPreferences),
+    getCoachDraftAuthorityMode: new GetCoachDraftAuthorityMode(
+      coachPreferences,
+    ),
+    setCoachDraftAuthorityMode: new SetCoachDraftAuthorityMode(
+      coachPreferences,
+    ),
     listCoachDecisions: () => coach.listDecisions(),
     listInterventionOutcomes: new ListInterventionOutcomes(
       interventionOutcomes,

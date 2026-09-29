@@ -145,3 +145,7 @@ Uma `CoachProposal` nunca é um `ProgramRevision`. O validator reutiliza `assert
 - **Bloqueada** (nunca persistida): safety bloqueia orientação de treino, proposta inválida, ação desconhecida ou vazia.
 
 Toda avaliação tem `requiresHumanReview: true`, `allowsAutomaticMaterialization: false` e `allowsAutomaticActivation: false`.
+
+## Implementation Phase 16 — Auto-draft conservador
+
+`coach-auto-draft-v1`: elegível apenas quando a proposta tem **uma** ação, sobre **uma** prescrição existente, sem mudar identidade do exercício nem estrutura de séries, e a governança a classifica como `standard_review` exclusivamente por aumento de RIR, aumento de descanso ou redução de carga absoluta existente. Remover série é `standard_review` na governança, mas é **inelegível** para auto-draft v1 (mudança estrutural). Sem limiares de magnitude (sem 5%/10%/20%); a magnitude fica visível para revisão humana. Rascunho automático não é intervenção executada: outcomes e memória só começam após ativação humana.

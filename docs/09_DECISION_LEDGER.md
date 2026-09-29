@@ -702,7 +702,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0079 — Analysis request identity, idempotency and drift semantics
 
 - Data: 2026-10-02
-- Status: accepted
+- Status: accepted; a regra "mesmo id com texto diferente devolve o registro" foi superseded pela ADR-0085 (fingerprint → 409 analysis_request_conflict)
 - Decisão: `analysisRequestId` (UUID do cliente ou gerado pelo servidor, nunca do modelo) é a identidade; `UNIQUE (athlete_id, analysis_request_id)`. Retentativa com registro existente devolve o registro (`analysisReused: true`) sem reconstruir dossier nem chamar o provider — mesmo que o texto da pergunta mude (a identidade é o id). Falhas não são gravadas. Drift: o snapshot é a interpretação exibida; a validade da proposta usa o programa e o dossier atuais; programa ativo diferente do registrado (id ou revisão, ou existência) → `StaleCoachAnalysisError` (`409 stale_analysis`) antes do provider. A staleness da materialização (ADR-0045) continua.
 - Impacto: application, Edge Functions, mobile.
 
@@ -720,3 +720,36 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Contexto: o roadmap original de produto numera "Phase 15 — Apple Health / HealthKit"; a sequência de execução usou "Phase 15" para Coach Governance & Proactive Mode.
 - Decisão: documentos históricos não são renumerados. A partir de agora, prompts, relatórios e docs identificam a numeração: **Product Roadmap Phase N** (plano original em 10_ROADMAP) ou **Implementation Phase N** (sequência executada). "Phase 16" sem qualificador é ambíguo e deve ser evitado.
 - Impacto: 10_ROADMAP, relatórios futuros.
+
+### ADR-0082 — Conservative Auto-Draft authority (Implementation Phase 16)
+
+- Data: 2026-10-03
+- Status: accepted
+- Regra anterior (ADR-0045/0075): toda materialização era aprovação humana explícita; nenhuma materialização automática.
+- Regra nova: permissão opcional `draft_authority_mode` (`manual_draft` padrão | `standard_auto_draft`), independente de `autonomy_mode`, com consentimento explícito; operacional somente quando `autonomy_mode = proactive` (armazenada sem efeito caso contrário). O servidor pode criar **apenas um rascunho inativo** quando `coach-auto-draft-v1` autoriza. **Automatic draft creation is limited authority over an inactive revision, never authority over the active training program.**
+- Impacto: DB, domínio, aplicação, Edge, mobile. ADR-0045 permanece válida para materialização humana; ADR-0075 é complementada (iniciativa continua sem autoridade sobre o programa ativo).
+
+### ADR-0083 — Auto-draft eligibility is narrower than governance
+
+- Data: 2026-10-03
+- Status: accepted
+- Decisão: `coach-auto-draft-v1` (domínio, puro, versionado, separado de `coach-governance-v1`) exige origem proativa, `standard_review` e exatamente um ajuste escalar menos exigente (RIR ↑, descanso ↑, carga absoluta existente ↓). **Standard review is necessary but not sufficient for automatic draft eligibility.** Remoção/adição de séries, alvo, troca de exercício, direções mais exigentes, carga introduzida, múltiplas ações/prescrições e dúvida → `ineligible`; safety, proposta inválida e ação desconhecida → `blocked`. Sem escore e sem limiares de magnitude. Governança e elegibilidade são recalculadas imediatamente antes da materialização; a elegibilidade registrada na criação também precisa ser `eligible`.
+
+### ADR-0084 — Materialization authority provenance
+
+- Data: 2026-10-03
+- Status: accepted
+- Decisão: `materialization_origin` (`human | auto_draft`) sem novos status. `approved_at` permanece exclusivamente humano: rascunho automático tem `approved_at = NULL` (auto-draft **não** é aprovação humana), enquanto `materialized_at` e `materialized_program_id` registram o fato da materialização e `materialization_origin` registra a autoridade real. A origem é definida dentro da transição controlada (trigger lendo configuração de transação definida só pela RPC backend), nunca por coluna enviada. Linhas históricas materializadas foram preenchidas com `human` (fato histórico). Um único motor de materialização (`materialize_coach_decision`) é reutilizado pela RPC `auto_draft_coach_decision`.
+
+### ADR-0085 — Analysis request fingerprint
+
+- Data: 2026-10-03
+- Status: accepted
+- Regra anterior (ADR-0079): mesmo `analysisRequestId` com outra pergunta devolvia a análise original (limitação registrada).
+- Regra nova: `request_fingerprint` = SHA-256 (Web Crypto nativo) da serialização canônica (`coach-analysis-request-fingerprint-v1`, modo, pergunta aparada, até 6 mensagens de contexto como pares [papel, conteúdo]) — sem JWT, chave, timestamps ou metadados aleatórios; arrays evitam dependência da ordem de chaves. Mesmo id + mesmo fingerprint → reutiliza; diferente (ou registro legado sem fingerprint) → `409 analysis_request_conflict`, sem Gemini, sem sobrescrever. `analysisRequestId` é a identidade idempotente; `request_fingerprint` vincula essa identidade à requisição semântica. O fingerprint **não** é autenticação, segredo, identidade do usuário nem assinatura: serve apenas à integridade idempotente. A pergunta bruta não é armazenada.
+
+### ADR-0086 — Active program human-only activation boundary
+
+- Data: 2026-10-03
+- Status: accepted
+- Decisão: auto-draft só pode criar uma revisão `draft`. Não existe caminho Coach → ativação nem Coach → mutação do programa ativo: o Coach nunca altera, ativa, conclui ou arquiva o programa ativo por conta própria e nunca inicia outcome. A RPC de auto-draft não referencia ativação/transição de programa e verifica que o resultado é `draft`; testes de arquitetura guardam domínio, aplicação, Edge e migration. Rascunho automático não gera outcome nem memória até ativação humana. Ampliação do conjunto elegível e ativação automática ficam documentadas como futuras e **não implementadas**; ativação automática exigiria decisão de autoridade independente.

@@ -176,3 +176,7 @@ O atleta escolhe o modo do Personal: **Manual** (padrão) ou **Proativo** (opt-i
 ## Correção pós-Implementation Phase 15 — Análise autoritativa no servidor
 
 Propostas do Personal agora partem de um registro de análise mantido pelo servidor (`coach_analysis_runs`), identificado por `analysisRequestId`. O app mostra a análise, mas nunca a devolve ao backend: para pedir uma proposta envia apenas `{ analysisRequestId }`. Estado de safety, evidências e proveniência vêm do registro imutável. Retentativas da mesma análise reutilizam o registro sem nova chamada à IA. Isso não é persistência de chat: a pergunta, a conversa, o prompt e o dossier completo não são armazenados.
+
+## Implementation Phase 16 — Criação conservadora de rascunho
+
+Nova permissão opcional e separada do modo do Personal: **Criação automática de rascunho** (Desligada por padrão / Conservadora, com consentimento explícito). Somente no modo Proativo e somente para um ajuste único e menos exigente (aumento de RIR, aumento de descanso ou redução de carga absoluta existente), o Personal pode criar uma **nova revisão em rascunho** automaticamente. O programa ativo nunca é alterado nem ativado; o rascunho aparece imediatamente ("Rascunho preparado") e a ativação continua sendo sua. O histórico diferencia "Rascunho criado por você" de "Rascunho preparado automaticamente pelo Personal". O `analysisRequestId` agora é vinculado à pergunta: reutilizá-lo com outra pergunta retorna `409 analysis_request_conflict`.

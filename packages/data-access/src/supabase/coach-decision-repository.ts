@@ -1,5 +1,9 @@
 import {
   DEFAULT_COACH_AUTONOMY_MODE,
+  DEFAULT_COACH_DRAFT_AUTHORITY_MODE,
+  coachAutoDraftEligibilities,
+  coachAutoDraftReasons,
+  coachDraftAuthorityModes,
   coachAutonomyModes,
   coachGovernanceReasons,
   coachProposalOrigins,
@@ -8,12 +12,15 @@ import {
   persistedReviewClasses,
   type CoachAnalysis,
   type CoachAutonomyMode,
+  type CoachDraftAuthorityMode,
   type CoachDecision,
   type CoachProposal,
 } from "@athlete-coach/domain";
 import {
+  CoachAnalysisRequestConflictError,
   coachAnalysisSchema,
   coachProposalSchema,
+  type AutoDraftLedgerResult,
   type CoachAnalysisRecord,
   type CoachAnalysisRepository,
   type CoachDecisionEnvelope,
@@ -45,6 +52,10 @@ const rowSchema = z.object({
   governance_policy_version: z.string().nullable(),
   review_class: z.enum(persistedReviewClasses).nullable(),
   governance_reasons: z.array(z.enum(coachGovernanceReasons)),
+  auto_draft_policy_version: z.string().nullable(),
+  auto_draft_eligibility: z.enum(coachAutoDraftEligibilities).nullable(),
+  auto_draft_reasons: z.array(z.enum(coachAutoDraftReasons)),
+  materialization_origin: z.enum(["human", "auto_draft"]).nullable(),
 });
 function map(input: unknown): CoachDecision {
   const row = rowSchema.parse(input);
@@ -74,8 +85,29 @@ function map(input: unknown): CoachDecision {
             reasons: row.governance_reasons,
           }
         : null,
+    autoDraft:
+      row.auto_draft_policy_version && row.auto_draft_eligibility
+        ? {
+            policyVersion: row.auto_draft_policy_version,
+            eligibility: row.auto_draft_eligibility,
+            reasons: row.auto_draft_reasons,
+          }
+        : null,
+    materializationOrigin: row.materialization_origin,
   };
 }
+const autoDraftResultSchema = z.object({
+  status: z.enum([
+    "materialized",
+    "already_materialized",
+    "existing_draft",
+    "stale",
+    "not_enabled",
+    "not_authorized",
+    "blocked",
+  ]),
+  decision: z.unknown(),
+});
 function fail(error: unknown): never {
   throw new DataAccessError(
     "Não foi possível processar a decisão do Personal.",
@@ -103,6 +135,13 @@ export class SupabaseCoachDecisionRepository implements CoachDecisionRepository 
           governancePolicyVersion: envelope.governance.policyVersion,
           reviewClass: envelope.governance.reviewClass,
           governanceReasons: [...envelope.governance.reasons],
+          autoDraft: envelope.autoDraft
+            ? {
+                policyVersion: envelope.autoDraft.policyVersion,
+                eligibility: envelope.autoDraft.eligibility,
+                reasons: [...envelope.autoDraft.reasons],
+              }
+            : null,
         },
       },
     );
@@ -147,6 +186,16 @@ export class SupabaseCoachDecisionRepository implements CoachDecisionRepository 
     if (error) fail(error);
     return map(data);
   }
+  /** Backend-only: the database decides origin=auto_draft; never activates. */
+  async autoDraft(id: string): Promise<AutoDraftLedgerResult> {
+    const { data, error } = await this.client.rpc("auto_draft_coach_decision", {
+      p_user_id: this.userId,
+      p_decision_id: id,
+    });
+    if (error) fail(error);
+    const result = autoDraftResultSchema.parse(data);
+    return { status: result.status, decision: map(result.decision) };
+  }
   async materialize(id: string) {
     const { data, error } = await this.client.rpc(
       "materialize_coach_decision",
@@ -159,6 +208,9 @@ export class SupabaseCoachDecisionRepository implements CoachDecisionRepository 
 
 const preferenceSchema = z.object({
   autonomy_mode: z.enum(coachAutonomyModes),
+});
+const draftAuthoritySchema = z.object({
+  draft_authority_mode: z.enum(coachDraftAuthorityModes),
 });
 /** Uses the caller JWT: RLS restricts reads and writes to the own athlete. */
 export class SupabaseCoachPreferenceRepository implements CoachPreferenceRepository {
@@ -193,6 +245,35 @@ export class SupabaseCoachPreferenceRepository implements CoachPreferenceReposit
     if (error) fail(error);
     return preferenceSchema.parse(data).autonomy_mode;
   }
+  async getDraftAuthorityMode(): Promise<CoachDraftAuthorityMode> {
+    const { data, error } = await this.client
+      .from("athlete_coach_preferences")
+      .select("draft_authority_mode")
+      .maybeSingle();
+    if (error) fail(error);
+    return data
+      ? draftAuthoritySchema.parse(data).draft_authority_mode
+      : DEFAULT_COACH_DRAFT_AUTHORITY_MODE;
+  }
+  async setDraftAuthorityMode(
+    mode: CoachDraftAuthorityMode,
+  ): Promise<CoachDraftAuthorityMode> {
+    const athlete = await this.client
+      .from("athletes")
+      .select("id")
+      .maybeSingle();
+    if (athlete.error || !athlete.data) fail(athlete.error);
+    const { data, error } = await this.client
+      .from("athlete_coach_preferences")
+      .upsert(
+        { athlete_id: athlete.data.id, draft_authority_mode: mode },
+        { onConflict: "athlete_id" },
+      )
+      .select("draft_authority_mode")
+      .single();
+    if (error) fail(error);
+    return draftAuthoritySchema.parse(data).draft_authority_mode;
+  }
 }
 
 const analysisRunSchema = z.object({
@@ -202,6 +283,10 @@ const analysisRunSchema = z.object({
   source_program_id: z.uuid().nullable(),
   source_program_revision: z.number().int().positive().nullable(),
   created_at: z.iso.datetime({ offset: true }),
+  request_fingerprint: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable(),
 });
 function mapAnalysisRun(input: unknown): CoachAnalysisRecord {
   const row = analysisRunSchema.parse(input);
@@ -214,6 +299,7 @@ function mapAnalysisRun(input: unknown): CoachAnalysisRecord {
         ? { id: row.source_program_id, revision: row.source_program_revision }
         : null,
     createdAt: row.created_at,
+    requestFingerprint: row.request_fingerprint,
   };
 }
 /**
@@ -244,6 +330,7 @@ export class SupabaseCoachAnalysisRepository implements CoachAnalysisRepository 
     const { data, error } = await this.client.rpc("record_coach_analysis_run", {
       p_user_id: this.userId,
       p_analysis_request_id: input.analysisRequestId,
+      p_request_fingerprint: input.requestFingerprint,
       p_analysis: JSON.parse(JSON.stringify(input.analysis)) as Json,
       ...(input.sourceProgram
         ? {
@@ -252,6 +339,9 @@ export class SupabaseCoachAnalysisRepository implements CoachAnalysisRepository 
           }
         : {}),
     });
+    // The database refuses to bind one id to two requests (race-safe).
+    if (error?.message === "Analysis request conflict")
+      throw new CoachAnalysisRequestConflictError();
     if (error) fail(error);
     return mapAnalysisRun(data);
   }

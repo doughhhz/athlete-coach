@@ -10,3 +10,4 @@ export * from "./outcomes/outcomes.ts";
 export * from "./response-memory/response-memory.ts";
 export * from "./exercise/replacement.ts";
 export * from "./coach-governance/governance.ts";
+export * from "./coach-auto-draft/auto-draft.ts";

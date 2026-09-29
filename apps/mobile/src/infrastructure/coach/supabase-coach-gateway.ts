@@ -15,9 +15,11 @@ export class MobileCoachError extends Error {
           ? "Confirme que revisou as alterações propostas."
           : code === "stale_analysis" || code === "analysis_not_found"
             ? "Seu programa ou a análise mudou. Faça uma nova análise para ver uma proposta."
-            : code === "proposal_blocked"
-              ? "Por segurança, nenhuma proposta de treino pode ser preparada para esta análise."
-              : "Não foi possível obter a análise do Personal.",
+            : code === "analysis_request_conflict"
+              ? "Esta análise já foi registrada para outra pergunta. Envie a pergunta novamente."
+              : code === "proposal_blocked"
+                ? "Por segurança, nenhuma proposta de treino pode ser preparada para esta análise."
+                : "Não foi possível obter a análise do Personal.",
     );
   }
 }
@@ -64,6 +66,13 @@ export class SupabaseCoachGateway {
         decision: null,
         reasons: [],
         unavailableReason: null,
+      },
+      autoDraft: payload.autoDraft ?? {
+        status: "not_applicable",
+        policyVersion: null,
+        reasons: [],
+        decision: null,
+        draftProgramId: null,
       },
     };
   }

@@ -51,6 +51,9 @@ import {
   CoachProposalBlockedError,
   StaleCoachAnalysisError,
   analysisProgramFrom,
+  CoachAnalysisRequestConflictError,
+  PrepareConservativeAutoDraft,
+  fingerprintAnalysisRequest,
 } from "../packages/application/src/index.ts";
 import {
   DeterministicCoachSafetyPolicy,
@@ -570,6 +573,10 @@ async function authoritative(analysis = coachFixture) {
   ).getActive();
   return analysisRuns.recordCompleted({
     analysisRequestId: crypto.randomUUID(),
+    requestFingerprint: await fingerprintAnalysisRequest({
+      userRequest: "Integração local",
+      analysisMode: "question",
+    }),
     analysis,
     sourceProgram: active ? { id: active.id, revision: active.revision } : null,
   });
@@ -2025,9 +2032,269 @@ assert.deepEqual(
   assert.ok(memoryAfter.groups.items.length >= 2);
 }
 
+// Implementation Phase 16 — Conservative Auto-Draft (ADR-0082..0086). ---------
+{
+  const preferences = new SupabaseCoachPreferenceRepository(reloadedClient);
+  const readDecisions = new SupabaseCoachDecisionRepository(
+    reloadedClient,
+    identity.userId,
+  );
+  const programsRepo = new SupabaseTrainingProgramRepository(reloadedClient);
+  // 1-4. Defaults: manual proposals and manual drafts; one active program.
+  assert.equal(await preferences.getAutonomyMode(), "manual");
+  assert.equal(await preferences.getDraftAuthorityMode(), "manual_draft");
+  const programA = await reloaded.activeProgram.execute();
+  assert.equal(programA.status, "active");
+  const dayA = programA.blocks[0].weeks[0].days[0];
+  const prescriptionA =
+    dayA.prescriptions.find((item) => item.sets.length > 1) ??
+    dayA.prescriptions[0];
+  assert.ok(
+    prescriptionA.sets.length > 1,
+    "fixture needs a multi-set prescription",
+  );
+  const [setA1, setA2] = prescriptionA.sets;
+  const phaseApi = replacementApi();
+  const dossierA = await phaseApi.dossier.execute();
+  const evidenceA = dossierA.evidence.find(
+    (item) => item.kind === "training_program" && item.id === programA.id,
+  );
+  assert.ok(evidenceA, "training evidence for Program A");
+  const at = (set) => ({
+    trainingDayId: dayA.id,
+    exercisePrescriptionId: prescriptionA.id,
+    prescriptionSetId: set.id,
+    rationale: "Ajuste conservador para revisão.",
+    evidence: [evidenceA],
+  });
+  const rirUp = (set) => ({
+    kind: "adjust_prescription_rir",
+    ...at(set),
+    rirMin: (set.rirMin ?? 1) + 1,
+    rirMax: (set.rirMax ?? 1) + 1,
+  });
+  const restUp = (set) => ({
+    kind: "adjust_prescription_rest",
+    ...at(set),
+    restMinSeconds: (set.restMinSeconds ?? 60) + 30,
+    restMaxSeconds: (set.restMaxSeconds ?? 60) + 30,
+  });
+  const removeSet = {
+    kind: "remove_prescription_set",
+    ...at(setA2),
+  };
+  const calls = { provider: 0 };
+  const providerFor = (actions) => ({
+    async generate(input, requestId) {
+      calls.provider += 1;
+      return new FixtureCoachProposalProvider({
+        ...proposalFixture,
+        schemaVersion: "coach-proposal-v3",
+        id: crypto.randomUUID(),
+        sourceProgramId: programA.id,
+        sourceProgramRevision: programA.revision,
+        evidenceReferences: [evidenceA],
+        actions,
+      }).generate(input, requestId);
+    },
+  });
+  const autoDraft = new PrepareConservativeAutoDraft(
+    preferences,
+    programsRepo,
+    decisions,
+  );
+  const ask = (actions, analysisRequestId = crypto.randomUUID(), question) =>
+    new AnalyzeAthleteWithCoachAndGovernance(
+      new AnalyzeAthleteWithCoach(
+        { execute: async () => dossierA },
+        {
+          async analyze(_request, requestId) {
+            return {
+              analysis: { ...coachFixture, requestId },
+              provider: "fixture",
+              model: "deterministic",
+              inputTokens: null,
+              outputTokens: null,
+            };
+          },
+        },
+        new DeterministicCoachSafetyPolicy(),
+      ),
+      analysisRuns,
+      analysisProgramFrom({ execute: async () => dossierA }),
+      new GenerateCoachProposal(
+        { execute: async () => dossierA },
+        programsRepo,
+        providerFor(actions),
+        decisions,
+      ),
+      preferences,
+      undefined,
+      autoDraft,
+    ).execute({
+      userRequest: question ?? "Posso ajustar meu treino?",
+      analysisMode: "question",
+      analysisRequestId,
+    });
+  const draftsOfA = async () =>
+    (await programsRepo.list()).filter(
+      (item) => item.supersedesProgramId === programA.id,
+    );
+  // 5-9. Proactive only: the proposal is prepared, no draft is created.
+  await preferences.setAutonomyMode("proactive");
+  const offRun = await ask([rirUp(setA1)]);
+  assert.equal(offRun.proactiveProposal.status, "prepared");
+  assert.equal(offRun.autoDraft.status, "not_enabled");
+  assert.equal(offRun.proactiveProposal.decision.status, "proposed");
+  assert.equal(
+    offRun.proactiveProposal.decision.autoDraft.eligibility,
+    "eligible",
+  );
+  assert.equal((await draftsOfA()).length, 0);
+  // 10-18. Explicit conservative opt-in: an eligible proposal becomes a draft.
+  assert.equal(
+    await preferences.setDraftAuthorityMode("standard_auto_draft"),
+    "standard_auto_draft",
+  );
+  const requestB = crypto.randomUUID();
+  const onRun = await ask([rirUp(setA2)], requestB);
+  const autoDecision = onRun.autoDraft.decision;
+  assert.equal(onRun.proactiveProposal.status, "prepared");
+  assert.equal(
+    onRun.proactiveProposal.decision.governance.reviewClass,
+    "standard_review",
+  );
+  assert.deepEqual(onRun.autoDraft.reasons, ["planned_rir_increase"]);
+  assert.equal(onRun.autoDraft.policyVersion, "coach-auto-draft-v1");
+  assert.equal(onRun.autoDraft.status, "materialized");
+  assert.equal(autoDecision.materializationOrigin, "auto_draft");
+  assert.equal(autoDecision.approvedAt, null);
+  const programB = await reloaded.getProgram.execute(
+    onRun.autoDraft.draftProgramId,
+  );
+  assert.equal(programB.status, "draft");
+  assert.equal(programB.supersedesProgramId, programA.id);
+  assert.equal((await reloaded.activeProgram.execute()).id, programA.id);
+  // 19. Retry of the same request: same analysis, decision and draft.
+  const providerBeforeRetry = calls.provider;
+  const retryRun = await ask([rirUp(setA2)], requestB);
+  assert.equal(retryRun.analysisReused, true);
+  assert.equal(retryRun.proactiveProposal.decision.id, autoDecision.id);
+  assert.equal(retryRun.autoDraft.status, "materialized");
+  assert.equal(retryRun.autoDraft.draftProgramId, programB.id);
+  assert.equal((await draftsOfA()).length, 1);
+  assert.equal(calls.provider, providerBeforeRetry);
+  // Concurrent-ish retries still leave a single draft (ledger row lock + lineage).
+  await Promise.all([
+    autoDraft.execute(
+      autoDecision,
+      await analysisRuns.findByRequestId(requestB),
+    ),
+    autoDraft.execute(
+      autoDecision,
+      await analysisRuns.findByRequestId(requestB),
+    ),
+  ]);
+  assert.equal((await draftsOfA()).length, 1);
+  // 20. Same id with a changed question: conflict, no provider, record intact.
+  await assert.rejects(
+    () => ask([rirUp(setA2)], requestB, "Outra pergunta"),
+    CoachAnalysisRequestConflictError,
+  );
+  assert.equal(calls.provider, providerBeforeRetry);
+  assert.equal(
+    (await analysisRuns.findByRequestId(requestB)).analysis.analysisId,
+    onRun.analysis.analysisId,
+  );
+  // 21-22. Elevated exercise replacement: never auto-drafted.
+  const candidateGroup = dossierA.exerciseReplacementCandidates.items.find(
+    (item) =>
+      item.sourceExerciseId === prescriptionA.exerciseId &&
+      item.candidates.length,
+  );
+  assert.ok(candidateGroup, "replacement candidate for Program A");
+  const [candidate] = candidateGroup.candidates;
+  const replaceRun = await ask([
+    {
+      kind: "replace_exercise",
+      trainingDayId: dayA.id,
+      exercisePrescriptionId: prescriptionA.id,
+      sourceExerciseId: prescriptionA.exerciseId,
+      replacementExerciseId: candidate.exerciseId,
+      relationshipContext: candidate.relations,
+      loadTransition: { mode: "athlete_selected" },
+      rationale: "Disponibilidade de equipamento.",
+      evidence: [evidenceA],
+    },
+  ]);
+  assert.equal(
+    replaceRun.proactiveProposal.decision.governance.reviewClass,
+    "elevated_review",
+  );
+  assert.equal(replaceRun.autoDraft.status, "ineligible");
+  assert.ok(replaceRun.autoDraft.reasons.includes("exercise_replacement"));
+  // 23-25. Remove-set: standard governance, but auto-draft v1 says ineligible.
+  const removeRun = await ask([removeSet]);
+  assert.equal(
+    removeRun.proactiveProposal.decision.governance.reviewClass,
+    "standard_review",
+  );
+  assert.equal(
+    removeRun.proactiveProposal.decision.autoDraft.eligibility,
+    "ineligible",
+  );
+  assert.equal(removeRun.autoDraft.status, "ineligible");
+  assert.deepEqual(removeRun.autoDraft.reasons, ["structural_set_change"]);
+  assert.equal((await draftsOfA()).length, 1);
+  // 26-27. Another eligible proposal: the existing draft is never overwritten.
+  const conflictRun = await ask([restUp(setA1)]);
+  assert.equal(conflictRun.autoDraft.status, "existing_draft");
+  assert.equal(conflictRun.proactiveProposal.decision.status, "proposed");
+  const draftAfter = await reloaded.getProgram.execute(programB.id);
+  assert.deepEqual(draftAfter.blocks, programB.blocks);
+  assert.equal((await draftsOfA()).length, 1);
+  // 28-29. No outcome or memory from an inactive draft; only after activation.
+  const beforeActivation = await phaseApi.get.execute(autoDecision.id);
+  assert.equal(beforeActivation.status, "awaiting_activation");
+  const memoryBefore = await phaseApi.memory.execute();
+  assert.ok(
+    !JSON.stringify(memoryBefore).includes(autoDecision.id),
+    "unactivated auto-draft is not an executed intervention",
+  );
+  await reloaded.activateProgram.execute(programB.id);
+  assert.equal((await reloaded.activeProgram.execute()).id, programB.id);
+  const afterActivation = await phaseApi.get.execute(autoDecision.id);
+  assert.notEqual(afterActivation.status, "awaiting_activation");
+  // 30-31. Preferences, provenance and the draft lineage persist across sessions.
+  await reloaded.signOut.execute();
+  await reloaded.signIn.execute(credentials);
+  assert.equal(await preferences.getAutonomyMode(), "proactive");
+  assert.equal(
+    await preferences.getDraftAuthorityMode(),
+    "standard_auto_draft",
+  );
+  const history = await readDecisions.list();
+  const persisted = history.find((item) => item.id === autoDecision.id);
+  assert.equal(persisted.materializationOrigin, "auto_draft");
+  assert.equal(persisted.approvedAt, null);
+  assert.equal(persisted.materializedProgramId, programB.id);
+  assert.ok(
+    history
+      .filter(
+        (item) => item.status === "materialized" && item.id !== autoDecision.id,
+      )
+      .every(
+        (item) => item.materializationOrigin === "human" && item.approvedAt,
+      ),
+    "human materializations keep human approval",
+  );
+  await preferences.setDraftAuthorityMode("manual_draft");
+  await preferences.setAutonomyMode("manual");
+}
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft flow passed.",
 );

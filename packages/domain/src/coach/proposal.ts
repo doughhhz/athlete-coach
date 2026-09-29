@@ -3,6 +3,7 @@ import type {
   CoachDecisionGovernance,
   CoachProposalOrigin,
 } from "../coach-governance/governance.ts";
+import type { CoachDecisionAutoDraft } from "../coach-auto-draft/auto-draft.ts";
 import type { EvidenceReference } from "../dossier/dossier.ts";
 import {
   relationsBetween,
@@ -194,6 +195,8 @@ export type CoachProposal = Readonly<{
     dossierSchemaVersion: string;
   }>;
 }>;
+/** Factual materialization authority (ADR-0084); null while not materialized. */
+export type CoachMaterializationOrigin = "human" | "auto_draft";
 export type CoachDecision = Readonly<{
   id: string;
   athleteId: string;
@@ -213,6 +216,10 @@ export type CoachDecision = Readonly<{
   analysisRequestId: string | null;
   /** `null` for decisions recorded before coach-governance-v1. */
   governance: CoachDecisionGovernance | null;
+  /** coach-auto-draft assessment at creation; null when not assessed. */
+  autoDraft: CoachDecisionAutoDraft | null;
+  /** human = approved by the athlete; auto_draft = policy-authorized draft (approvedAt null). */
+  materializationOrigin: CoachMaterializationOrigin | null;
   createdAt: string;
   updatedAt: string;
 }>;

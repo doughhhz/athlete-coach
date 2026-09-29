@@ -150,3 +150,7 @@ Seções históricas não foram renumeradas. Relatórios e prompts futuros devem
 ## Correção pós-Implementation Phase 15 — Authoritative Coach Analysis Handoff — complete
 
 Registro autoritativo `coach_analysis_runs`, handoff de proposta só por `analysisRequestId`, rejeição de payload forjado, análise idempotente, semântica de desatualização antes do provider e decisões ligadas a registros não bloqueados. Fora de escopo: Conservative Auto-Draft, materialização/ativação automáticas, Coach em background, persistência de chat, memória vetorial, web/RAG, ML/RL, Apple Health, nutrição e qualquer Implementation Phase 16.
+
+## Implementation Phase 16 — Conservative Auto-Draft Authority & Idempotent Analysis Request Binding — complete
+
+Fingerprint de requisição com conflito 409, preferência `draft_authority_mode` separada e opt-in, política `coach-auto-draft-v1`, RPC backend-only sobre o motor único de materialização, provenance `human | auto_draft` com `approved_at` apenas humano, UI "Rascunho preparado", cenário integrado de 31 passos. Fora de escopo: ativação automática, mutação do programa ativo, auto-draft de troca/estrutura/alvo, Coach em background ou agendado, proposta automática pós-treino, push, adaptação médica, escore de risco, ML/RL, web/RAG, Apple Health, nutrição, multi-agentes e qualquer Implementation Phase 17.

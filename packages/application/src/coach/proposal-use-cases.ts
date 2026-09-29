@@ -1,5 +1,7 @@
 import {
+  assessCoachAutoDraftEligibility,
   assessCoachProposalGovernance,
+  toDecisionAutoDraft,
   collectDossierEvidenceIds,
   toDecisionGovernance,
   validateCoachProposal,
@@ -165,11 +167,26 @@ export class GenerateCoachProposal {
         assessment.reasons,
         result.issues.map((issue) => issue.message),
       );
+    // coach-auto-draft-v1 is assessed for proactive proposals only and
+    // recorded for audit; it never materializes anything by itself.
+    const autoDraft =
+      origin === "proactive"
+        ? toDecisionAutoDraft(
+            assessCoachAutoDraftEligibility({
+              proposal,
+              origin,
+              governance: assessment,
+              trainingAdviceBlocked: record.trainingAdviceBlocked,
+              proposalValid: result.valid,
+            }),
+          )
+        : null;
     return this.decisions.create(proposal, {
       proposalOrigin: origin,
       autonomyModeAtCreation: options.autonomyModeAtCreation ?? null,
       analysisRequestId,
       governance,
+      autoDraft,
     });
   }
 }

@@ -96,3 +96,7 @@ Safety bloqueante impede a chamada de proposta proativa e resulta em status `blo
 ## Correção pós-Implementation Phase 15 — Safety com proveniência no servidor
 
 O cliente não consegue remover `safetyFlags` ou `blocksTrainingAdvice`: `coach-propose` rejeita (400) qualquer campo além de `analysisRequestId` e carrega o estado de safety do registro imutável. Análise bloqueada → `422 proposal_blocked` sem chamada ao provider e sem decisão; o banco também recusa criar decisão a partir de registro bloqueado. IDs desconhecidos ou de outro atleta → mesmo `404 analysis_not_found`.
+
+## Implementation Phase 16 — Safety acima do auto-draft
+
+Análise com `trainingAdviceBlocked` → auto-draft `blocked`, sem rascunho nem materialização, verificado na aplicação e no banco. Não existe atalho como "reduzir carga por dor". Ativação permanece exclusivamente humana; nenhuma rota do Coach altera o programa ativo.

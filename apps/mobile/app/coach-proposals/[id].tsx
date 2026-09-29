@@ -33,6 +33,7 @@ import {
   proposalOriginLabels,
   reviewClassLabels,
 } from "@/presentation/coach/governance-labels";
+import { materializationOriginLabels } from "@/presentation/coach/auto-draft-labels";
 
 const labels = {
   adjust_prescription_target: "Faixa de execução",
@@ -362,6 +363,12 @@ export default function CoachProposalReview() {
             {loading ? "Criando revisão…" : "Criar revisão em rascunho"}
           </Text>
         </Pressable>
+      )}
+      {decision.status === "materialized" && decision.materializationOrigin && (
+        <Text style={{ color: theme.colors.textMuted }}>
+          {materializationOriginLabels[decision.materializationOrigin]}. O
+          programa ativo não foi alterado; a ativação é sempre sua.
+        </Text>
       )}
       {decision.status === "materialized" && decision.materializedProgramId && (
         <Pressable
