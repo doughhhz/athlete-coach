@@ -753,3 +753,28 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Data: 2026-10-03
 - Status: accepted
 - Decisão: auto-draft só pode criar uma revisão `draft`. Não existe caminho Coach → ativação nem Coach → mutação do programa ativo: o Coach nunca altera, ativa, conclui ou arquiva o programa ativo por conta própria e nunca inicia outcome. A RPC de auto-draft não referencia ativação/transição de programa e verifica que o resultado é `draft`; testes de arquitetura guardam domínio, aplicação, Edge e migration. Rascunho automático não gera outcome nem memória até ativação humana. Ampliação do conjunto elegível e ativação automática ficam documentadas como futuras e **não implementadas**; ativação automática exigiria decisão de autoridade independente.
+
+### ADR-0087 — Human review evidence as a derived projection (Implementation Phase 17)
+
+- Data: 2026-10-04
+- Status: accepted
+- Decisão: `coach-draft-review-evidence-v1` descreve o que aconteceu com um rascunho materializado durante a revisão humana: `awaiting_review | activated_unchanged | activated_with_edits | archived_without_activation | limited_data`, comparação por ação (origem → materializado esperado → revisado/ativado), categorias factuais e contagens. Reconstruída de ledger + ciclo de vida do programa, sem migration nem snapshot duplicado. Só existe para decisões materializadas; rejeição de proposta não é arquivamento de rascunho. Funciona igualmente para `human` e `auto_draft`. Redação "o rascunho revisado difere", sem atribuir autor.
+- Impacto: domínio, aplicação, mobile, integração.
+
+### ADR-0088 — Review behavior is oversight evidence, never a quality signal
+
+- Data: 2026-10-04
+- Status: accepted
+- Decisão: **Human review behavior is evidence about oversight, not proof that a proposal was correct.** **User acceptance does not validate a coaching intervention physiologically.** Sem score, taxa de aceitação/sucesso, confiança, reward, feedback subjetivo, aprendizado de preferência ou de política. O histórico expõe apenas contagens transparentes (`coach-draft-review-history-v1`, itens limitados com `totalAvailable/included/hasMore` e ordenação determinística).
+
+### ADR-0089 — Dossier v6, coach-system-v6 and coach-proposal-prompt-v6
+
+- Data: 2026-10-04
+- Status: accepted
+- Decisão: `athlete-training-dossier-v6` = v5 + `draftReviewHistory` compacto (≤ 8 itens, contagens, referências `coach_draft_review`). `coach-system-v6` e `coach-proposal-prompt-v6` são v5 verbatim + regras de revisão (supervisão ≠ correção, sem inferir confiança, sem expandir autoridade, fisiologia só por outcomes). v1–v5 permanecem históricos. O tipo de evidência `coach_draft_review` é aditivo nos enums de evidência (precedente: `response_memory_group`), sem alterar as versões dos contratos de análise/proposta.
+
+### ADR-0090 — Auto-draft policy isolation from review history
+
+- Data: 2026-10-04
+- Status: accepted
+- Decisão: **Auto-draft authority may not expand itself from review history.** `coach-auto-draft-v1` permanece exatamente com RIR ↑, descanso ↑ e redução de carga absoluta existente; testes de arquitetura garantem que política/orquestração de auto-draft e governança não importam o módulo de revisão e que o conjunto elegível não mudou; o módulo de revisão não tem caminho para ativar, materializar ou escrever no ledger. Qualquer próxima decisão de autoridade deve ser nova ADR baseada em arquitetura (fronteiras, reversibilidade, verificações determinísticas), nunca em "aceitação" nem em autoavaliação do modelo.

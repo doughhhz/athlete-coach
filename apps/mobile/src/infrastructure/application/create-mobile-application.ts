@@ -49,6 +49,9 @@ import {
   SetCoachAutonomyMode,
   GetCoachDraftAuthorityMode,
   SetCoachDraftAuthorityMode,
+  BuildCoachDraftReviews,
+  GetCoachDraftReviewEvidence,
+  ListCoachDraftReviewHistory,
 } from "@athlete-coach/application";
 import {
   SupabaseAthleteGoalRepository,
@@ -100,6 +103,11 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     undefined,
     exerciseRepository,
   );
+  // Review evidence is rebuilt from the RLS-scoped ledger and programs.
+  const draftReviews = new BuildCoachDraftReviews(
+    { list: () => coach.listDecisions() },
+    programs,
+  );
   const buildTrainingDossier = new BuildAthleteTrainingDossier(
     loadProfile,
     programs,
@@ -108,6 +116,7 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     undefined,
     new BuildInterventionContext(interventionOutcomes),
     new GetExerciseReplacementCandidates(exerciseRepository),
+    new ListCoachDraftReviewHistory(draftReviews),
   );
   return {
     authRepository,
@@ -164,6 +173,8 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     getCoachDraftAuthorityMode: new GetCoachDraftAuthorityMode(
       coachPreferences,
     ),
+    listCoachDraftReviewHistory: new ListCoachDraftReviewHistory(draftReviews),
+    getCoachDraftReviewEvidence: new GetCoachDraftReviewEvidence(draftReviews),
     setCoachDraftAuthorityMode: new SetCoachDraftAuthorityMode(
       coachPreferences,
     ),

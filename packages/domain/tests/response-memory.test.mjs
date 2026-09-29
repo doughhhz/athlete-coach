@@ -684,7 +684,7 @@ test("dossier v3 carries bounded memory by reference without duplicating history
     interventionHistory: buildInterventionHistory(items),
     responseMemory: build(items),
   });
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v5");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v6");
   assert.equal(dossier.interventionHistory.included, 2);
   assert.equal(dossier.responseMemory.groups.included, 1);
   const episode = dossier.responseMemory.groups.items[0].episodes.items[0];

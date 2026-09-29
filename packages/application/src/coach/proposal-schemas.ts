@@ -18,6 +18,7 @@ const evidence = z.object({
     "derived_calculation",
     "coach_decision",
     "response_memory_group",
+    "coach_draft_review",
   ]),
   id: z.string().min(1).max(200),
   version: z.string().max(100).nullable(),

@@ -1,3 +1,4 @@
+import { DraftReviewSummary } from "@/presentation/coach/draft-review-components";
 import type {
   ExercisePerformancePoint,
   ExercisePersonalBest,
@@ -445,6 +446,7 @@ export function ProgressScreen() {
           ))}
         </>
       ) : null}
+      <DraftReviewSummary history={dossier?.draftReviewHistory ?? null} />
     </ScrollView>
   );
 }

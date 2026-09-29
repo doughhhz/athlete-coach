@@ -314,7 +314,7 @@ test("dossier v3 context computes outcomes once and embeds history plus memory",
     new BuildInterventionContext(outcomes),
   ).execute();
   assert.equal(listCalls, 1);
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v5");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v6");
   assert.equal(dossier.interventionHistory.totalAvailable, 1);
   assert.equal(dossier.responseMemory.groups.items[0].key, GROUP);
   assert.doesNotMatch(

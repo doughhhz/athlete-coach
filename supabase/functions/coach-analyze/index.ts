@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
-import { AnalyzeAthleteWithCoach, AnalyzeAthleteWithCoachAndGovernance, CoachAnalysisRequestConflictError, PrepareConservativeAutoDraft, GenerateCoachProposal, analysisProgramFrom, coachAnalyzeRequestSchema, memoizeDossier, BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, CoachProviderError, EnsureCurrentAthlete, LoadCurrentAthleteProfile } from "../../../packages/application/src/index.ts";
+import { AnalyzeAthleteWithCoach, AnalyzeAthleteWithCoachAndGovernance, CoachAnalysisRequestConflictError, PrepareConservativeAutoDraft, GenerateCoachProposal, analysisProgramFrom, coachAnalyzeRequestSchema, memoizeDossier, BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, BuildCoachDraftReviews, ListCoachDraftReviewHistory, CoachProviderError, EnsureCurrentAthlete, LoadCurrentAthleteProfile } from "../../../packages/application/src/index.ts";
 import { GeminiHttpCoachModelProvider, GeminiHttpCoachProposalProvider, DeterministicCoachSafetyPolicy } from "../../../packages/ai/src/index.ts";
 import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachAnalysisRepository, SupabaseCoachDecisionRepository, SupabaseCoachPreferenceRepository, SupabaseExerciseCatalogRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
 
@@ -38,8 +38,10 @@ Deno.serve(async (request) => {
     // Decision history is read with the caller JWT (RLS), never with the service role.
     const catalog = new SupabaseExerciseCatalogRepository(client);
     const interventionContext = new BuildInterventionContext(new BuildInterventionOutcomes(new SupabaseCoachDecisionRepository(client, auth.user.id), programs, performance, bodyWeights, undefined, catalog));
+    // Dossier v6 review evidence: derived from the ledger and program lifecycle with the caller JWT (read-only).
+    const draftReviews = new ListCoachDraftReviewHistory(new BuildCoachDraftReviews(new SupabaseCoachDecisionRepository(client, auth.user.id), programs));
     // One dossier per request: provenance and the proactive proposal use the same evidence as the analysis.
-    const dossier = memoizeDossier(new BuildAthleteTrainingDossier(profile, programs, new SupabaseWorkoutSessionRepository(client), performance, undefined, interventionContext, new GetExerciseReplacementCandidates(catalog)));
+    const dossier = memoizeDossier(new BuildAthleteTrainingDossier(profile, programs, new SupabaseWorkoutSessionRepository(client), performance, undefined, interventionContext, new GetExerciseReplacementCandidates(catalog), draftReviews));
     const providerConfig = { apiKey: apiKey ?? "", model: Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash", temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "20000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "4096") };
     const analyze = new AnalyzeAthleteWithCoach(dossier, apiKey ? new GeminiHttpCoachModelProvider(providerConfig) : { analyze: unavailableProvider }, new DeterministicCoachSafetyPolicy(), () => requestId);
     // The service client is used only for backend-owned writes: the authoritative

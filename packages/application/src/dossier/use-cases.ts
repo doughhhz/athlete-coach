@@ -1,5 +1,6 @@
 import {
   buildAthleteTrainingDossier,
+  type CoachDraftReviewHistory,
   type ExerciseReplacementContext,
   type IndividualResponseMemory,
   type InterventionHistory,
@@ -29,6 +30,11 @@ export interface ReplacementCandidateLoader {
   execute(exerciseIds: readonly string[]): Promise<ExerciseReplacementContext>;
 }
 
+/** Bounded factual review evidence of materialized drafts (dossier v6). */
+export interface DraftReviewHistoryLoader {
+  execute(): Promise<CoachDraftReviewHistory>;
+}
+
 export class BuildAthleteTrainingDossier {
   private readonly profile: AthleteSnapshotLoader;
   private readonly programs: TrainingProgramRepository;
@@ -37,6 +43,7 @@ export class BuildAthleteTrainingDossier {
   private readonly now: () => Date;
   private readonly interventionContext: InterventionContextLoader | null;
   private readonly replacementCandidates: ReplacementCandidateLoader | null;
+  private readonly draftReviews: DraftReviewHistoryLoader | null;
   constructor(
     profile: AthleteSnapshotLoader,
     programs: TrainingProgramRepository,
@@ -45,7 +52,9 @@ export class BuildAthleteTrainingDossier {
     now: () => Date = () => new Date(),
     interventionContext: InterventionContextLoader | null = null,
     replacementCandidates: ReplacementCandidateLoader | null = null,
+    draftReviews: DraftReviewHistoryLoader | null = null,
   ) {
+    this.draftReviews = draftReviews;
     this.profile = profile;
     this.programs = programs;
     this.workouts = workouts;
@@ -55,13 +64,14 @@ export class BuildAthleteTrainingDossier {
     this.replacementCandidates = replacementCandidates;
   }
   async execute() {
-    const [snapshot, activeProgram, historical, inProgress, context] =
+    const [snapshot, activeProgram, historical, inProgress, context, reviews] =
       await Promise.all([
         this.profile.execute(),
         this.programs.getActive(),
         this.performance.listHistoricalSessions(),
         this.workouts.getInProgress(),
         this.interventionContext?.execute() ?? Promise.resolve(null),
+        this.draftReviews?.execute() ?? Promise.resolve(null),
       ]);
     const sessions = inProgress ? [...historical, inProgress] : historical;
     const programExerciseIds =
@@ -83,6 +93,7 @@ export class BuildAthleteTrainingDossier {
       interventionHistory: context?.interventionHistory ?? null,
       responseMemory: context?.responseMemory ?? null,
       exerciseReplacementCandidates,
+      draftReviewHistory: reviews,
     });
   }
 }

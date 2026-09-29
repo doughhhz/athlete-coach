@@ -87,7 +87,7 @@ const build = (sessions) =>
   });
 test("dossier has a versioned deterministic contract", () => {
   const a = build([]);
-  assert.equal(a.schemaVersion, "athlete-training-dossier-v5");
+  assert.equal(a.schemaVersion, "athlete-training-dossier-v6");
   assert.equal(a.interventionHistory, null);
   assert.equal(a.responseMemory, null);
   assert.deepEqual(a, build([]));

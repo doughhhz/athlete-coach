@@ -12,6 +12,10 @@ import type { ExerciseReplacementContext } from "../exercise/replacement.ts";
 import type { InterventionHistory } from "../outcomes/outcomes.ts";
 import type { IndividualResponseMemory } from "../response-memory/response-memory.ts";
 import type { TrainingProgram } from "../training/training.ts";
+import type {
+  CoachDraftReviewEvidence,
+  CoachDraftReviewHistory,
+} from "../coach-draft-review/draft-review.ts";
 import type { WorkoutSession, WorkoutSet } from "../workout/workout.ts";
 
 /**
@@ -21,14 +25,17 @@ import type { WorkoutSession, WorkoutSet } from "../workout/workout.ts";
  * `set_count` dimension (outcome v2, memory v2, proposal v2) (ADR-0065).
  * v5 adds bounded `exerciseReplacementCandidates` for the active program and
  * exercise-replacement semantics in its intervention sections (ADR-0072).
+ * v6 keeps v5 and adds bounded `draftReviewHistory`: factual human-review
+ * evidence of materialized drafts — supervision, never correctness (ADR-0089).
  */
 export const ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION =
-  "athlete-training-dossier-v5" as const;
+  "athlete-training-dossier-v6" as const;
 export const athleteTrainingDossierSchemaVersions = [
   "athlete-training-dossier-v1",
   "athlete-training-dossier-v2",
   "athlete-training-dossier-v3",
   "athlete-training-dossier-v4",
+  "athlete-training-dossier-v5",
   ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION,
 ] as const;
 export const DOSSIER_RECENT_SESSION_LIMIT = 12;
@@ -48,7 +55,8 @@ export type EvidenceReference = Readonly<{
     | "body_weight_entry"
     | "derived_calculation"
     | "coach_decision"
-    | "response_memory_group";
+    | "response_memory_group"
+    | "coach_draft_review";
   id: string;
   version: string | null;
 }>;
@@ -191,6 +199,13 @@ export type AthleteTrainingDossier = Readonly<{
    * only: a relation is never equivalence or suitability. `null` = not loaded.
    */
   exerciseReplacementCandidates: ExerciseReplacementContext | null;
+  /**
+   * Bounded factual review evidence of materialized drafts (awaiting review,
+   * activated with/without edits, archived without activation). Oversight
+   * evidence only; physiology comes from interventionHistory. `null` = not
+   * loaded.
+   */
+  draftReviewHistory: DossierDraftReviewHistory | null;
   evidence: readonly EvidenceReference[];
 }>;
 
@@ -480,6 +495,7 @@ export function buildAthleteTrainingDossier(
     interventionHistory?: InterventionHistory | null;
     responseMemory?: IndividualResponseMemory | null;
     exerciseReplacementCandidates?: ExerciseReplacementContext | null;
+    draftReviewHistory?: CoachDraftReviewHistory | null;
   }>,
 ): AthleteTrainingDossier {
   const timezone = input.snapshot.profile?.timezone ?? "UTC";
@@ -614,6 +630,63 @@ export function buildAthleteTrainingDossier(
     interventionHistory: input.interventionHistory ?? null,
     responseMemory: input.responseMemory ?? null,
     exerciseReplacementCandidates: input.exerciseReplacementCandidates ?? null,
+    draftReviewHistory: input.draftReviewHistory
+      ? compactDraftReviewHistory(input.draftReviewHistory)
+      : null,
     evidence,
+  };
+}
+
+export const DOSSIER_DRAFT_REVIEW_LIMIT = 8;
+/** Compact review entry: no program structure, no proposal duplication. */
+export type DossierDraftReviewItem = Pick<
+  CoachDraftReviewEvidence,
+  | "decisionId"
+  | "proposalOrigin"
+  | "materializationOrigin"
+  | "reviewStatus"
+  | "materializedAt"
+  | "activatedAt"
+  | "archivedAt"
+  | "reviewedDraftDiffers"
+  | "changeCategories"
+  | "changesOutsideProposal"
+  | "actionComparisons"
+  | "evidence"
+>;
+export type DossierDraftReviewHistory = Readonly<{
+  schemaVersion: CoachDraftReviewHistory["schemaVersion"];
+  counts: CoachDraftReviewHistory["counts"];
+  items: readonly DossierDraftReviewItem[];
+  totalAvailable: number;
+  included: number;
+  hasMore: boolean;
+}>;
+export function compactDraftReviewHistory(
+  history: CoachDraftReviewHistory,
+): DossierDraftReviewHistory {
+  const items = history.items
+    .slice(0, DOSSIER_DRAFT_REVIEW_LIMIT)
+    .map((item) => ({
+      decisionId: item.decisionId,
+      proposalOrigin: item.proposalOrigin,
+      materializationOrigin: item.materializationOrigin,
+      reviewStatus: item.reviewStatus,
+      materializedAt: item.materializedAt,
+      activatedAt: item.activatedAt,
+      archivedAt: item.archivedAt,
+      reviewedDraftDiffers: item.reviewedDraftDiffers,
+      changeCategories: item.changeCategories,
+      changesOutsideProposal: item.changesOutsideProposal,
+      actionComparisons: item.actionComparisons,
+      evidence: item.evidence,
+    }));
+  return {
+    schemaVersion: history.schemaVersion,
+    counts: history.counts,
+    items,
+    totalAvailable: history.totalAvailable,
+    included: items.length,
+    hasMore: history.totalAvailable > items.length,
   };
 }

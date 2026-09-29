@@ -154,3 +154,7 @@ Registro autoritativo `coach_analysis_runs`, handoff de proposta só por `analys
 ## Implementation Phase 16 — Conservative Auto-Draft Authority & Idempotent Analysis Request Binding — complete
 
 Fingerprint de requisição com conflito 409, preferência `draft_authority_mode` separada e opt-in, política `coach-auto-draft-v1`, RPC backend-only sobre o motor único de materialização, provenance `human | auto_draft` com `approved_at` apenas humano, UI "Rascunho preparado", cenário integrado de 31 passos. Fora de escopo: ativação automática, mutação do programa ativo, auto-draft de troca/estrutura/alvo, Coach em background ou agendado, proposta automática pós-treino, push, adaptação médica, escore de risco, ML/RL, web/RAG, Apple Health, nutrição, multi-agentes e qualquer Implementation Phase 17.
+
+## Implementation Phase 17 — Human Review Evidence & Auto-Draft Audit Loop — complete
+
+Projeção derivada `coach-draft-review-evidence-v1` e histórico `coach-draft-review-history-v1` (sem migration), dossier v6, prompts v6, UI factual de revisão e "Revisões do Personal", cenário integrado de 23 passos. Fora de escopo: reward, score, taxas, feedback subjetivo, aprendizado de política, ampliação de auto-draft, ativação automática, Coach em background, ML/RL e qualquer Implementation Phase 18.

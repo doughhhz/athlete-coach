@@ -13,6 +13,7 @@ import {
   summarizeReplacementChanges,
   summarizeSetCountChanges,
   type CoachDecision,
+  type CoachDraftReviewEvidence,
   type CoachProposalAdjustAction,
   type PrescriptionSet,
   type TrainingProgram,
@@ -34,6 +35,7 @@ import {
   reviewClassLabels,
 } from "@/presentation/coach/governance-labels";
 import { materializationOriginLabels } from "@/presentation/coach/auto-draft-labels";
+import { DraftReviewDetail } from "@/presentation/coach/draft-review-components";
 
 const labels = {
   adjust_prescription_target: "Faixa de execução",
@@ -93,7 +95,9 @@ export default function CoachProposalReview() {
     listCoachDecisions,
     listExercises,
     materializeCoachProposal,
+    getCoachDraftReviewEvidence,
   } = useAppSession();
+  const [review, setReview] = useState<CoachDraftReviewEvidence | null>(null);
   const [exerciseNames, setExerciseNames] = useState<
     ReadonlyMap<string, string>
   >(new Map());
@@ -118,6 +122,12 @@ export default function CoachProposalReview() {
       .catch(() => setError("Não foi possível carregar a proposta."))
       .finally(() => setLoading(false));
   }, [getProgram, id, listCoachDecisions]);
+  useEffect(() => {
+    if (decision?.status !== "materialized") return;
+    void getCoachDraftReviewEvidence(decision.id)
+      .then(setReview)
+      .catch(() => undefined);
+  }, [decision, getCoachDraftReviewEvidence]);
   useEffect(() => {
     void listExercises()
       .then((items) =>
@@ -385,6 +395,7 @@ export default function CoachProposalReview() {
           </Text>
         </Pressable>
       )}
+      {review && <DraftReviewDetail evidence={review} />}
       {decision.status === "stale" && (
         <Text style={{ color: theme.colors.danger }}>
           Esta proposta está desatualizada e não alterou o programa.

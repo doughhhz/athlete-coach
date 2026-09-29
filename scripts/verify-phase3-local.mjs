@@ -54,7 +54,15 @@ import {
   CoachAnalysisRequestConflictError,
   PrepareConservativeAutoDraft,
   fingerprintAnalysisRequest,
+  BuildCoachDraftReviews,
+  GetCoachDraftReviewEvidence,
+  ListCoachDraftReviewHistory,
 } from "../packages/application/src/index.ts";
+import {
+  assessCoachAutoDraftEligibility,
+  assessCoachProposalGovernance,
+  collectDossierEvidenceIds,
+} from "../packages/domain/src/index.ts";
 import {
   DeterministicCoachSafetyPolicy,
   FixtureCoachModelProvider,
@@ -423,7 +431,7 @@ assert.equal(performanceHistory.at(-1)?.isNewEstimatedOneRepMax, true);
 assert.equal((await reloaded.personalBests.execute())[0].maxLoggedLoadKg, 35);
 const overviewBeforeReload = await reloaded.performanceOverview.execute();
 const dossierBeforeReload = await reloaded.dossier.execute();
-assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v5");
+assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v6");
 assert.equal(dossierBeforeReload.activeProgram?.id, revision.id);
 assert.equal(dossierBeforeReload.windows.at(-1)?.sessionsStarted, 3);
 assert.equal(dossierBeforeReload.exerciseSignals.length, 1);
@@ -968,7 +976,7 @@ const dossierV3 = await new BuildAthleteTrainingDossier(
   outcomeClock,
   memoryUseCases.context,
 ).execute();
-assert.equal(dossierV3.schemaVersion, "athlete-training-dossier-v5");
+assert.equal(dossierV3.schemaVersion, "athlete-training-dossier-v6");
 assert.equal(dossierV3.interventionHistory.totalAvailable, 3);
 assert.equal(dossierV3.responseMemory.groups.included, 1);
 assert.equal(dossierV3.responseMemory.truncation.groupLimit, 10);
@@ -1016,7 +1024,7 @@ const learningAnalysis = await new AnalyzeAthleteWithCoach(
 });
 assert.equal(
   capturedRequest.dossier.schemaVersion,
-  "athlete-training-dossier-v5",
+  "athlete-training-dossier-v6",
 );
 assert.equal(
   capturedRequest.dossier.responseMemory.groups.items[0].key,
@@ -1024,7 +1032,7 @@ assert.equal(
 );
 assert.equal(
   learningAnalysis.metadata.dossierSchemaVersion,
-  "athlete-training-dossier-v5",
+  "athlete-training-dossier-v6",
 );
 assert.equal(
   (
@@ -1323,7 +1331,7 @@ const dossierV4 = await new BuildAthleteTrainingDossier(
   outcomeClock,
   memoryUseCases.context,
 ).execute();
-assert.equal(dossierV4.schemaVersion, "athlete-training-dossier-v5");
+assert.equal(dossierV4.schemaVersion, "athlete-training-dossier-v6");
 assert.ok(
   dossierV4.responseMemory.groups.items.some(
     (group) => group.key === setGroup.key,
@@ -1365,7 +1373,7 @@ await new AnalyzeAthleteWithCoach(
   new DeterministicCoachSafetyPolicy(),
   () => "phase13-request",
 ).execute({ userRequest: "E as séries?", analysisMode: "question" });
-assert.equal(capturedV4.dossier.schemaVersion, "athlete-training-dossier-v5");
+assert.equal(capturedV4.dossier.schemaVersion, "athlete-training-dossier-v6");
 assert.equal(
   (
     await new SupabaseCoachDecisionRepository(
@@ -1446,7 +1454,7 @@ await trainDay(
 );
 let rApi = replacementApi();
 const dossierR = await rApi.dossier.execute();
-assert.equal(dossierR.schemaVersion, "athlete-training-dossier-v5");
+assert.equal(dossierR.schemaVersion, "athlete-training-dossier-v6");
 const candidateSet = dossierR.exerciseReplacementCandidates.items.find(
   (item) => item.sourceExerciseId === EX_X,
 );
@@ -1682,7 +1690,7 @@ assert.doesNotMatch(
 );
 // Dossier v5 reaches the (fake) Coach; nothing is proposed or activated.
 const dossierV5 = await rApi.dossier.execute();
-assert.equal(dossierV5.schemaVersion, "athlete-training-dossier-v5");
+assert.equal(dossierV5.schemaVersion, "athlete-training-dossier-v6");
 assert.deepEqual(
   dossierV5.exerciseReplacementCandidates.items.map(
     (item) => item.sourceExerciseId,
@@ -1713,7 +1721,7 @@ await new AnalyzeAthleteWithCoach(
   new DeterministicCoachSafetyPolicy(),
   () => "phase14-request",
 ).execute({ userRequest: "Posso trocar o supino?", analysisMode: "question" });
-assert.equal(capturedV5.dossier.schemaVersion, "athlete-training-dossier-v5");
+assert.equal(capturedV5.dossier.schemaVersion, "athlete-training-dossier-v6");
 assert.ok(capturedV5.dossier.exerciseReplacementCandidates);
 assert.equal(
   (
@@ -2292,9 +2300,296 @@ assert.deepEqual(
   await preferences.setAutonomyMode("manual");
 }
 
+// Implementation Phase 17 — Human Review Evidence (ADR-0087..0090). ----------
+{
+  const preferences = new SupabaseCoachPreferenceRepository(reloadedClient);
+  const programsRepo = new SupabaseTrainingProgramRepository(reloadedClient);
+  const readDecisions = new SupabaseCoachDecisionRepository(
+    reloadedClient,
+    identity.userId,
+  );
+  const reviews = new BuildCoachDraftReviews(readDecisions, programsRepo);
+  const reviewOf = (decisionId) =>
+    new GetCoachDraftReviewEvidence(reviews).execute(decisionId);
+  const outcomeApi17 = replacementApi();
+  // Analysis fixture grounded on evidence always present in the current
+  // dossier (the active program); older fixture citations age out of the
+  // bounded dossier windows.
+  const groundedAnalysis = (reference) => ({
+    ...coachFixture,
+    observations: coachFixture.observations.map((item) => ({
+      ...item,
+      evidence: [reference],
+    })),
+    recommendations: coachFixture.recommendations.map((item) => ({
+      ...item,
+      evidence: [reference],
+    })),
+    evidenceUsed: [reference],
+  });
+  const autoDraft = new PrepareConservativeAutoDraft(
+    preferences,
+    programsRepo,
+    decisions,
+  );
+  // Prepares one eligible proactive proposal (RIR +1 on the first set) on the
+  // current active program and lets Conservative Auto-Draft materialize it.
+  async function autoDraftOnActive() {
+    const active = await reloaded.activeProgram.execute();
+    const day = active.blocks[0].weeks[0].days[0];
+    const target = day.prescriptions[0];
+    const first = target.sets[0];
+    const dossierNow = await outcomeApi17.dossier.execute();
+    const programEvidence = dossierNow.evidence.find(
+      (item) => item.kind === "training_program" && item.id === active.id,
+    );
+    const run = await new AnalyzeAthleteWithCoachAndGovernance(
+      new AnalyzeAthleteWithCoach(
+        { execute: async () => dossierNow },
+        {
+          async analyze(_request, requestId) {
+            return {
+              analysis: { ...groundedAnalysis(programEvidence), requestId },
+              provider: "fixture",
+              model: "deterministic",
+              inputTokens: null,
+              outputTokens: null,
+            };
+          },
+        },
+        new DeterministicCoachSafetyPolicy(),
+      ),
+      analysisRuns,
+      analysisProgramFrom({ execute: async () => dossierNow }),
+      new GenerateCoachProposal(
+        { execute: async () => dossierNow },
+        programsRepo,
+        new FixtureCoachProposalProvider({
+          ...proposalFixture,
+          schemaVersion: "coach-proposal-v3",
+          id: crypto.randomUUID(),
+          sourceProgramId: active.id,
+          sourceProgramRevision: active.revision,
+          evidenceReferences: [programEvidence],
+          actions: [
+            {
+              kind: "adjust_prescription_rir",
+              trainingDayId: day.id,
+              exercisePrescriptionId: target.id,
+              prescriptionSetId: first.id,
+              rirMin: (first.rirMin ?? 1) + 1,
+              rirMax: (first.rirMax ?? 1) + 1,
+              rationale: "Ajuste conservador para revisão.",
+              evidence: [programEvidence],
+            },
+          ],
+        }),
+        decisions,
+      ),
+      preferences,
+      undefined,
+      autoDraft,
+    ).execute({
+      userRequest: `Revisão ${crypto.randomUUID()}`,
+      analysisMode: "question",
+      analysisRequestId: crypto.randomUUID(),
+    });
+    assert.equal(run.autoDraft.status, "materialized");
+    return { run, active, first };
+  }
+  // 1-2. Proactive + Conservative Auto-Draft enabled explicitly.
+  await preferences.setAutonomyMode("proactive");
+  await preferences.setDraftAuthorityMode("standard_auto_draft");
+  // 3-5. Auto-draft B: awaiting review, identical to the materialized expectation.
+  const b = await autoDraftOnActive();
+  const decisionB = b.run.autoDraft.decision;
+  const programB = await reloaded.getProgram.execute(
+    b.run.autoDraft.draftProgramId,
+  );
+  let reviewB = await reviewOf(decisionB.id);
+  assert.equal(reviewB.schemaVersion, "coach-draft-review-evidence-v1");
+  assert.equal(reviewB.reviewStatus, "awaiting_review");
+  assert.equal(reviewB.materializationOrigin, "auto_draft");
+  assert.equal(reviewB.reviewedDraftDiffers, false);
+  assert.equal(
+    (await outcomeApi17.get.execute(decisionB.id)).status,
+    "awaiting_activation",
+  );
+  // 6-7. Draft edited before activation (RIR prepared +1, reviewed +2).
+  const editedStructure = toStructure(programB, (set) =>
+    set.sequence === 1
+      ? {
+          ...set,
+          rirMin: (b.first.rirMin ?? 1) + 2,
+          rirMax: (b.first.rirMax ?? 1) + 2,
+        }
+      : set,
+  );
+  await reloaded.saveProgram.execute(programB.id, editedStructure);
+  reviewB = await reviewOf(decisionB.id);
+  assert.equal(reviewB.reviewStatus, "awaiting_review");
+  assert.equal(reviewB.reviewedDraftDiffers, true);
+  assert.ok(reviewB.changeCategories.includes("rir_changed"));
+  // 8-10. Manual activation: activated with edits; outcomes begin only now.
+  await reloaded.activateProgram.execute(programB.id);
+  reviewB = await reviewOf(decisionB.id);
+  assert.equal(reviewB.reviewStatus, "activated_with_edits");
+  const [comparisonB] = reviewB.actionComparisons;
+  assert.deepEqual(
+    comparisonB.materializedValue.min,
+    (b.first.rirMin ?? 1) + 1,
+  );
+  assert.deepEqual(comparisonB.reviewedValue.min, (b.first.rirMin ?? 1) + 2);
+  assert.equal(comparisonB.reviewedDiffersFromMaterialized, true);
+  assert.ok(reviewB.timeUntilActivationSeconds >= 0);
+  assert.notEqual(
+    (await outcomeApi17.get.execute(decisionB.id)).status,
+    "awaiting_activation",
+  );
+  // 11-13. Auto-draft C activated exactly as materialized.
+  const c = await autoDraftOnActive();
+  const decisionC = c.run.autoDraft.decision;
+  await reloaded.activateProgram.execute(c.run.autoDraft.draftProgramId);
+  const reviewC = await reviewOf(decisionC.id);
+  assert.equal(reviewC.reviewStatus, "activated_unchanged");
+  assert.deepEqual(reviewC.changeCategories, []);
+  // 14-16. Auto-draft D archived without activation (valid draft lifecycle).
+  const d = await autoDraftOnActive();
+  const decisionD = d.run.autoDraft.decision;
+  await programsRepo.archive(d.run.autoDraft.draftProgramId);
+  const reviewD = await reviewOf(decisionD.id);
+  assert.equal(reviewD.reviewStatus, "archived_without_activation");
+  assert.equal(reviewD.activatedAt, null);
+  assert.ok(reviewD.timeUntilArchiveSeconds >= 0);
+  assert.equal(
+    (await outcomeApi17.get.execute(decisionD.id)).status !==
+      "awaiting_activation" &&
+      (await outcomeApi17.get.execute(decisionD.id)).interventionProgram !==
+        null &&
+      (await outcomeApi17.get.execute(decisionD.id)).observed?.length > 0,
+    false,
+    "an unactivated draft has no observed intervention",
+  );
+  // 17-18. Review history: transparent counts, no rates or scores.
+  const history = await new ListCoachDraftReviewHistory(reviews).execute(50);
+  const ours = history.items.filter((item) =>
+    [decisionB.id, decisionC.id, decisionD.id].includes(item.decisionId),
+  );
+  assert.deepEqual(
+    Object.fromEntries(
+      ours.map((item) => [item.decisionId, item.reviewStatus]),
+    ),
+    {
+      [decisionB.id]: "activated_with_edits",
+      [decisionC.id]: "activated_unchanged",
+      [decisionD.id]: "archived_without_activation",
+    },
+  );
+  assert.ok(history.counts.byMaterializationOrigin.auto_draft >= 4);
+  assert.ok(history.counts.byMaterializationOrigin.human >= 1);
+  assert.equal(
+    Object.values(history.counts.byStatus).reduce((a, b2) => a + b2, 0),
+    history.counts.materializedDrafts,
+  );
+  assert.doesNotMatch(
+    JSON.stringify(history),
+    /rate|score|trust|accept|reward/i,
+  );
+  // 19-20. Dossier v6 carries bounded review history to the (fake) Coach.
+  const dossierV6 = await new BuildAthleteTrainingDossier(
+    reloaded.load,
+    programsRepo,
+    new SupabaseWorkoutSessionRepository(reloadedClient),
+    new SupabasePerformanceReadRepository(reloadedClient),
+    outcomeClock,
+    null,
+    null,
+    new ListCoachDraftReviewHistory(reviews),
+  ).execute();
+  assert.equal(dossierV6.schemaVersion, "athlete-training-dossier-v6");
+  assert.ok(dossierV6.draftReviewHistory.items.length <= 8);
+  let capturedV6 = null;
+  await new AnalyzeAthleteWithCoach(
+    { execute: async () => dossierV6 },
+    {
+      async analyze(request, requestId) {
+        capturedV6 = request;
+        return {
+          analysis: { ...groundedAnalysis(dossierV6.evidence[0]), requestId },
+          provider: "fixture",
+          model: "deterministic",
+          inputTokens: null,
+          outputTokens: null,
+        };
+      },
+    },
+    new DeterministicCoachSafetyPolicy(),
+  ).execute({
+    userRequest: "Como foram minhas revisões?",
+    analysisMode: "question",
+  });
+  assert.equal(capturedV6.dossier.schemaVersion, "athlete-training-dossier-v6");
+  assert.ok(
+    capturedV6.dossier.draftReviewHistory.items.some(
+      (item) => item.decisionId === decisionD.id,
+    ),
+  );
+  assert.ok(
+    collectDossierEvidenceIds(dossierV6).has(
+      `coach_draft_review:${decisionD.id}`,
+    ),
+  );
+  // 21. Auto-draft eligibility is independent of review history.
+  const removeSetProposal = {
+    ...decisionC.proposal,
+    actions: [
+      {
+        kind: "remove_prescription_set",
+        trainingDayId: decisionC.proposal.actions[0].trainingDayId,
+        exercisePrescriptionId:
+          decisionC.proposal.actions[0].exercisePrescriptionId,
+        prescriptionSetId: decisionC.proposal.actions[0].prescriptionSetId,
+        rationale: "r",
+        evidence: decisionC.proposal.actions[0].evidence,
+      },
+    ],
+  };
+  for (const proposal of [decisionC.proposal, removeSetProposal]) {
+    const governance = assessCoachProposalGovernance({
+      proposal,
+      sourceProgram: c.active,
+      origin: "proactive",
+      safetyBlocksTrainingAdvice: false,
+      proposalValid: true,
+    });
+    const eligibility = assessCoachAutoDraftEligibility({
+      proposal,
+      origin: "proactive",
+      governance,
+      trainingAdviceBlocked: false,
+      proposalValid: true,
+    }).eligibility;
+    assert.equal(
+      eligibility,
+      proposal === removeSetProposal ? "ineligible" : "eligible",
+      "history never widens or narrows coach-auto-draft-v1",
+    );
+  }
+  // 22-23. Deterministic rebuild after logout/login.
+  const before = await new ListCoachDraftReviewHistory(reviews).execute(50);
+  await reloaded.signOut.execute();
+  await reloaded.signIn.execute(credentials);
+  assert.deepEqual(
+    await new ListCoachDraftReviewHistory(reviews).execute(50),
+    before,
+  );
+  await preferences.setDraftAuthorityMode("manual_draft");
+  await preferences.setAutonomyMode("manual");
+}
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review flow passed.",
 );

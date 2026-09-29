@@ -28,6 +28,8 @@ import type {
   CoachAnalysisMode,
   CoachAutonomyMode,
   CoachDraftAuthorityMode,
+  CoachDraftReviewEvidence,
+  CoachDraftReviewHistory,
   CoachConversationMessage,
   CoachDecision,
   CoachRejectionReason,
@@ -116,6 +118,11 @@ export type AppSessionValue = Readonly<{
   setCoachAutonomyMode(mode: CoachAutonomyMode): Promise<CoachAutonomyMode>;
   /** Independent Conservative Auto-Draft opt-in (default manual_draft). */
   getCoachDraftAuthorityMode(): Promise<CoachDraftAuthorityMode>;
+  /** Factual review evidence of materialized drafts (derived, read-only). */
+  listCoachDraftReviewHistory(limit?: number): Promise<CoachDraftReviewHistory>;
+  getCoachDraftReviewEvidence(
+    decisionId: string,
+  ): Promise<CoachDraftReviewEvidence | null>;
   setCoachDraftAuthorityMode(
     mode: CoachDraftAuthorityMode,
   ): Promise<CoachDraftAuthorityMode>;

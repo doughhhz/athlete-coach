@@ -149,3 +149,7 @@ Toda avaliação tem `requiresHumanReview: true`, `allowsAutomaticMaterializatio
 ## Implementation Phase 16 — Auto-draft conservador
 
 `coach-auto-draft-v1`: elegível apenas quando a proposta tem **uma** ação, sobre **uma** prescrição existente, sem mudar identidade do exercício nem estrutura de séries, e a governança a classifica como `standard_review` exclusivamente por aumento de RIR, aumento de descanso ou redução de carga absoluta existente. Remover série é `standard_review` na governança, mas é **inelegível** para auto-draft v1 (mudança estrutural). Sem limiares de magnitude (sem 5%/10%/20%); a magnitude fica visível para revisão humana. Rascunho automático não é intervenção executada: outcomes e memória só começam após ativação humana.
+
+## Implementation Phase 17 — Diferenças de revisão
+
+Categorias factuais: `exercise_changed`, `set_added`, `set_removed`, `target_changed`, `rir_changed`, `rest_changed`, `load_changed`, `tempo_changed`, `prescription_added`, `prescription_removed`, `program_structure_changed`; correspondência posicional (bloco/semana/dia/prescrição/série). Sem severidade (menor/maior). Mudanças fora das prescrições da proposta são registradas em `changesOutsideProposal`. Tempos factuais: `timeUntilActivationSeconds` e `timeUntilArchiveSeconds` (sem "hesitação", sem idade dependente de agora). Revisão acontece antes da camada de outcome: outcomes e memória continuam começando só na ativação humana.

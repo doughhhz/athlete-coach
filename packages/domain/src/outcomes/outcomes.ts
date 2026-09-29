@@ -547,19 +547,21 @@ export function samePrescriptionValue(
 // ---------------------------------------------------------------------------
 // Program structure navigation
 
-type LocatedPrescription = Readonly<{
+export type LocatedPrescription = Readonly<{
   path: Omit<PrescriptionPath, "setSequence">;
   prescription: ExercisePrescription;
 }>;
 
-function prescriptionKey(path: Omit<PrescriptionPath, "setSequence">): string {
+export function prescriptionKey(
+  path: Omit<PrescriptionPath, "setSequence">,
+): string {
   return `${path.blockSequence}.${path.weekSequence}.${path.daySequence}.${path.prescriptionSequence}`;
 }
 function dayKey(path: Omit<PrescriptionPath, "setSequence">): string {
   return `${path.blockSequence}.${path.weekSequence}.${path.daySequence}`;
 }
 
-function flattenPrescriptions(
+export function flattenPrescriptions(
   program: TrainingProgram,
 ): readonly LocatedPrescription[] {
   return program.blocks.flatMap((block) =>
@@ -642,7 +644,7 @@ function locateCorrespondingPrescription(
   };
 }
 
-function diffPrescription(
+export function diffPrescription(
   source: ExercisePrescription,
   implemented: ExercisePrescription,
 ): readonly FidelityDifference[] {

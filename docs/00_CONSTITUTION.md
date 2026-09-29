@@ -96,3 +96,9 @@ A classe de revisão é calculada por política determinística e versionada no 
 - **Standard review is necessary but not sufficient for automatic draft eligibility.**
 
 Ativação de programa é sempre uma ação humana explícita. Ativação automática não é o "próximo toggle": exigiria uma decisão de autoridade independente e nova ADR.
+
+## Implementation Phase 17 — Supervisão não é validação
+
+- **Human review behavior is evidence about oversight, not proof that a proposal was correct.**
+- **User acceptance does not validate a coaching intervention physiologically.**
+- **Auto-draft authority may not expand itself from review history.**

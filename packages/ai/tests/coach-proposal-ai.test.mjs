@@ -6,6 +6,7 @@ import {
   COACH_PROPOSAL_PROMPT_V3,
   COACH_PROPOSAL_PROMPT_V4,
   COACH_PROPOSAL_PROMPT_V5,
+  COACH_PROPOSAL_PROMPT_V6,
   COACH_PROPOSAL_PROMPT_VERSION,
   FixtureCoachProposalProvider,
   GeminiHttpCoachProposalProvider,
@@ -74,7 +75,7 @@ test("Gemini proposal adapter separates policy and rejects malformed output", as
       ),
     (error) => error.code === "invalid_response",
   );
-  assert.equal(body.systemInstruction.parts[0].text, COACH_PROPOSAL_PROMPT_V5);
+  assert.equal(body.systemInstruction.parts[0].text, COACH_PROPOSAL_PROMPT_V6);
   assert.match(body.contents[0].parts[0].text, /"dataTrust":"untrusted"/);
 });
 test("proposal prompt v3: past positive delta alone never justifies repeating", () => {
@@ -218,7 +219,6 @@ test("malformed or unsupported set actions from the model are rejected", async (
 });
 
 test("proposal prompt v5 allows only candidate replacements with explicit load transition", () => {
-  assert.equal(COACH_PROPOSAL_PROMPT_VERSION, "coach-proposal-prompt-v5");
   assert.match(COACH_PROPOSAL_PROMPT_V5, /coach-proposal-v3/);
   assert.match(COACH_PROPOSAL_PROMPT_V5, /replace_exercise/);
   assert.doesNotMatch(COACH_PROPOSAL_PROMPT_V5, /replace exercises/);
@@ -304,4 +304,18 @@ test("malformed replacements from the model are rejected by the schema", async (
         ),
       (error) => error.code === "invalid_response",
     );
+});
+
+test("proposal prompt v6: review history is supervision, never authority", () => {
+  assert.equal(COACH_PROPOSAL_PROMPT_VERSION, "coach-proposal-prompt-v6");
+  assert.ok(COACH_PROPOSAL_PROMPT_V6.startsWith(COACH_PROPOSAL_PROMPT_V5));
+  for (const invariant of [
+    "human supervision evidence, not physiological evidence",
+    "previous unchanged activation does not justify repeating a proposal",
+    "previous edit or archive does not prohibit one",
+    "Never infer the athlete.s trust",
+    "never propose to widen automatic drafting or to activate anything",
+  ])
+    assert.match(COACH_PROPOSAL_PROMPT_V6, new RegExp(invariant, "i"));
+  assert.match(COACH_PROPOSAL_PROMPT_V6, /coach-proposal-v3/);
 });

@@ -24,3 +24,4 @@ export * from "./outcomes/use-cases.ts";
 export * from "./coach/governance-use-cases.ts";
 export * from "./coach/analysis-request.ts";
 export * from "./coach/auto-draft-use-cases.ts";
+export * from "./coach/draft-review-use-cases.ts";

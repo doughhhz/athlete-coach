@@ -13,6 +13,7 @@ import type {
   CoachAnalysis,
   CoachAutonomyMode,
   CoachDraftAuthorityMode,
+  DraftReviewStatus,
   CoachConversationMessage,
   CoachDecision,
   InterventionOutcomeEvaluation,
@@ -36,6 +37,7 @@ import {
   DraftAuthoritySection,
 } from "@/presentation/coach/auto-draft-components";
 import { materializationOriginLabels } from "@/presentation/coach/auto-draft-labels";
+import { draftReviewStatusLabels } from "@/presentation/coach/draft-review-labels";
 
 /** Origin and backend review class; legacy decisions show origin only. */
 function DecisionBadges({ decision }: { decision: CoachDecision }) {
@@ -236,6 +238,7 @@ export default function CoachScreen() {
       setCoachAutonomyMode,
       getCoachDraftAuthorityMode,
       setCoachDraftAuthorityMode,
+      listCoachDraftReviewHistory,
     } = useAppSession();
   const [question, setQuestion] = useState(""),
     [analysis, setAnalysis] = useState<CoachAnalysis | null>(null),
@@ -249,6 +252,9 @@ export default function CoachScreen() {
     [draftAuthority, setDraftAuthority] =
       useState<CoachDraftAuthorityMode | null>(null),
     [autoDraft, setAutoDraft] = useState<AutoDraftResult | null>(null),
+    [reviewStatuses, setReviewStatuses] = useState<
+      ReadonlyMap<string, DraftReviewStatus>
+    >(new Map()),
     [history, setHistory] = useState<CoachConversationMessage[]>([]),
     [loading, setLoading] = useState(false),
     [error, setError] = useState<string | null>(null),
@@ -276,6 +282,17 @@ export default function CoachScreen() {
       .then(setDraftAuthority)
       .catch(() => undefined);
   }, [getCoachDraftAuthorityMode]);
+  useEffect(() => {
+    void listCoachDraftReviewHistory(50)
+      .then((history) =>
+        setReviewStatuses(
+          new Map(
+            history.items.map((item) => [item.decisionId, item.reviewStatus]),
+          ),
+        ),
+      )
+      .catch(() => undefined);
+  }, [listCoachDraftReviewHistory, decisions]);
   async function changeDraftAuthority(next: CoachDraftAuthorityMode) {
     try {
       setDraftAuthority(await setCoachDraftAuthorityMode(next));
@@ -521,6 +538,13 @@ export default function CoachScreen() {
                   • {item.proposal.summary} — {item.status}
                 </Text>
                 <DecisionBadges decision={item} />
+                {reviewStatuses.get(item.id) ? (
+                  <Text
+                    style={[styles.muted, { color: theme.colors.textMuted }]}
+                  >
+                    → {draftReviewStatusLabels[reviewStatuses.get(item.id)!]}
+                  </Text>
+                ) : null}
                 {outcome ? (
                   <Text
                     style={[styles.muted, { color: theme.colors.textMuted }]}

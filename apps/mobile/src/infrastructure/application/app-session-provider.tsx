@@ -301,6 +301,14 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
       if (!application) throw new Error("Backend não configurado.");
       return application.setCoachAutonomyMode.execute(mode);
     },
+    listCoachDraftReviewHistory: async (limit) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.listCoachDraftReviewHistory.execute(limit);
+    },
+    getCoachDraftReviewEvidence: async (decisionId) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.getCoachDraftReviewEvidence.execute(decisionId);
+    },
     getCoachDraftAuthorityMode: async () => {
       if (!application) throw new Error("Backend não configurado.");
       return application.getCoachDraftAuthorityMode.execute();

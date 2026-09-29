@@ -99,3 +99,7 @@ Sem mudança visível no fluxo: analisar → ver resposta → "Ver proposta de a
 ## Implementation Phase 16 — Rascunho automático visível
 
 Seção "Criação automática de rascunho" (Desligada/Conservadora), separada do "Modo do Personal", sem pré-seleção, com confirmação ("Ativar criação conservadora" / "Manter desligada") e aviso "Só tem efeito quando o modo do Personal é Proativo." Cartão "Rascunho preparado" (com "Rascunho preparado automaticamente", "Uma revisão em rascunho foi preparada.", o que muda, classe de revisão, regra, revisão de origem ativa, nova revisão e CTA "Revisar rascunho" para o builder). Mensagens factuais para `existing_draft`, `stale`, `ineligible`, `blocked` e `failed`. Histórico e revisão mostram "Rascunho criado por você" ou "Rascunho preparado automaticamente pelo Personal". Proibido: "Proposta aprovada" para rascunho automático e qualquer controle de ativação automática. Builder e ativação não mudaram.
+
+## Implementation Phase 17 — Revisão factual
+
+Histórico de decisões: "Rascunho preparado automaticamente → Ativado sem alterações / Ativado após alterações / Aguardando revisão / Arquivado sem ativação". Detalhe: "Revisão do rascunho" com Antes / Preparado / Ativado (ou Revisado) e "Alterado durante a revisão", nota de que a comparação não identifica quem editou e de que a revisão não diz se a proposta estava certa. Progresso: "Revisões do Personal" apenas com contagens. Cartão de auto-draft mantém "Revisar rascunho". Proibido: aceitação, sucesso, acurácia, confiança, score, porcentagens, gamificação e polegares.

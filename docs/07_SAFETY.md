@@ -100,3 +100,7 @@ O cliente não consegue remover `safetyFlags` ou `blocksTrainingAdvice`: `coach-
 ## Implementation Phase 16 — Safety acima do auto-draft
 
 Análise com `trainingAdviceBlocked` → auto-draft `blocked`, sem rascunho nem materialização, verificado na aplicação e no banco. Não existe atalho como "reduzir carga por dor". Ativação permanece exclusivamente humana; nenhuma rota do Coach altera o programa ativo.
+
+## Implementation Phase 17 — Revisão não amplia autoridade
+
+O histórico de revisão nunca alimenta `coach-auto-draft-v1`, governança, ativação ou qualquer política (teste de arquitetura). Ativações repetidas sem alteração não liberam auto-draft mais amplo nem ativação automática. Nenhum reward, preferência aprendida, bandit ou ajuste de elegibilidade.

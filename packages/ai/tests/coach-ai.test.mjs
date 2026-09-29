@@ -7,6 +7,8 @@ import {
   COACH_SYSTEM_PROMPT_V3,
   COACH_SYSTEM_PROMPT_V4,
   COACH_SYSTEM_PROMPT_V5,
+  COACH_SYSTEM_PROMPT_V6,
+  COACH_DRAFT_REVIEW_POLICY,
   DeterministicCoachSafetyPolicy,
   GeminiHttpCoachModelProvider,
 } from "../src/index.ts";
@@ -84,7 +86,7 @@ test("Gemini adapter sends policy separately from untrusted structured data", as
       ),
     (error) => error.code === "invalid_response",
   );
-  assert.equal(body.systemInstruction.parts[0].text, COACH_SYSTEM_PROMPT_V5);
+  assert.equal(body.systemInstruction.parts[0].text, COACH_SYSTEM_PROMPT_V6);
   assert.match(body.contents[0].parts[0].text, /"dataTrust":"untrusted"/);
 });
 test("coach-system-v3 adds the Coach Learning Policy on top of v2 verbatim", () => {
@@ -139,7 +141,6 @@ test("coach-system-v4 adds the set-count policy on top of v3 verbatim", () => {
     );
 });
 test("coach-system-v5 adds the exercise-replacement policy on top of v4 verbatim", () => {
-  assert.equal(COACH_PROMPT_VERSION, "coach-system-v5");
   assert.ok(
     COACH_SYSTEM_PROMPT_V5.startsWith(COACH_SYSTEM_PROMPT_V4.trimEnd()),
   );
@@ -157,4 +158,23 @@ test("coach-system-v5 adds the exercise-replacement policy on top of v4 verbatim
     "handled by safety, never by recommending an exercise replacement",
   ])
     assert.match(COACH_SYSTEM_PROMPT_V5, new RegExp(invariant, "i"));
+});
+
+test("coach-system-v6 adds the draft review policy on top of v5 verbatim", () => {
+  assert.equal(COACH_PROMPT_VERSION, "coach-system-v6");
+  assert.ok(
+    COACH_SYSTEM_PROMPT_V6.startsWith(COACH_SYSTEM_PROMPT_V5.trimEnd()),
+  );
+  assert.ok(COACH_SYSTEM_PROMPT_V6.includes(COACH_DRAFT_REVIEW_POLICY));
+  for (const invariant of [
+    "Human review behavior is evidence about oversight, not proof that a proposal was correct",
+    "activation is not proof that a proposal was correct",
+    "manual edits are not proof that a proposal was wrong",
+    "never infer, mention or rely on the athlete.s trust",
+    "auto-draft authority may not expand itself from review history",
+    "user acceptance does not validate a coaching intervention physiologically",
+    "physiological observations come only from dossier.interventionHistory",
+    "do not compute or state acceptance rates, success rates or scores",
+  ])
+    assert.match(COACH_SYSTEM_PROMPT_V6, new RegExp(invariant, "i"));
 });

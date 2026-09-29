@@ -135,3 +135,7 @@ Nenhum contrato de IA mudou (`coach-analysis-v1`, `coach-system-v5`, `coach-prop
 ## Implementation Phase 16 — Autoridade fora do modelo
 
 Nenhum prompt ou contrato mudou (`coach-system-v5`, `coach-proposal-prompt-v5`, `coach-proposal-v3`, dossier v5, outcome v3, IRE v4, memória v3). O modelo não recebe nem produz elegibilidade de auto-draft; texto como "aplicar automaticamente" é ignorado. A mesma `analysisRequestId` com outra pergunta ou contexto → `409 analysis_request_conflict` sem chamada ao Gemini.
+
+## Implementation Phase 17 — Dossier v6 e prompts v6
+
+`athlete-training-dossier-v6` adiciona `draftReviewHistory` compacto (até 8 itens: decisão, origens, estado, categorias, valores preparado/revisado, referências) sem estrutura de programa nem proposta duplicada; v5 permanece histórico. `coach-system-v6` = v5 + política de revisão: supervisão não é correção; ativação não prova acerto; edição não prova erro; nunca inferir confiança do atleta; nunca pedir/expandir autonomia a partir do histórico; fisiologia vem só de interventionHistory/responseMemory; sem taxas ou scores. `coach-proposal-prompt-v6` = v5 + regra: ativação sem alterações não justifica repetir, edição/arquivamento não proíbe; saída continua `coach-proposal-v3`. Novo tipo de evidência aditivo `coach_draft_review` (mesmo padrão de `response_memory_group`), sem mudar as versões `coach-analysis-v1`/`coach-proposal-v3`.

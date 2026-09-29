@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
-import { BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, GenerateCoachProposal, GenerateCoachProposalForAnalysisRequest, CoachAnalysisNotFoundError, CoachProposalBlockedError, CoachProviderError, LoadCurrentAthleteProfile, StaleCoachAnalysisError, coachProposalRequestSchema } from "../../../packages/application/src/index.ts";
+import { BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, BuildCoachDraftReviews, ListCoachDraftReviewHistory, GenerateCoachProposal, GenerateCoachProposalForAnalysisRequest, CoachAnalysisNotFoundError, CoachProposalBlockedError, CoachProviderError, LoadCurrentAthleteProfile, StaleCoachAnalysisError, coachProposalRequestSchema } from "../../../packages/application/src/index.ts";
 import { GeminiHttpCoachProposalProvider } from "../../../packages/ai/src/index.ts";
 import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachAnalysisRepository, SupabaseCoachDecisionRepository, SupabaseCoachPreferenceRepository, SupabaseExerciseCatalogRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
 const headers = { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type, x-client-info" };
@@ -31,7 +31,9 @@ Deno.serve(async (request) => {
     // History reads use the caller JWT (RLS); the service client below is only for backend-owned records.
     const catalog = new SupabaseExerciseCatalogRepository(userClient);
     const interventionContext = new BuildInterventionContext(new BuildInterventionOutcomes(new SupabaseCoachDecisionRepository(userClient, auth.user.id), programs, performance, bodyWeights, undefined, catalog));
-    const dossier = new BuildAthleteTrainingDossier(profile, programs, workouts, performance, undefined, interventionContext, new GetExerciseReplacementCandidates(catalog));
+    // Dossier v6 review evidence: derived from the ledger and program lifecycle with the caller JWT (read-only).
+    const draftReviews = new ListCoachDraftReviewHistory(new BuildCoachDraftReviews(new SupabaseCoachDecisionRepository(userClient, auth.user.id), programs));
+    const dossier = new BuildAthleteTrainingDossier(profile, programs, workouts, performance, undefined, interventionContext, new GetExerciseReplacementCandidates(catalog), draftReviews);
     const serviceClient = createClient(url, service, { auth: { persistSession: false } });
     const analyses = new SupabaseCoachAnalysisRepository(serviceClient, auth.user.id);
     const decisions = new SupabaseCoachDecisionRepository(serviceClient, auth.user.id);
