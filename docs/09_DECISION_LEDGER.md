@@ -897,3 +897,16 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - pgTAP `structure_mutation_boundary` com 44 testes (privilégios, policies, DML negado nos cinco níveis, leitura, salvamento completo, rollback, linhagem, dono e rascunho, clone, isolamento entre atletas);
   - integração completa depois da revogação.
 - Afetados: migration `20261008120000`; pgTAP (`training_programs`, `training_lineage`, novo arquivo); integração; testes de arquitetura; docs 00/02/03/04/10.
+
+### ADR-0105 — Edge Functions authenticate in code, not via gateway `verify_jwt`
+
+- Data: 2026-10-11
+- Status: accepted
+- Regra anterior: `coach-analyze`, `coach-propose` e `coach-decide` usavam o `verify_jwt` padrão do gateway (implícito, sem configuração explícita), além da própria verificação no código.
+- Evidência: o projeto hospedado (`hummxizdbwliqqukugoj`) assina sessões com chaves assimétricas (JWKS `EC/ES256`). A checagem `verify_jwt` do gateway só entende o formato legado HS256, então rejeitava sessões válidas antes de a função executar. O app mostrava "O Personal está temporariamente indisponível."
+- Regra nova: `verify_jwt = false` nas três funções em `supabase/config.toml`. A autenticação continua obrigatória e passa a ser feita só no código:
+  - sem cabeçalho `Authorization`, a função devolve 401;
+  - `auth.getUser()` valida o token no servidor de Auth, que entende ES256, e devolve 401 se ele for inválido;
+  - o atleta vem sempre da sessão, nunca do corpo da requisição.
+- Verificado após o deploy: chamada sem login e chamada com token forjado recebem `401 unauthenticated`, respondidos pela própria função.
+- Afetados: `supabase/config.toml` e o deploy das Edge Functions. Código das funções, contratos, prompts e Coach inalterados.

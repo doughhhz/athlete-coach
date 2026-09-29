@@ -419,9 +419,21 @@ enabled = true
 # verification keeps its default (enabled).
 [functions.coach-analyze]
 import_map = "./functions/deno.json"
+# The function validates the caller itself (auth.getUser(); 401 otherwise). The
+# gateway check only understands legacy HS256 JWTs and rejects the ES256
+# tokens of projects using asymmetric signing keys (ADR-0105).
+verify_jwt = false
 
 [functions.coach-propose]
 import_map = "./functions/deno.json"
+# The function validates the caller itself (auth.getUser(); 401 otherwise). The
+# gateway check only understands legacy HS256 JWTs and rejects the ES256
+# tokens of projects using asymmetric signing keys (ADR-0105).
+verify_jwt = false
 
 [functions.coach-decide]
 import_map = "./functions/deno.json"
+# The function validates the caller itself (auth.getUser(); 401 otherwise). The
+# gateway check only understands legacy HS256 JWTs and rejects the ES256
+# tokens of projects using asymmetric signing keys (ADR-0105).
+verify_jwt = false

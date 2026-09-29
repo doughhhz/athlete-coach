@@ -251,3 +251,7 @@ A atomicidade da criação agora é garantida pelo banco, não só pelo app.
 Todas são SECURITY DEFINER.
 
 Nenhum repositório, caso de uso ou tela escrevia diretamente nessas tabelas, então não havia API morta a remover. A guarda de arquitetura `structure-mutation-boundary.test.mjs` impede `.from(<tabela de estrutura>).insert/update/delete/upsert` em código de produção, incluindo Edge.
+
+## Deploy — autenticação das Edge Functions (ADR-0105)
+
+As Edge Functions do Coach usam `verify_jwt = false` no gateway e autenticam no próprio código (`auth.getUser()`, 401 caso contrário). Isso é necessário em projetos que assinam sessões com chaves assimétricas (ES256), que a checagem legada do gateway não aceita. Nunca publique uma função nova sem a mesma verificação de sessão no código.
