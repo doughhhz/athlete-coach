@@ -119,3 +119,7 @@ O dossier v3 envia `responseMemory` bounded; o Coach pode citar `response_memory
 ## Runtime das Edge Functions
 
 `coach-analyze`, `coach-propose` e `coach-decide` inicializam no runtime Deno local do Supabase (ADR-0067). Sem `GEMINI_API_KEY`, as functions de IA respondem de forma normalizada (`503 coach_unavailable`) após a autenticação; nenhuma chave vai ao cliente. A chamada real ao Gemini não faz parte da validação local.
+
+## Phase 14 — Prompts v5 e candidatos
+
+O dossier v5 traz `exerciseReplacementCandidates` apenas para os exercícios do programa ativo. `coach-system-v5` afirma que troca muda identidade do movimento, relação é contexto e não equivalência, nunca comparar carga ou 1RM entre exercícios, nunca transferir PR nem converter carga, histórico de trocas é observacional e safety prevalece. `coach-proposal-prompt-v5` gera `coach-proposal-v3`: IDs só dos candidatos, relação obrigatória, transição de carga explícita, sem uso de troca como tratamento, sem repetir troca por observação passada; a proposta continua opcional.

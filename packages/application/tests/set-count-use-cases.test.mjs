@@ -51,7 +51,7 @@ const snapshot = (schemaVersion, actions) => ({
     model: "m",
     promptVersion: "coach-proposal-prompt-v4",
     policyVersion: "coach-safety-v1",
-    dossierSchemaVersion: "athlete-training-dossier-v4",
+    dossierSchemaVersion: "athlete-training-dossier-v5",
   },
 });
 const addAction = (change = {}) => ({
@@ -163,7 +163,7 @@ function sourceProgram() {
   };
 }
 const dossier = {
-  schemaVersion: "athlete-training-dossier-v4",
+  schemaVersion: "athlete-training-dossier-v5",
   activeProgram: { id: uuid(1) },
   evidence: [evidence],
   last28DaysExerciseExposure: [],

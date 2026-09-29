@@ -83,3 +83,7 @@ Progresso ganha **Memória de resposta**: por exercício e alteração, interven
 ## Phase 13 — Séries na revisão, no builder e na memória
 
 A revisão da proposta mostra "Séries planejadas: X → Y", "Nova série" e "Série removida" com alvos factuais e aviso de que não representa volume muscular. O builder permite adicionar e remover séries individuais (nunca a última) ao revisar o rascunho. A resposta observada mostra séries planejadas (valor ativado) e, por sessão, séries planejadas e concluídas. A memória exibe "Quantidade de séries planejadas" com assinaturas "3 séries → 4 séries". Proibido: "volume ideal", "mais volume funcionou", "séries efetivas", séries por músculo.
+
+## Phase 14 — Troca de exercício
+
+Revisão: "Troca de exercício", Antes/Proposto, relações conhecidas ("X é variação de Y"), aviso "Essas relações contextualizam a troca e não significam equivalência de carga ou resultado", carga planejada anterior e carga após a troca. Builder: "Trocar exercício" mantém as séries e lembra que a carga não é convertida. Resposta observada: ANTES/DEPOIS com exercícios diferentes, exposições e fatos lado a lado, sem diferença numérica, com "Carga e 1RM estimado não são diretamente comparáveis entre exercícios diferentes". Memória: grupos "A → C". Proibido: melhor exercício, ranking, "funciona melhor", superioridade.

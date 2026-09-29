@@ -9,10 +9,12 @@ Deno.serve(async (request) => {
   try {
     const authorization = request.headers.get("authorization"), url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY"), service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!authorization) return reply(401, { error: { code: "unauthenticated", requestId } });
-    if (!url || !anon || !service) return reply(503, { error: { code: "coach_unavailable", requestId } });
+    // Only the platform prerequisites to verify the JWT are checked before auth (ADR-0073).
+    if (!url || !anon) return reply(503, { error: { code: "coach_unavailable", requestId } });
     const authClient = createClient(url, anon, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } });
     const { data: auth, error } = await authClient.auth.getUser();
     if (error || !auth.user) return reply(401, { error: { code: "unauthenticated", requestId } });
+    if (!service) return reply(503, { error: { code: "coach_unavailable", requestId } });
     const rawBody = await request.text();
     if (new TextEncoder().encode(rawBody).byteLength > 4_096) return reply(413, { error: { code: "request_too_large", requestId } });
     const body = JSON.parse(rawBody) as { operation?: string; decisionId?: string; reason?: string; notes?: string | null };

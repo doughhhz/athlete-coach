@@ -123,3 +123,7 @@ O produto passa a organizar, por exercício e tipo de alteração, todas as inte
 ## Phase 13 — Quantidade de séries planejadas
 
 O Personal pode, opcionalmente, propor adicionar ou remover uma série de um exercício. A revisão mostra "Séries planejadas: 3 → 4" e a série nova (ou removida) com todos os alvos; aprovar cria apenas um novo rascunho, que o atleta pode editar (adicionar/remover séries) antes de ativar. A resposta observada e a memória distinguem séries planejadas de concluídas e usam o valor realmente ativado. **Set-count intervention changes the number of planned sets for a canonical Exercise; it does not represent muscle volume or training stimulus.** Mais ou menos séries não são melhores ou piores por si. Frequência, troca de exercício e volume muscular continuam futuros.
+
+## Phase 14 — Troca de exercício revisada
+
+O Personal pode, opcionalmente, propor trocar o exercício de uma prescrição por um exercício relacionado no catálogo (apenas candidatos com relação registrada). A revisão mostra antes/proposto, as relações conhecidas com um aviso de que não significam equivalência, e a carga anterior versus a carga após a troca (nunca convertida). Aprovar cria só um rascunho, que o atleta pode editar — inclusive trocando por outro exercício — antes de ativar. A resposta observada compara lado a lado o exercício anterior e o ativado sem calcular diferença de carga ou 1RM, e cada exercício mantém seu histórico e seus recordes. Não há ranking de exercícios nem "melhor exercício".

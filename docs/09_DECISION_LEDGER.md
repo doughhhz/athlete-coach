@@ -569,7 +569,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0062 — Proposal contract v2 and set-count actions
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; v2 permanece válido para snapshots; contrato corrente é coach-proposal-v3 (ADR-0068)
 - Regra anterior (ADR-0043): `coach-proposal-v1` só permite ajustes de target, RIR, descanso e carga; add/remove set postergados.
 - Decisão: `coach-proposal-v2` = ações v1 + `add_prescription_set` e `remove_prescription_set`. Add: `trainingDayId`, `exercisePrescriptionId`, `position: "end"` (sempre anexada ao fim), `copyFromPrescriptionSetId` opcional apenas como proveniência (mesma prescrição, não removido na mesma proposta) e `plannedSet` explícito com todos os campos (métrica, faixa, RIR, descanso, tempo, carga), validado por `assertPrescriptionSet` e com a mesma métrica das séries existentes. Remove: set existente da prescrição/dia/programa de origem. Rejeitados: remover o último set, remover/ajustar o mesmo set duas vezes, copiar de set removido, v1 contendo ações v2. Não há patch genérico, UUID gerado pelo modelo, replace exercise, frequência ou dias.
 - Compatibilidade: Zod despacha por `schemaVersion` (v1 nunca é lido com o parser v2); o ledger aceita as duas versões e exige `proposal_snapshot.schemaVersion = proposal_schema_version`. Nenhum snapshot histórico foi migrado.
@@ -592,7 +592,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0065 — Set-count outcome semantics, Response Memory v2 and Dossier v4
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; versões correntes: intervention-outcome-v3, IRE v4, individual-response-memory-v3 e dossier v5 (ADR-0070/0072)
 - Decisão: cada prescrição tocada por add/remove gera um snapshot `set_count` (antes/proposto/materializado/ativado + sets adicionados/removidos). O valor ativado é autoritativo (proposta 3→4 ativada com 5 = intervenção 3→5, fidelidade não exata). Fidelidade compara o programa ativado com o draft materializado esperado (espelho puro), então edições manuais aparecem como mudanças adicionais para todas as dimensões. Fatos passam a incluir sets planejados/pendentes e o número de exposições do escopo; métricas novas `planned_sets_per_exposure` e `actual_reps_per_exposure`, além de `completed_sets_per_exposure`, carga, e1RM, target, RIR e descanso relevantes a `set_count`. Contagens por exposição usam como denominador apenas as exposições que contêm sets do escopo (evita diluir o baseline com sessões de outros programas). Planejado ≠ concluído é sempre preservado; sem adherence score.
 - Response Memory v2: grupo `exerciseId.set_count` (sem número de sets na key); cada episódio mantém antes/depois e direção increase/decrease; mesmas regras strict/context-only e agregados. Dossier `athlete-training-dossier-v4` mantém a forma v3, com conteúdo que pode incluir `set_count`.
 - Impacto: domain outcomes/response-memory/dossier, application, UI, integração.
@@ -600,7 +600,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0066 — Coach prompts v4 for set count
 
 - Data: 2026-09-28
-- Status: accepted
+- Status: accepted; prompts v4 permanecem históricos; correntes são v5 (ADR-0072)
 - Decisão: `coach-system-v4` = v3 literal + política: set count não é volume muscular; mais/menos séries não são melhores/piores por si; distinguir planejado de concluído; resposta observada é evidência observacional; nunca inferir número ótimo de séries ou volume ótimo nem usar MEV/MAV/MRV. `coach-proposal-prompt-v4` é derivado do v3 substituindo explicitamente as frases de vocabulário v1 (sem anexar regra contraditória): gera `coach-proposal-v2`, add/remove apenas com suporte de evidência, mudanças pequenas, sem remover o último set, sem frequência/dias/replace, sem aumentar séries porque a performance melhorou nem reduzir porque caiu, proposta continua opcional (`{"proposal":null}`).
 - Impacto: packages/ai, application (fallback de safety), testes.
 
@@ -613,3 +613,48 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Decisão: uma única estratégia runtime-native. (1) Todos os imports relativos dos packages usam extensão `.ts` explícita (convenção já adotada por domain, application e ai; `allowImportingTsExtensions` já habilitado; Node, TypeScript e Metro continuam funcionando). (2) Um import map versionado, `supabase/functions/deno.json`, mapeia apenas `@athlete-coach/domain`, `@athlete-coach/application`, `@supabase/supabase-js` e `zod` (mesmas versões fixadas nos package.json), ligado explicitamente a cada function por `import_map` em `supabase/config.toml`. Sem bundler, sem cópia de código, sem alteração de regra de negócio, auth, JWT, service role, secrets ou TLS.
 - Evidência: boot real das três functions no runtime local e smoke HTTP (401 sem usuário, 400 para `athleteId` do cliente, 503 `coach_unavailable` sem `GEMINI_API_KEY`, 200 em `list`, 400/409 em erros de decisão).
 - Impacto: packages/data-access, supabase/functions, supabase/config.toml, documentação. Novos especificadores de workspace usados pelas functions exigem entrada no import map.
+
+### ADR-0068 — Exercise replacement proposal contract (coach-proposal-v3)
+
+- Data: 2026-09-28
+- Status: accepted
+- Regra anterior (ADR-0043/0062): replace exercise fora do vocabulário.
+- Decisão: `coach-proposal-v3` = ações v2 + `replace_exercise` com `trainingDayId`, `exercisePrescriptionId`, `sourceExerciseId`, `replacementExerciseId`, `relationshipContext` (igual às relações armazenadas) e `loadTransition` explícita. Ordem canônica na materialização: remoções → ajustes por série → séries adicionadas → troca (exercício + transição de carga) → sequência contígua. Rejeitados: origem diferente da prescrição, substituto inexistente/inativo ou igual à origem, sem relação armazenada, contexto de relação divergente (tipo ou direção), troca duplicada da mesma prescrição, `adjust_absolute_load_target` numa prescrição trocada, v1/v2 contendo troca. Zod despacha por `schemaVersion` (v1 e v2 nunca com o parser v3); correção: o schema v2 passou a usar a constante explícita v2. Nova migration `20260930120000` aceita v3 e redefine `materialize_coach_decision`, que revalida tudo no banco, aplica a troca somente no draft (histórico e programa de origem intactos), é idempotente e respeita staleness.
+- **Exercise replacement changes canonical movement identity.** **Performance history remains attached to the Exercise that was actually performed.**
+- Impacto: domain proposal, application schemas/validator, AI, DB (45 asserções pgTAP), revisão mobile.
+
+### ADR-0069 — Exercise relations are context, not equivalence; deterministic candidates
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: candidatos de troca são exercícios do catálogo com ao menos uma linha armazenada em `exercise_relations` com a origem, em qualquer direção armazenada, cada relação com tipo e direção reais (`candidate_to_source` = "candidato é <tipo> de origem"; `source_to_candidate` = "origem é <tipo> de candidato"). Relações de mão única (`variation_of`, `regression`, `progression`) nunca são espelhadas em runtime. Candidatos são construídos pelo backend (`GetExerciseReplacementCandidates` sobre o repositório do catálogo, novo método read-only `listRelationEdges`) somente para os exercícios do programa ativo (até 12 exercícios de origem × 6 candidatos, com truncamento declarado) e enviados no dossier; o modelo só escolhe IDs dessa lista e o validator usa essa lista, nunca a saída do modelo. Cobertura limitada do catálogo é aceita e documentada; o atleta pode trocar manualmente no builder. **An ExerciseRelation provides structured context, not proof of equivalence or suitability.**
+- Impacto: domain `exercise/replacement`, data-access, application, dossier, prompts.
+
+### ADR-0070 — Cross-exercise outcome semantics (intervention-outcome-v3)
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: dimensão `exercise_replacement`. O exercício ativado é autoritativo (proposto A→B, ativado A→C = intervenção A→C, fidelidade não exata) e o contexto de relação é reconstruído para o par ativado; sem relação armazenada → `replacement_relation_missing`. A prescrição trocada sai das comparações do mesmo exercício e gera um `CrossExerciseObservationPair`: baseline = últimas exposições de A antes da ativação; pós = primeiras exposições do exercício ativado no programa de intervenção (mesma janela/parada da Phase 11); histórico anterior do novo exercício separado em `replacementPriorHistory`. Fatos lado a lado sem delta: séries planejadas/concluídas e reps por exposição, taxa dentro do alvo, cobertura de RIR e descanso. `best_logged_load_kg` e `best_estimated_one_rep_max_kg` ficam em `nonComparableMetrics`, cada um no histórico do seu exercício. **Load and estimated 1RM are not directly comparable across different canonical Exercises.** PRs nunca são transferidos. Mudanças simultâneas (séries, RIR etc.) continuam confounding; a troca em si não é confounder da própria dimensão. Edição manual do exercício no draft é mudança adicional (episódio context-only), coerente com a Phase 13.
+- Impacto: domain outcomes, IRE v4, UI.
+
+### ADR-0071 — Replacement load transition policy
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: `loadTransition` obrigatória: `preserve_non_absolute` (somente se nenhuma série afetada tem carga absoluta), `athlete_selected` ou `explicit_absolute` com uma nova carga planejada para o exercício substituto. Carga absoluta nunca é copiada; não há conversão barra/halter/máquina/peso corporal, percentuais ou multiplicadores. Validada no domínio, no Zod e na RPC.
+- Impacto: domain, application, DB, UI de revisão, prompt de proposta.
+
+### ADR-0072 — Directed replacement memory, Dossier v5 and prompts v5
+
+- Data: 2026-09-28
+- Status: accepted
+- Decisão: IRE v4 e `individual-response-memory-v3` agrupam trocas por par direcionado `sourceExerciseId.exercise_replacement.replacementExerciseId` (A→B ≠ B→A ≠ A→C), usando o exercício ativado. Grupos de troca não têm agregados numéricos entre exercícios; expõem contagens (episódios, strict/context-only, exposições, séries planejadas/concluídas pós), relações observadas e episódios com histórico prévio do novo exercício. "Strict" significa apenas que episódios do mesmo par são estruturalmente comparáveis entre si; o antes/depois dentro de cada episódio continua sendo entre exercícios diferentes. `athlete-training-dossier-v5` adiciona `exerciseReplacementCandidates` (bounded) e evidência `exercise`. `coach-system-v5` e `coach-proposal-prompt-v5` (derivado do v4 substituindo as frases de vocabulário) proíbem comparar carga/1RM entre exercícios, transferir PR, converter carga, ranquear exercícios, inventar IDs e usar troca como tratamento de dor/lesão; safety continua autoritativo.
+- Impacto: domain, application, AI, Edge Functions, mobile.
+
+### ADR-0073 — Authentication before provider configuration disclosure
+
+- Data: 2026-09-28
+- Status: accepted
+- Contexto: `coach-propose` respondia `503 coach_unavailable` a requisições com anon key e sem usuário porque checava `GEMINI_API_KEY`/service role antes de autenticar; `coach-decide` fazia o mesmo com o service role.
+- Decisão: antes de `auth.getUser()` só são verificados os pré-requisitos da plataforma para validar o JWT (`SUPABASE_URL`, `SUPABASE_ANON_KEY`); configuração do provider e do service role só após usuário autenticado. Teste de arquitetura `tests/architecture/edge-auth-order.test.mjs` e smoke HTTP no runtime real. Contratos de erro inalterados.
+- Impacto: supabase/functions, testes, segurança.

@@ -49,6 +49,9 @@ export function ProgramBuilderScreen() {
     [catalog, setCatalog] = useState<readonly ExerciseSummary[]>([]),
     [picked, setPicked] = useState<Picked[]>([]),
     [busy, setBusy] = useState(false),
+    // Index of the exercise being swapped; the next catalog tap replaces it
+    // and keeps its sets (human review of replacement drafts).
+    [replacing, setReplacing] = useState<number | null>(null),
     [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
@@ -205,17 +208,36 @@ export function ProgramBuilderScreen() {
       <Text style={[s.heading, { color: theme.colors.text }]}>
         Selecionar exercícios
       </Text>
+      {replacing !== null ? (
+        <Text accessibilityRole="alert" style={{ color: theme.colors.accent }}>
+          Toque no exercício que substituirá{" "}
+          {picked[replacing]?.exercise.namePt}. As séries são mantidas; revise a
+          carga, que não é convertida entre exercícios.
+        </Text>
+      ) : null}
       <ScrollView horizontal contentContainerStyle={s.chips}>
         {catalog.map((ex) => (
           <Pressable
             key={ex.id}
-            onPress={() =>
+            onPress={() => {
+              if (replacing !== null) {
+                const index = replacing;
+                setPicked((v) =>
+                  v.some((p) => p.exercise.id === ex.id)
+                    ? v
+                    : v.map((p, i) =>
+                        i === index ? { ...p, exercise: ex } : p,
+                      ),
+                );
+                setReplacing(null);
+                return;
+              }
               setPicked((v) =>
                 v.some((p) => p.exercise.id === ex.id)
                   ? v
                   : [...v, { exercise: ex, sets: [emptySet()] }],
-              )
-            }
+              );
+            }}
             style={[s.chip, { borderColor: theme.colors.border }]}
           >
             <Text style={{ color: theme.colors.text }}>{ex.namePt}</Text>
@@ -237,6 +259,14 @@ export function ProgramBuilderScreen() {
             <Text style={[s.heading, { color: theme.colors.text }]}>
               {p.exercise.namePt}
             </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setReplacing(replacing === pi ? null : pi)}
+            >
+              <Text style={{ color: theme.colors.accent }}>
+                {replacing === pi ? "Cancelar troca" : "Trocar exercício"}
+              </Text>
+            </Pressable>
             <Pressable
               onPress={() => setPicked((v) => v.filter((_, i) => i !== pi))}
             >

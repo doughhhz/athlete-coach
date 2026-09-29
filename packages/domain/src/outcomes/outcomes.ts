@@ -1,7 +1,16 @@
 import type { BodyWeightEntry } from "../athlete/athlete.ts";
 import {
+  relationsBetween,
+  type ExerciseRelationEdge,
+  type ReplacementRelationContext,
+} from "../exercise/replacement.ts";
+import {
+  isAdjustAction,
+  isReplaceExerciseAction,
   isSetCountAction,
   materializeProposalPrescription,
+  type ReplaceExerciseAction,
+  type ReplacementLoadTransition,
   type AddPrescriptionSetAction,
   type CoachDecision,
   type CoachProposalAdjustAction,
@@ -31,9 +40,9 @@ import type {
 } from "../workout/workout.ts";
 
 export const INTERVENTION_OUTCOME_SCHEMA_VERSION =
-  "intervention-outcome-v2" as const;
+  "intervention-outcome-v3" as const;
 export const INDIVIDUAL_RESPONSE_EVIDENCE_SCHEMA_VERSION =
-  "individual-response-evidence-v3" as const;
+  "individual-response-evidence-v4" as const;
 /** Maximum comparable exposures per side (baseline / post) and exercise. */
 export const OUTCOME_EXPOSURE_WINDOW = 3;
 export const INTERVENTION_HISTORY_LIMIT = 10;
@@ -52,7 +61,10 @@ export const interventionDimensions = [
   "planned_rest",
   "absolute_load",
   "set_count",
+  "exercise_replacement",
 ] as const;
+export const CROSS_EXERCISE_NOTICE =
+  "Load and estimated 1RM are not directly comparable across different canonical Exercises." as const;
 export type InterventionDimension = (typeof interventionDimensions)[number];
 /** Dimensions that describe a single planned set. */
 export const setLevelDimensions = [
@@ -100,6 +112,7 @@ export const outcomeLimitationCodes = [
   "rest_observations_partial",
   "load_observations_missing",
   "set_structure_changed_without_count_change",
+  "replacement_relation_missing",
   "body_weight_unavailable",
   "body_weight_changed",
 ] as const;
@@ -131,7 +144,12 @@ export type PrescriptionDimensionValue =
       loadKind: LoadPrescriptionKind;
       loadKg: number | null;
     }>
-  | Readonly<{ dimension: "set_count"; count: number }>;
+  | Readonly<{ dimension: "set_count"; count: number }>
+  | Readonly<{
+      dimension: "exercise_replacement";
+      exerciseId: string;
+      exerciseName: string | null;
+    }>;
 
 export type PrescriptionPath = Readonly<{
   blockSequence: number;
@@ -140,6 +158,17 @@ export type PrescriptionPath = Readonly<{
   prescriptionSequence: number;
   /** `null` for prescription-level (set_count) snapshots. */
   setSequence: number | null;
+}>;
+
+/**
+ * Replacement context: relations proposed for A → B versus the stored
+ * relations of the ACTIVATED pair A → C (rebuilt, never inherited).
+ */
+export type ReplacementSnapshot = Readonly<{
+  proposedReplacementExerciseId: string;
+  proposedRelationshipContext: readonly ReplacementRelationContext[];
+  actualRelationshipContext: readonly ReplacementRelationContext[];
+  loadTransition: ReplacementLoadTransition;
 }>;
 
 /** Set-count content: which sets the proposal added and removed. */
@@ -153,7 +182,8 @@ export type InterventionActionSnapshot = Readonly<{
   actionIndex: number;
   /** Indexes of the proposal actions this snapshot represents. */
   proposalActionIndexes: readonly number[];
-  kind: CoachProposalAdjustAction["kind"] | "set_count_change";
+  kind:
+    CoachProposalAdjustAction["kind"] | "set_count_change" | "replace_exercise";
   dimension: InterventionDimension;
   exerciseId: string | null;
   exerciseName: string | null;
@@ -163,6 +193,7 @@ export type InterventionActionSnapshot = Readonly<{
   sourceScopeSetIds: readonly string[];
   implementedScopeSetIds: readonly string[];
   setCountChange: SetCountChangeSnapshot | null;
+  replacement: ReplacementSnapshot | null;
   sourceValue: PrescriptionDimensionValue | null;
   proposedValue: PrescriptionDimensionValue;
   /** materialize_coach_decision applies the action verbatim; no draft snapshot exists. */
@@ -348,6 +379,48 @@ export type OutcomeComparison = Readonly<{
   evidence: readonly EvidenceReference[];
 }>;
 
+/** Metrics that may be shown side by side for different exercises (no delta). */
+export const crossExerciseSideBySideMetrics = [
+  "planned_sets_per_exposure",
+  "completed_sets_per_exposure",
+  "actual_reps_per_exposure",
+  "target_within_range_rate",
+  "rir_coverage_rate",
+  "rest_coverage_rate",
+] as const satisfies readonly OutcomeMetric[];
+/** Never paired across exercises; each keeps its own history. */
+export const crossExerciseNonComparableMetrics = [
+  "best_logged_load_kg",
+  "best_estimated_one_rep_max_kg",
+] as const satisfies readonly OutcomeMetric[];
+
+export type CrossExerciseSideBySideFact = Readonly<{
+  metric: (typeof crossExerciseSideBySideMetrics)[number];
+  unit: OutcomeComparison["unit"];
+  before: number | null;
+  after: number | null;
+  beforeSampleCount: number;
+  afterSampleCount: number;
+}>;
+export type CrossExerciseObservationPair = Readonly<{
+  interpretationNotice: typeof CROSS_EXERCISE_NOTICE;
+  beforeExerciseId: string;
+  beforeExerciseName: string;
+  afterExerciseId: string | null;
+  afterExerciseName: string | null;
+  proposedReplacementExerciseId: string;
+  relationshipContext: readonly ReplacementRelationContext[];
+  baseline: ExerciseOutcomeWindow;
+  postIntervention: ExercisePostOutcomeWindow | null;
+  /** Earlier exposures of the replacement exercise; never mixed into baseline. */
+  replacementPriorHistory: Readonly<{
+    available: boolean;
+    window: ExerciseOutcomeWindow | null;
+  }>;
+  sideBySide: readonly CrossExerciseSideBySideFact[];
+  nonComparableMetrics: readonly (typeof crossExerciseNonComparableMetrics)[number][];
+}>;
+
 export type BodyWeightObservation = Readonly<{
   entryId: string;
   measuredAt: string;
@@ -361,6 +434,8 @@ export type BodyWeightContext = Readonly<{
 
 export type ExerciseDataCoverage = Readonly<{
   exerciseId: string;
+  /** Set only for exercise replacement pairs (post exposures are of this exercise). */
+  replacementExerciseId: string | null;
   baselineExposureCount: number;
   postExposureCount: number;
   comparable: boolean;
@@ -379,6 +454,8 @@ export type InterventionOutcomeEvaluation = Readonly<{
   baseline: readonly ExerciseOutcomeWindow[];
   postIntervention: readonly ExercisePostOutcomeWindow[];
   comparisons: readonly OutcomeComparison[];
+  /** Replacement episodes: side-by-side facts, never cross-exercise deltas. */
+  crossExercisePairs: readonly CrossExerciseObservationPair[];
   dataCoverage: Readonly<{
     exposureLimit: number;
     exercises: readonly ExerciseDataCoverage[];
@@ -537,6 +614,8 @@ function locateSourcePrescription(
 function locateCorrespondingPrescription(
   implemented: readonly LocatedPrescription[],
   source: LocatedPrescription,
+  expectedExerciseId: string = source.prescription.exerciseId,
+  acceptDifferentExercise = false,
 ): Readonly<{
   match: LocatedPrescription | null;
   exerciseIdentityPreserved: boolean | null;
@@ -544,15 +623,19 @@ function locateCorrespondingPrescription(
   const samePath = implemented.find(
     (item) => prescriptionKey(item.path) === prescriptionKey(source.path),
   );
-  if (samePath?.prescription.exerciseId === source.prescription.exerciseId)
+  if (samePath?.prescription.exerciseId === expectedExerciseId)
     return { match: samePath, exerciseIdentityPreserved: true };
   const sameExerciseInDay = implemented.filter(
     (item) =>
       dayKey(item.path) === dayKey(source.path) &&
-      item.prescription.exerciseId === source.prescription.exerciseId,
+      item.prescription.exerciseId === expectedExerciseId,
   );
   if (sameExerciseInDay.length === 1)
     return { match: sameExerciseInDay[0]!, exerciseIdentityPreserved: true };
+  // A replaced prescription stays at its path even when the athlete picked
+  // another exercise before activation: that exercise is the intervention.
+  if (acceptDifferentExercise && samePath)
+    return { match: samePath, exerciseIdentityPreserved: false };
   return {
     match: null,
     exerciseIdentityPreserved: samePath ? false : null,
@@ -637,17 +720,26 @@ function resolveActions(
   decision: CoachDecision,
   sourceProgram: TrainingProgram | null,
   implementedProgram: TrainingProgram | null,
+  relations: readonly ExerciseRelationEdge[] = [],
 ): readonly ResolvedAction[] {
   const actions = decision.proposal.actions;
   const implementedPrescriptions = implementedProgram
     ? flattenPrescriptions(implementedProgram)
     : [];
-  const correspondenceFor = (source: LocatedPrescription | null) =>
-    source
-      ? locateCorrespondingPrescription(implementedPrescriptions, source)
-      : { match: null, exerciseIdentityPreserved: null };
   const expectedFor = (source: LocatedPrescription) =>
     materializeProposalPrescription(source.prescription, actions);
+  const correspondenceFor = (
+    source: LocatedPrescription | null,
+    acceptDifferentExercise = false,
+  ) =>
+    source
+      ? locateCorrespondingPrescription(
+          implementedPrescriptions,
+          source,
+          expectedFor(source).exerciseId,
+          acceptDifferentExercise,
+        )
+      : { match: null, exerciseIdentityPreserved: null };
   const additionalFor = (
     source: LocatedPrescription | null,
     match: LocatedPrescription | null,
@@ -660,7 +752,7 @@ function resolveActions(
   const fidelities: InterventionActionFidelity[] = [];
 
   actions.forEach((action, proposalIndex) => {
-    if (isSetCountAction(action)) return;
+    if (!isAdjustAction(action)) return;
     const source = locateSourcePrescription(
       sourceProgram,
       action.trainingDayId,
@@ -704,6 +796,7 @@ function resolveActions(
       sourceScopeSetIds: [action.prescriptionSetId],
       implementedScopeSetIds: implementedSet ? [implementedSet.id] : [],
       setCountChange: null,
+      replacement: null,
       sourceValue: sourceSet
         ? prescriptionDimensionValue(sourceSet, dimension)
         : null,
@@ -812,6 +905,7 @@ function resolveActions(
       sourcePrescriptionSetId: null,
       sourceScopeSetIds: source?.prescription.sets.map((set) => set.id) ?? [],
       implementedScopeSetIds: implementedSets?.map((set) => set.id) ?? [],
+      replacement: null,
       setCountChange: {
         addedSets: items
           .map(({ action }) => action)
@@ -856,6 +950,92 @@ function resolveActions(
         sourceValue !== null && sourceValue.count === proposedCount,
     });
   }
+  // One exercise_replacement snapshot per replace action.
+  actions.forEach((action, proposalIndex) => {
+    if (!isReplaceExerciseAction(action)) return;
+    const replace: ReplaceExerciseAction = action;
+    const source = locateSourcePrescription(
+      sourceProgram,
+      replace.trainingDayId,
+      replace.exercisePrescriptionId,
+    );
+    const correspondence = correspondenceFor(source, true);
+    const implemented = correspondence.match?.prescription ?? null;
+    const proposedValue = {
+      dimension: "exercise_replacement" as const,
+      exerciseId: replace.replacementExerciseId,
+      exerciseName: null,
+    };
+    const implementedValue = implemented
+      ? {
+          dimension: "exercise_replacement" as const,
+          exerciseId: implemented.exerciseId,
+          exerciseName: implemented.exerciseName,
+        }
+      : null;
+    const actionIndex = snapshots.length;
+    snapshots.push({
+      actionIndex,
+      proposalActionIndexes: [proposalIndex],
+      kind: "replace_exercise",
+      dimension: "exercise_replacement",
+      exerciseId: source?.prescription.exerciseId ?? null,
+      exerciseName: source?.prescription.exerciseName ?? null,
+      sourcePath: source ? { ...source.path, setSequence: null } : null,
+      sourcePrescriptionSetId: null,
+      sourceScopeSetIds: source?.prescription.sets.map((set) => set.id) ?? [],
+      implementedScopeSetIds: implemented?.sets.map((set) => set.id) ?? [],
+      setCountChange: null,
+      replacement: {
+        proposedReplacementExerciseId: replace.replacementExerciseId,
+        proposedRelationshipContext: replace.relationshipContext,
+        actualRelationshipContext:
+          source && implemented
+            ? relationsBetween(
+                source.prescription.exerciseId,
+                implemented.exerciseId,
+                relations,
+              )
+            : [],
+        loadTransition: replace.loadTransition,
+      },
+      sourceValue: source
+        ? {
+            dimension: "exercise_replacement",
+            exerciseId: source.prescription.exerciseId,
+            exerciseName: source.prescription.exerciseName,
+          }
+        : null,
+      proposedValue,
+      materializedValue: proposedValue,
+      materializedValueProvenance: "reconstructed_from_source_and_action",
+      implementedPrescriptionSetId: null,
+      implementedValue,
+      rationale: replace.rationale,
+      evidence: replace.evidence,
+    });
+    fidelities.push({
+      actionIndex,
+      locatedInImplementedProgram: implemented !== null,
+      exerciseIdentityPreserved: implementedProgram
+        ? correspondence.exerciseIdentityPreserved
+        : null,
+      proposedValueImplemented: implemented
+        ? implemented.exerciseId === replace.replacementExerciseId
+        : implementedProgram
+          ? false
+          : null,
+      additionalChangesInAffectedPrescription: additionalFor(
+        source,
+        correspondence.match,
+      ),
+    });
+    resolved.push({
+      source,
+      implemented: correspondence.match,
+      countUnchangedStructuralEdit: false,
+    });
+  });
   return resolved.map((item, index) => ({
     ...item,
     snapshot: snapshots[index]!,
@@ -1510,6 +1690,8 @@ export type BuildInterventionOutcomeInput = Readonly<{
   bodyWeights: readonly BodyWeightEntry[];
   /** Materialized program IDs of every decision, to flag overlapping episodes. */
   interventionProgramIds?: ReadonlySet<string>;
+  /** Stored exercise relations, to rebuild the activated replacement context. */
+  exerciseRelations?: readonly ExerciseRelationEdge[];
   generatedAt: string;
 }>;
 
@@ -1584,7 +1766,12 @@ export function buildInterventionOutcome(
   const bodyWeights = input.bodyWeights.filter(
     (entry) => entry.athleteId === decision.athleteId,
   );
-  const resolved = resolveActions(decision, sourceProgram, program);
+  const resolved = resolveActions(
+    decision,
+    sourceProgram,
+    program,
+    input.exerciseRelations ?? [],
+  );
   const episode = episodeFrom(decision, program, resolved);
   const wide = programWideChanges(sourceProgram, program, resolved);
   const fidelity: InterventionFidelity = {
@@ -1639,6 +1826,7 @@ export function buildInterventionOutcome(
       baseline: [],
       postIntervention: [],
       comparisons: [],
+      crossExercisePairs: [],
       dataCoverage: { exposureLimit: OUTCOME_EXPOSURE_WINDOW, exercises: [] },
       bodyWeightContext: deriveBodyWeightContext([], null, null),
       limitations: [],
@@ -1701,23 +1889,40 @@ export function buildInterventionOutcome(
       });
   }
 
-  const exercises = episode.affectedExerciseIds.map((exerciseId) => {
+  // Prescriptions whose exercise is replaced leave the same-exercise loop:
+  // their before/after is a cross-exercise pair (ADR-0070).
+  const replacedKeys = new Set(
+    resolved
+      .filter(
+        (item) =>
+          item.snapshot.dimension === "exercise_replacement" &&
+          item.source !== null,
+      )
+      .map((item) => prescriptionKey(item.source!.path)),
+  );
+  const exercises = episode.affectedExerciseIds.flatMap((exerciseId) => {
     const items = resolved.filter(
-      (item) => item.snapshot.exerciseId === exerciseId,
+      (item) =>
+        item.snapshot.exerciseId === exerciseId &&
+        item.snapshot.dimension !== "exercise_replacement" &&
+        !(item.source && replacedKeys.has(prescriptionKey(item.source.path))),
     );
-    return {
-      exerciseId,
-      exerciseName: items[0]!.snapshot.exerciseName ?? exerciseId,
-      dimensions: interventionDimensions.filter((dimension) =>
-        items.some((item) => item.snapshot.dimension === dimension),
-      ),
-      sourceSetIds: new Set(
-        items.flatMap((item) => item.snapshot.sourceScopeSetIds),
-      ),
-      implementedSetIds: new Set(
-        items.flatMap((item) => item.snapshot.implementedScopeSetIds),
-      ),
-    };
+    if (!items.length) return [];
+    return [
+      {
+        exerciseId,
+        exerciseName: items[0]!.snapshot.exerciseName ?? exerciseId,
+        dimensions: interventionDimensions.filter((dimension) =>
+          items.some((item) => item.snapshot.dimension === dimension),
+        ),
+        sourceSetIds: new Set(
+          items.flatMap((item) => item.snapshot.sourceScopeSetIds),
+        ),
+        implementedSetIds: new Set(
+          items.flatMap((item) => item.snapshot.implementedScopeSetIds),
+        ),
+      },
+    ];
   });
 
   const baseline: ExerciseOutcomeWindow[] = [];
@@ -1766,6 +1971,7 @@ export function buildInterventionOutcome(
     const comparable = before.length > 0 && after.length > 0;
     coverage.push({
       exerciseId: exercise.exerciseId,
+      replacementExerciseId: null,
       baselineExposureCount: before.length,
       postExposureCount: after.length,
       comparable,
@@ -1833,8 +2039,165 @@ export function buildInterventionOutcome(
         );
   }
 
+  const crossExercisePairs: CrossExerciseObservationPair[] = [];
+  for (const item of resolved.filter(
+    (candidate) => candidate.snapshot.dimension === "exercise_replacement",
+  )) {
+    const snapshot = item.snapshot;
+    const sourceId = snapshot.exerciseId;
+    if (!sourceId || !snapshot.replacement) continue;
+    const afterValue = snapshot.implementedValue;
+    const replacementId =
+      afterValue?.dimension === "exercise_replacement"
+        ? afterValue.exerciseId
+        : null;
+    const replacementName =
+      afterValue?.dimension === "exercise_replacement"
+        ? afterValue.exerciseName
+        : null;
+    const before = exposureCandidates(sessions, sourceId)
+      .filter(({ session }) => Date.parse(session.startedAt) < activation)
+      .slice(-OUTCOME_EXPOSURE_WINDOW);
+    const baselineWindow = windowFacts(
+      sourceId,
+      snapshot.exerciseName ?? sourceId,
+      before,
+      new Set(snapshot.sourceScopeSetIds),
+      [],
+    );
+    const replacementCandidates = replacementId
+      ? exposureCandidates(sessions, replacementId)
+      : [];
+    const after = replacementCandidates
+      .filter(
+        ({ session }) =>
+          Date.parse(session.startedAt) >= activation &&
+          session.sourceProgram?.id === program.id,
+      )
+      .slice(0, OUTCOME_EXPOSURE_WINDOW);
+    const prior = replacementCandidates
+      .filter(({ session }) => Date.parse(session.startedAt) < activation)
+      .slice(-OUTCOME_EXPOSURE_WINDOW);
+    const filled = after.length >= OUTCOME_EXPOSURE_WINDOW;
+    const postWindow: ExercisePostOutcomeWindow | null = replacementId
+      ? {
+          ...windowFacts(
+            replacementId,
+            replacementName ?? replacementId,
+            after,
+            new Set(snapshot.implementedScopeSetIds),
+            [],
+          ),
+          closed: filled || programEnded,
+          closeReason: filled
+            ? "max_exposures_reached"
+            : programEnded
+              ? "intervention_program_ended"
+              : null,
+        }
+      : null;
+    const priorWindow =
+      replacementId && prior.length
+        ? windowFacts(
+            replacementId,
+            replacementName ?? replacementId,
+            prior,
+            new Set(),
+            [],
+          )
+        : null;
+    const sideBySide = crossExerciseSideBySideMetrics.flatMap((metric) => {
+      const a = readMetric(
+        metric,
+        baselineWindow.affectedPrescriptionSets,
+        baselineWindow.affectedPrescriptionSets.exposureCount ?? before.length,
+      );
+      const b = postWindow
+        ? readMetric(
+            metric,
+            postWindow.affectedPrescriptionSets,
+            postWindow.affectedPrescriptionSets.exposureCount ?? after.length,
+          )
+        : null;
+      return a.value === null && (b?.value ?? null) === null
+        ? []
+        : [
+            {
+              metric,
+              unit: a.unit,
+              before: a.value,
+              after: b?.value ?? null,
+              beforeSampleCount: a.sampleCount,
+              afterSampleCount: b?.sampleCount ?? 0,
+            },
+          ];
+    });
+    crossExercisePairs.push({
+      interpretationNotice: CROSS_EXERCISE_NOTICE,
+      beforeExerciseId: sourceId,
+      beforeExerciseName: snapshot.exerciseName ?? sourceId,
+      afterExerciseId: replacementId,
+      afterExerciseName: replacementName,
+      proposedReplacementExerciseId:
+        snapshot.replacement.proposedReplacementExerciseId,
+      relationshipContext: snapshot.replacement.actualRelationshipContext,
+      baseline: baselineWindow,
+      postIntervention: postWindow,
+      replacementPriorHistory: {
+        available: priorWindow !== null,
+        window: priorWindow,
+      },
+      sideBySide,
+      nonComparableMetrics: [...crossExerciseNonComparableMetrics],
+    });
+    const comparable = before.length > 0 && after.length > 0;
+    coverage.push({
+      exerciseId: sourceId,
+      replacementExerciseId: replacementId,
+      baselineExposureCount: before.length,
+      postExposureCount: after.length,
+      comparable,
+    });
+    if (!before.length)
+      limitations.push({ code: "no_baseline_exposures", exerciseId: sourceId });
+    else if (before.length < OUTCOME_EXPOSURE_WINDOW)
+      limitations.push({
+        code: "fewer_baseline_exposures_than_window",
+        exerciseId: sourceId,
+      });
+    if (!after.length)
+      limitations.push({ code: "no_post_exposures", exerciseId: sourceId });
+    else if (after.length < OUTCOME_EXPOSURE_WINDOW)
+      limitations.push({
+        code: "fewer_post_exposures_than_window",
+        exerciseId: sourceId,
+      });
+    if (comparable && before.length !== after.length)
+      limitations.push({
+        code: "unequal_exposure_counts",
+        exerciseId: sourceId,
+      });
+    if (postWindow && !postWindow.closed)
+      limitations.push({ code: "post_window_open", exerciseId: sourceId });
+    else if (postWindow?.closeReason === "intervention_program_ended")
+      limitations.push({
+        code: "intervention_program_ended_before_window_filled",
+        exerciseId: sourceId,
+      });
+    if (replacementId && !snapshot.replacement.actualRelationshipContext.length)
+      limitations.push({
+        code: "replacement_relation_missing",
+        exerciseId: sourceId,
+      });
+  }
+
   const lastPost =
-    postIntervention
+    [
+      ...postIntervention,
+      ...crossExercisePairs.flatMap((pair) =>
+        pair.postIntervention ? [pair.postIntervention] : [],
+      ),
+    ]
       .flatMap((window) =>
         window.exposures.map((exposure) => exposure.startedAt),
       )
@@ -1861,13 +2224,22 @@ export function buildInterventionOutcome(
       ? "evaluable"
       : "limited_data";
 
-  const exposureEvidence = [...baseline, ...postIntervention].flatMap(
-    (window) =>
-      window.exposures.map((exposure) => ({
-        kind: "workout_session" as const,
-        id: exposure.workoutSessionId,
-        version: null,
-      })),
+  const exposureEvidence = [
+    ...baseline,
+    ...postIntervention,
+    ...crossExercisePairs.flatMap((pair) => [
+      pair.baseline,
+      ...(pair.postIntervention ? [pair.postIntervention] : []),
+      ...(pair.replacementPriorHistory.window
+        ? [pair.replacementPriorHistory.window]
+        : []),
+    ]),
+  ].flatMap((window) =>
+    window.exposures.map((exposure) => ({
+      kind: "workout_session" as const,
+      id: exposure.workoutSessionId,
+      version: null,
+    })),
   );
   return {
     ...base,
@@ -1875,6 +2247,7 @@ export function buildInterventionOutcome(
     baseline,
     postIntervention,
     comparisons,
+    crossExercisePairs,
     dataCoverage: {
       exposureLimit: OUTCOME_EXPOSURE_WINDOW,
       exercises: coverage,
@@ -1889,6 +2262,11 @@ export function buildInterventionOutcome(
         id: exercise.exerciseId,
         version: null,
       })),
+      ...crossExercisePairs.flatMap((pair) =>
+        [pair.beforeExerciseId, pair.afterExerciseId]
+          .filter((id): id is string => id !== null)
+          .map((id) => ({ kind: "exercise" as const, id, version: null })),
+      ),
       ...exposureEvidence,
       ...(comparisons.some(
         (item) => item.metric === "best_estimated_one_rep_max_kg",
@@ -1961,6 +2339,8 @@ export type IndividualResponseEpisode = Readonly<{
   baselineFacts: ObservedFacts | null;
   postFacts: ObservedFacts | null;
   comparisons: readonly OutcomeComparison[];
+  /** Replacement episodes only: side-by-side facts, never deltas. */
+  crossExercisePair: CrossExerciseObservationPair | null;
   limitations: readonly OutcomeLimitation[];
   bodyWeightContext: BodyWeightContext;
 }>;
@@ -1972,6 +2352,9 @@ export type IndividualResponseEvidence = Readonly<{
   interventionDimension: InterventionDimension;
   /** Only for `target`: reps, seconds and meters are never grouped together. */
   targetMetric: TargetMetric | null;
+  /** Only for `exercise_replacement`: the ACTIVATED replacement (directed pair). */
+  replacementExerciseId: string | null;
+  replacementExerciseName: string | null;
   episodeCount: number;
   /** Episodes with at least one computable before/after comparison. */
   observationCount: number;
@@ -1993,6 +2376,32 @@ export function isUnchangedSetCount(
     action.sourceValue.dimension === "set_count" &&
     after.count === action.sourceValue.count
   );
+}
+
+/** Activation kept the original exercise: not a replacement intervention. */
+export function isUnchangedReplacement(
+  action: InterventionActionSnapshot,
+): boolean {
+  if (
+    action.dimension !== "exercise_replacement" ||
+    action.sourceValue === null
+  )
+    return false;
+  const after = action.implementedValue ?? action.proposedValue;
+  return (
+    after.dimension === "exercise_replacement" &&
+    action.sourceValue.dimension === "exercise_replacement" &&
+    after.exerciseId === action.sourceValue.exerciseId
+  );
+}
+
+function actionReplacementTarget(
+  action: InterventionActionSnapshot,
+): Readonly<{ id: string; name: string | null }> | null {
+  const value = action.implementedValue ?? action.proposedValue;
+  return value.dimension === "exercise_replacement"
+    ? { id: value.exerciseId, name: value.exerciseName }
+    : null;
 }
 
 function actionTargetMetric(
@@ -2017,6 +2426,8 @@ export function buildIndividualResponseEvidence(
       exerciseName: string;
       dimension: InterventionDimension;
       targetMetric: TargetMetric | null;
+      replacementExerciseId: string | null;
+      replacementExerciseName: string | null;
       episodes: IndividualResponseEpisode[];
     }
   >();
@@ -2029,27 +2440,42 @@ export function buildIndividualResponseEvidence(
     );
   for (const evaluation of activated) {
     const actions = evaluation.episode.actions.filter(
-      (action) => action.exerciseId !== null && !isUnchangedSetCount(action),
+      (action) =>
+        action.exerciseId !== null &&
+        !isUnchangedSetCount(action) &&
+        !isUnchangedReplacement(action),
     );
     const keys = new Set(
       actions.map(
         (action) =>
-          `${action.exerciseId}|${action.dimension}|${actionTargetMetric(action) ?? ""}`,
+          `${action.exerciseId}|${action.dimension}|${actionTargetMetric(action) ?? ""}|${actionReplacementTarget(action)?.id ?? ""}`,
       ),
     );
     for (const key of [...keys].sort()) {
-      const [exerciseId, dimension, metric] = key.split("|") as [
+      const [exerciseId, dimension, metric, replacementId] = key.split("|") as [
         string,
         InterventionDimension,
         string,
+        string,
       ];
       const targetMetric = (metric || null) as TargetMetric | null;
+      const replacementExerciseId = replacementId || null;
       const matching = actions.filter(
         (action) =>
           action.exerciseId === exerciseId &&
           action.dimension === dimension &&
-          actionTargetMetric(action) === targetMetric,
+          actionTargetMetric(action) === targetMetric &&
+          (actionReplacementTarget(action)?.id ?? null) ===
+            replacementExerciseId,
       );
+      const pair =
+        dimension === "exercise_replacement"
+          ? (evaluation.crossExercisePairs.find(
+              (item) =>
+                item.beforeExerciseId === exerciseId &&
+                item.afterExerciseId === replacementExerciseId,
+            ) ?? null)
+          : null;
       const fidelity = evaluation.interventionFidelity.actions;
       const baselineWindow = evaluation.baseline.find(
         (window) => window.exerciseId === exerciseId,
@@ -2062,6 +2488,10 @@ export function buildIndividualResponseEvidence(
         exerciseName: matching[0]!.exerciseName ?? exerciseId,
         dimension,
         targetMetric,
+        replacementExerciseId,
+        replacementExerciseName:
+          (matching[0] ? actionReplacementTarget(matching[0])?.name : null) ??
+          null,
         episodes: [],
       };
       group.episodes.push({
@@ -2088,13 +2518,25 @@ export function buildIndividualResponseEvidence(
         })),
         concurrentActionCount: evaluation.episode.concurrentActionCount,
         affectedDimensions: evaluation.episode.affectedDimensions,
-        baselineExposureCount: baselineWindow?.exposures.length ?? 0,
-        postExposureCount: postWindow?.exposures.length ?? 0,
-        baselineFacts: baselineWindow?.affectedPrescriptionSets ?? null,
-        postFacts: postWindow?.affectedPrescriptionSets ?? null,
-        comparisons: evaluation.comparisons.filter(
-          (comparison) => comparison.scope.exerciseId === exerciseId,
-        ),
+        baselineExposureCount: pair
+          ? pair.baseline.exposures.length
+          : (baselineWindow?.exposures.length ?? 0),
+        postExposureCount: pair
+          ? (pair.postIntervention?.exposures.length ?? 0)
+          : (postWindow?.exposures.length ?? 0),
+        baselineFacts: pair
+          ? pair.baseline.affectedPrescriptionSets
+          : (baselineWindow?.affectedPrescriptionSets ?? null),
+        postFacts: pair
+          ? (pair.postIntervention?.affectedPrescriptionSets ?? null)
+          : (postWindow?.affectedPrescriptionSets ?? null),
+        comparisons:
+          dimension === "exercise_replacement"
+            ? []
+            : evaluation.comparisons.filter(
+                (comparison) => comparison.scope.exerciseId === exerciseId,
+              ),
+        crossExercisePair: pair,
         limitations: evaluation.limitations.filter(
           (item) => item.exerciseId === null || item.exerciseId === exerciseId,
         ),
@@ -2111,11 +2553,18 @@ export function buildIndividualResponseEvidence(
       exerciseName: group.exerciseName,
       interventionDimension: group.dimension,
       targetMetric: group.targetMetric,
+      replacementExerciseId: group.replacementExerciseId,
+      replacementExerciseName: group.replacementExerciseName,
       episodeCount: group.episodes.length,
-      observationCount: group.episodes.filter((episode) =>
-        episode.comparisons.some(
-          (comparison) => comparison.absoluteDelta !== null,
-        ),
+      observationCount: group.episodes.filter(
+        (episode) =>
+          episode.comparisons.some(
+            (comparison) => comparison.absoluteDelta !== null,
+          ) ||
+          (episode.crossExercisePair?.sideBySide.some(
+            (fact) => fact.before !== null && fact.after !== null,
+          ) ??
+            false),
       ).length,
       episodes: group.episodes,
     }))
@@ -2125,7 +2574,10 @@ export function buildIndividualResponseEvidence(
         a.exerciseId.localeCompare(b.exerciseId) ||
         interventionDimensions.indexOf(a.interventionDimension) -
           interventionDimensions.indexOf(b.interventionDimension) ||
-        (a.targetMetric ?? "").localeCompare(b.targetMetric ?? ""),
+        (a.targetMetric ?? "").localeCompare(b.targetMetric ?? "") ||
+        (a.replacementExerciseId ?? "").localeCompare(
+          b.replacementExerciseId ?? "",
+        ),
     );
 }
 
@@ -2157,9 +2609,41 @@ export type InterventionHistoryItem = Readonly<{
   changes: readonly InterventionHistoryChange[];
   exposureCounts: readonly ExerciseDataCoverage[];
   comparisons: readonly InterventionHistoryComparison[];
+  crossExercisePairs: readonly CompactCrossExercisePair[];
   limitations: readonly OutcomeLimitation[];
   evidence: readonly EvidenceReference[];
 }>;
+/** Bounded summary of a replacement pair: no raw window facts, no deltas. */
+export type CompactCrossExercisePair = Readonly<{
+  beforeExerciseId: string;
+  beforeExerciseName: string;
+  afterExerciseId: string | null;
+  afterExerciseName: string | null;
+  proposedReplacementExerciseId: string;
+  relationshipContext: readonly ReplacementRelationContext[];
+  baselineExposureCount: number;
+  postExposureCount: number;
+  replacementPriorHistoryAvailable: boolean;
+  sideBySide: readonly CrossExerciseSideBySideFact[];
+  nonComparableMetrics: CrossExerciseObservationPair["nonComparableMetrics"];
+}>;
+export function compactCrossExercisePair(
+  pair: CrossExerciseObservationPair,
+): CompactCrossExercisePair {
+  return {
+    beforeExerciseId: pair.beforeExerciseId,
+    beforeExerciseName: pair.beforeExerciseName,
+    afterExerciseId: pair.afterExerciseId,
+    afterExerciseName: pair.afterExerciseName,
+    proposedReplacementExerciseId: pair.proposedReplacementExerciseId,
+    relationshipContext: pair.relationshipContext,
+    baselineExposureCount: pair.baseline.exposures.length,
+    postExposureCount: pair.postIntervention?.exposures.length ?? 0,
+    replacementPriorHistoryAvailable: pair.replacementPriorHistory.available,
+    sideBySide: pair.sideBySide,
+    nonComparableMetrics: pair.nonComparableMetrics,
+  };
+}
 export type InterventionHistory = Readonly<{
   outcomeSchemaVersion: typeof INTERVENTION_OUTCOME_SCHEMA_VERSION;
   interpretationNotice: typeof OUTCOME_INTERPRETATION_NOTICE;
@@ -2200,6 +2684,9 @@ export function buildInterventionHistory(
             ?.proposedValueImplemented ?? null,
       })),
       exposureCounts: evaluation.dataCoverage.exercises,
+      crossExercisePairs: evaluation.crossExercisePairs.map(
+        compactCrossExercisePair,
+      ),
       comparisons: evaluation.comparisons.map((comparison) => ({
         metric: comparison.metric,
         unit: comparison.unit,

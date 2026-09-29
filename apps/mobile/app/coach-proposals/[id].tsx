@@ -9,14 +9,21 @@ import {
   View,
 } from "react-native";
 import {
-  isSetCountAction,
+  isAdjustAction,
+  summarizeReplacementChanges,
   summarizeSetCountChanges,
   type CoachDecision,
   type CoachProposalAdjustAction,
   type PrescriptionSet,
   type TrainingProgram,
 } from "@athlete-coach/domain";
-import { formatPlannedSet } from "@/presentation/outcomes/outcome-labels";
+import {
+  CROSS_EXERCISE_WARNING,
+  RELATION_CONTEXT_WARNING,
+  formatLoadTransition,
+  formatPlannedSet,
+  formatRelation,
+} from "@/presentation/outcomes/outcome-labels";
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 
@@ -73,8 +80,15 @@ function formatAfter(action: ProposalAction): string {
 export default function CoachProposalReview() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useAppTheme();
-  const { getProgram, listCoachDecisions, materializeCoachProposal } =
-    useAppSession();
+  const {
+    getProgram,
+    listCoachDecisions,
+    listExercises,
+    materializeCoachProposal,
+  } = useAppSession();
+  const [exerciseNames, setExerciseNames] = useState<
+    ReadonlyMap<string, string>
+  >(new Map());
   const [decision, setDecision] = useState<CoachDecision | null>(null);
   const [sourceProgram, setSourceProgram] = useState<TrainingProgram | null>(
     null,
@@ -94,6 +108,13 @@ export default function CoachProposalReview() {
       .catch(() => setError("Não foi possível carregar a proposta."))
       .finally(() => setLoading(false));
   }, [getProgram, id, listCoachDecisions]);
+  useEffect(() => {
+    void listExercises()
+      .then((items) =>
+        setExerciseNames(new Map(items.map((item) => [item.id, item.namePt]))),
+      )
+      .catch(() => undefined);
+  }, [listExercises]);
 
   async function materialize() {
     if (!decision) return;
@@ -123,6 +144,74 @@ export default function CoachProposalReview() {
       <Text style={{ color: theme.colors.text }}>
         {decision.proposal.rationale}
       </Text>
+      {summarizeReplacementChanges(decision.proposal, sourceProgram).map(
+        (change) => {
+          const replacementName =
+            exerciseNames.get(change.replacementExerciseId) ??
+            "exercício do catálogo";
+          return (
+            <View
+              key={`replace-${change.exercisePrescriptionId}`}
+              style={[
+                styles.card,
+                {
+                  borderColor: theme.colors.border,
+                  backgroundColor: theme.colors.surface,
+                },
+              ]}
+            >
+              <Text style={[styles.heading, { color: theme.colors.text }]}>
+                Troca de exercício
+              </Text>
+              <Text style={{ color: theme.colors.text }}>
+                Antes: {change.sourceExerciseName}
+              </Text>
+              <Text style={{ color: theme.colors.text }}>
+                Proposto: {replacementName}
+              </Text>
+              <Text style={{ color: theme.colors.text }}>
+                Relações conhecidas:
+              </Text>
+              {change.relationshipContext.map((relation) => (
+                <Text
+                  key={`${relation.relationType}-${relation.direction}`}
+                  style={{ color: theme.colors.textMuted }}
+                >
+                  •{" "}
+                  {formatRelation(
+                    relation,
+                    change.sourceExerciseName,
+                    replacementName,
+                  )}
+                </Text>
+              ))}
+              <Text style={{ color: theme.colors.textMuted }}>
+                {RELATION_CONTEXT_WARNING}
+              </Text>
+              <Text style={{ color: theme.colors.text }}>
+                Carga planejada anterior:{" "}
+                {change.loadsBefore
+                  .map((load) =>
+                    load.loadKind === "absolute"
+                      ? `${load.loadKg} kg`
+                      : load.loadKind === "athlete_selected"
+                        ? "selecionada pelo atleta"
+                        : "não prescrita",
+                  )
+                  .join(" · ")}
+              </Text>
+              <Text style={{ color: theme.colors.text }}>
+                Carga após troca: {formatLoadTransition(change.loadTransition)}
+              </Text>
+              <Text style={{ color: theme.colors.textMuted }}>
+                Séries mantidas: {change.setCount}. Históricos de carga e 1RM
+                estimado desses exercícios são separados.{" "}
+                {CROSS_EXERCISE_WARNING}
+              </Text>
+            </View>
+          );
+        },
+      )}
       {summarizeSetCountChanges(decision.proposal, sourceProgram).map(
         (change) => (
           <View
@@ -160,9 +249,8 @@ export default function CoachProposalReview() {
         ),
       )}
       {decision.proposal.actions
-        .filter(
-          (action): action is CoachProposalAdjustAction =>
-            !isSetCountAction(action),
+        .filter((action): action is CoachProposalAdjustAction =>
+          isAdjustAction(action),
         )
         .map((action, index) => (
           <View

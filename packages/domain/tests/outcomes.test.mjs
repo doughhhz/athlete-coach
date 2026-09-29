@@ -904,7 +904,7 @@ test("dossier v3 embeds bounded history and exposes its evidence for grounding",
     generatedAt: "2026-09-20T00:00:00.000Z",
     interventionHistory: history,
   });
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v4");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v5");
   assert.equal(dossier.interventionHistory.included, 1);
   const ids = collectDossierEvidenceIds(dossier);
   assert.ok(ids.has("coach_decision:decision-1"));
@@ -984,7 +984,7 @@ const setCountSnapshot = (result) =>
 test("set count 2 → 3 activated is a single-variable set_count snapshot", () => {
   const result = buildSetCount([addSetAction()], threeSetB());
   const snapshot = setCountSnapshot(result);
-  assert.equal(result.schemaVersion, "intervention-outcome-v2");
+  assert.equal(result.schemaVersion, "intervention-outcome-v3");
   assert.equal(snapshot.kind, "set_count_change");
   assert.deepEqual(snapshot.sourceValue, { dimension: "set_count", count: 2 });
   assert.deepEqual(snapshot.proposedValue, {

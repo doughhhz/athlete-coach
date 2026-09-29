@@ -65,6 +65,9 @@ export class GenerateCoachProposal {
       sourceProgram,
       activeProgramId: dossier.activeProgram?.id ?? null,
       evidenceIds: collectDossierEvidenceIds(dossier),
+      // Candidates come from the backend-built dossier (stored relation graph),
+      // never from the model output (ADR-0069).
+      replacementCandidates: dossier.exerciseReplacementCandidates,
     });
     if (!result.valid)
       throw new CoachProposalValidationError(

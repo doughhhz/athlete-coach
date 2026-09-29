@@ -1,4 +1,8 @@
-import type { BodyWeightEntry, CoachDecision } from "@athlete-coach/domain";
+import type {
+  BodyWeightEntry,
+  CoachDecision,
+  ExerciseRelationEdge,
+} from "@athlete-coach/domain";
 
 /** Read side of the runtime Coaching Decision Ledger, scoped by RLS/session. */
 export interface CoachDecisionReader {
@@ -8,4 +12,11 @@ export interface CoachDecisionReader {
 /** Raw body-weight history, read-only; used only as factual outcome context. */
 export interface BodyWeightHistoryReader {
   list(): Promise<readonly BodyWeightEntry[]>;
+}
+
+/** Read-only stored exercise relations (satisfied by the catalog repository). */
+export interface ExerciseRelationReader {
+  listRelationEdges(
+    exerciseIds: readonly string[],
+  ): Promise<readonly ExerciseRelationEdge[]>;
 }

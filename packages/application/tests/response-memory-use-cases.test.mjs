@@ -46,7 +46,7 @@ const withActions = (base, actions) => ({
 test("new athlete has an empty, versioned memory", async () => {
   const { outcomes } = harness({ decisions: [], programs: [] });
   const memory = await new BuildIndividualResponseMemory(outcomes).execute();
-  assert.equal(memory.schemaVersion, "individual-response-memory-v2");
+  assert.equal(memory.schemaVersion, "individual-response-memory-v3");
   assert.equal(memory.athleteId, null);
   assert.equal(memory.totalEpisodes, 0);
   assert.equal(memory.groups.hasMore, false);
@@ -314,7 +314,7 @@ test("dossier v3 context computes outcomes once and embeds history plus memory",
     new BuildInterventionContext(outcomes),
   ).execute();
   assert.equal(listCalls, 1);
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v4");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v5");
   assert.equal(dossier.interventionHistory.totalAvailable, 1);
   assert.equal(dossier.responseMemory.groups.items[0].key, GROUP);
   assert.doesNotMatch(

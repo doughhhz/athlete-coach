@@ -8,6 +8,7 @@ import {
   deriveTargetAttainment,
   estimateOneRepMaxKg,
 } from "../performance/performance.ts";
+import type { ExerciseReplacementContext } from "../exercise/replacement.ts";
 import type { InterventionHistory } from "../outcomes/outcomes.ts";
 import type { IndividualResponseMemory } from "../response-memory/response-memory.ts";
 import type { TrainingProgram } from "../training/training.ts";
@@ -18,13 +19,16 @@ import type { WorkoutSession, WorkoutSet } from "../workout/workout.ts";
  * v3 keeps v2 unchanged and adds bounded `responseMemory` (ADR-0060).
  * v4 keeps the v3 shape; its intervention sections may now carry the
  * `set_count` dimension (outcome v2, memory v2, proposal v2) (ADR-0065).
+ * v5 adds bounded `exerciseReplacementCandidates` for the active program and
+ * exercise-replacement semantics in its intervention sections (ADR-0072).
  */
 export const ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION =
-  "athlete-training-dossier-v4" as const;
+  "athlete-training-dossier-v5" as const;
 export const athleteTrainingDossierSchemaVersions = [
   "athlete-training-dossier-v1",
   "athlete-training-dossier-v2",
   "athlete-training-dossier-v3",
+  "athlete-training-dossier-v4",
   ATHLETE_TRAINING_DOSSIER_SCHEMA_VERSION,
 ] as const;
 export const DOSSIER_RECENT_SESSION_LIMIT = 12;
@@ -182,6 +186,11 @@ export type AthleteTrainingDossier = Readonly<{
    * `null` means not loaded.
    */
   responseMemory: IndividualResponseMemory | null;
+  /**
+   * Stored relations of the active program exercises (bounded). Context
+   * only: a relation is never equivalence or suitability. `null` = not loaded.
+   */
+  exerciseReplacementCandidates: ExerciseReplacementContext | null;
   evidence: readonly EvidenceReference[];
 }>;
 
@@ -470,6 +479,7 @@ export function buildAthleteTrainingDossier(
     generatedAt: string;
     interventionHistory?: InterventionHistory | null;
     responseMemory?: IndividualResponseMemory | null;
+    exerciseReplacementCandidates?: ExerciseReplacementContext | null;
   }>,
 ): AthleteTrainingDossier {
   const timezone = input.snapshot.profile?.timezone ?? "UTC";
@@ -603,6 +613,7 @@ export function buildAthleteTrainingDossier(
     },
     interventionHistory: input.interventionHistory ?? null,
     responseMemory: input.responseMemory ?? null,
+    exerciseReplacementCandidates: input.exerciseReplacementCandidates ?? null,
     evidence,
   };
 }

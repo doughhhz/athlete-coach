@@ -1,5 +1,12 @@
 import type { EvidenceReference } from "../dossier/dossier.ts";
 import {
+  relationsBetween,
+  sameRelationContext,
+  type ExerciseRelationEdge,
+  type ExerciseReplacementContext,
+  type ReplacementRelationContext,
+} from "../exercise/replacement.ts";
+import {
   assertPrescriptionSet,
   type ExercisePrescription,
   type PrescriptionSet,
@@ -8,10 +15,13 @@ import {
 
 /** Historical contract: adjust actions only (ADR-0043). */
 export const COACH_PROPOSAL_V1_SCHEMA_VERSION = "coach-proposal-v1" as const;
-/** Current contract: v1 actions plus set-count actions (ADR-0062). */
-export const COACH_PROPOSAL_SCHEMA_VERSION = "coach-proposal-v2" as const;
+/** Historical contract: v1 actions plus set-count actions (ADR-0062). */
+export const COACH_PROPOSAL_V2_SCHEMA_VERSION = "coach-proposal-v2" as const;
+/** Current contract: v2 actions plus exercise replacement (ADR-0068). */
+export const COACH_PROPOSAL_SCHEMA_VERSION = "coach-proposal-v3" as const;
 export const coachProposalSchemaVersions = [
   COACH_PROPOSAL_V1_SCHEMA_VERSION,
+  COACH_PROPOSAL_V2_SCHEMA_VERSION,
   COACH_PROPOSAL_SCHEMA_VERSION,
 ] as const;
 export type CoachProposalSchemaVersion =
@@ -35,6 +45,12 @@ export const coachProposalSetCountActionKinds = [
 export const coachProposalActionKinds = [
   ...coachProposalAdjustActionKinds,
   ...coachProposalSetCountActionKinds,
+  "replace_exercise",
+] as const;
+export const replacementLoadTransitionModes = [
+  "preserve_non_absolute",
+  "athlete_selected",
+  "explicit_absolute",
 ] as const;
 export const coachRejectionReasons = [
   "not_now",
@@ -102,8 +118,45 @@ export type RemovePrescriptionSetAction = ActionBase &
   Readonly<{ kind: "remove_prescription_set" }>;
 export type CoachProposalSetCountAction =
   AddPrescriptionSetAction | RemovePrescriptionSetAction;
+/**
+ * How planned load crosses a replacement (ADR-0071). Absolute load is never
+ * copied or converted: `explicit_absolute` is a new value planned for the
+ * replacement exercise.
+ */
+export type ReplacementLoadTransition =
+  | Readonly<{ mode: "preserve_non_absolute" }>
+  | Readonly<{ mode: "athlete_selected" }>
+  | Readonly<{ mode: "explicit_absolute"; loadKg: number }>;
+/**
+ * Replaces the canonical exercise of one prescription in the new draft only.
+ * Sets, targets, RIR, rest and tempo are preserved; load follows
+ * `loadTransition`. `relationshipContext` must equal the stored relations.
+ */
+export type ReplaceExerciseAction = ActionBase &
+  Readonly<{
+    kind: "replace_exercise";
+    trainingDayId: string;
+    exercisePrescriptionId: string;
+    sourceExerciseId: string;
+    replacementExerciseId: string;
+    relationshipContext: readonly ReplacementRelationContext[];
+    loadTransition: ReplacementLoadTransition;
+  }>;
 export type CoachProposalAction =
-  CoachProposalAdjustAction | CoachProposalSetCountAction;
+  | CoachProposalAdjustAction
+  | CoachProposalSetCountAction
+  | ReplaceExerciseAction;
+
+export function isReplaceExerciseAction(
+  action: CoachProposalAction,
+): action is ReplaceExerciseAction {
+  return action.kind === "replace_exercise";
+}
+export function isAdjustAction(
+  action: CoachProposalAction,
+): action is CoachProposalAdjustAction {
+  return !isSetCountAction(action) && !isReplaceExerciseAction(action);
+}
 
 export function isSetCountAction(
   action: CoachProposalAction,
@@ -207,6 +260,7 @@ function applyAdjust(
 export function materializeProposalPrescription(
   prescription: ExercisePrescription,
   actions: readonly CoachProposalAction[],
+  exerciseNames?: ReadonlyMap<string, string>,
 ): ExercisePrescription {
   const removed = new Set(
     actions
@@ -223,7 +277,7 @@ export function materializeProposalPrescription(
     .map((set) => {
       const adjust = actions.find(
         (action): action is CoachProposalAdjustAction =>
-          !isSetCountAction(action) && action.prescriptionSetId === set.id,
+          isAdjustAction(action) && action.prescriptionSetId === set.id,
       );
       return adjust ? applyAdjust(set, adjust) : set;
     });
@@ -239,13 +293,98 @@ export function materializeProposalPrescription(
       id: `proposed:${index}`,
       sequence: 0,
     }));
+  const replacement = actions.find(
+    (action): action is ReplaceExerciseAction =>
+      isReplaceExerciseAction(action) &&
+      action.exercisePrescriptionId === prescription.id,
+  );
+  const sets = [...survivors, ...added].map((set, index) => ({
+    ...set,
+    sequence: index + 1,
+  }));
+  if (!replacement) return { ...prescription, sets };
   return {
     ...prescription,
-    sets: [...survivors, ...added].map((set, index) => ({
-      ...set,
-      sequence: index + 1,
-    })),
+    exerciseId: replacement.replacementExerciseId,
+    exerciseName:
+      exerciseNames?.get(replacement.replacementExerciseId) ??
+      replacement.replacementExerciseId,
+    sets: sets.map((set) =>
+      applyLoadTransition(set, replacement.loadTransition),
+    ),
   };
+}
+
+/** Load of one set after a replacement; never a numeric conversion. */
+export function applyLoadTransition<
+  T extends Pick<PrescriptionSet, "loadKind" | "loadKg">,
+>(set: T, transition: ReplacementLoadTransition): T {
+  if (transition.mode === "athlete_selected")
+    return { ...set, loadKind: "athlete_selected", loadKg: null };
+  if (transition.mode === "explicit_absolute")
+    return { ...set, loadKind: "absolute", loadKg: transition.loadKg };
+  return set;
+}
+
+export type ReplacementChangeSummary = Readonly<{
+  trainingDayId: string;
+  exercisePrescriptionId: string;
+  sourceExerciseId: string;
+  sourceExerciseName: string;
+  replacementExerciseId: string;
+  relationshipContext: readonly ReplacementRelationContext[];
+  loadTransition: ReplacementLoadTransition;
+  setCount: number;
+  loadsBefore: readonly Pick<
+    PrescriptionSet,
+    "sequence" | "loadKind" | "loadKg"
+  >[];
+  loadsAfter: readonly Pick<
+    PrescriptionSet,
+    "sequence" | "loadKind" | "loadKg"
+  >[];
+}>;
+
+/** Factual before/after of each proposed replacement (for human review). */
+export function summarizeReplacementChanges(
+  proposal: CoachProposal,
+  sourceProgram: TrainingProgram | null,
+): readonly ReplacementChangeSummary[] {
+  const days =
+    sourceProgram?.blocks.flatMap((block) =>
+      block.weeks.flatMap((week) => week.days),
+    ) ?? [];
+  return proposal.actions.filter(isReplaceExerciseAction).flatMap((action) => {
+    const prescription = days
+      .find((day) => day.id === action.trainingDayId)
+      ?.prescriptions.find((item) => item.id === action.exercisePrescriptionId);
+    if (!prescription) return [];
+    const after = materializeProposalPrescription(
+      prescription,
+      proposal.actions,
+    );
+    const load = (set: PrescriptionSet) => ({
+      sequence: set.sequence,
+      loadKind: set.loadKind,
+      loadKg: set.loadKg,
+    });
+    return [
+      {
+        trainingDayId: action.trainingDayId,
+        exercisePrescriptionId: action.exercisePrescriptionId,
+        sourceExerciseId: prescription.exerciseId,
+        sourceExerciseName: prescription.exerciseName,
+        replacementExerciseId: action.replacementExerciseId,
+        relationshipContext: action.relationshipContext,
+        loadTransition: action.loadTransition,
+        setCount: after.sets.length,
+        loadsBefore: [...prescription.sets]
+          .sort((a, b) => a.sequence - b.sequence)
+          .map(load),
+        loadsAfter: after.sets.map(load),
+      },
+    ];
+  });
 }
 
 export type SetCountChangeSummary = Readonly<{
@@ -325,6 +464,10 @@ export function validateCoachProposal(
     sourceProgram: TrainingProgram;
     activeProgramId: string | null;
     evidenceIds: ReadonlySet<string>;
+    /** Candidates supplied to the model; replacements must come from here. */
+    replacementCandidates?: ExerciseReplacementContext | null;
+    /** Stored relation edges used to re-derive the real relation context. */
+    exerciseRelations?: readonly ExerciseRelationEdge[];
   }>,
 ): ProposalValidationResult {
   const issues: ProposalValidationIssue[] = [];
@@ -369,6 +512,16 @@ export function validateCoachProposal(
       code: "invalid_action",
       message: "coach-proposal-v1 não aceita ações de quantidade de séries.",
     });
+  if (
+    proposal.schemaVersion !== COACH_PROPOSAL_SCHEMA_VERSION &&
+    proposal.actions.some(isReplaceExerciseAction)
+  )
+    issues.push({
+      code: "invalid_action",
+      message: "Somente coach-proposal-v3 aceita troca de exercício.",
+    });
+  const replacedPrescriptions = new Set<string>();
+  const replacedSetIds = new Set<string>();
 
   const days = context.sourceProgram.blocks.flatMap((block) =>
     block.weeks.flatMap((week) => week.days),
@@ -397,6 +550,20 @@ export function validateCoachProposal(
         code: "missing_entity",
         message: "Uma action referencia entidade inexistente.",
       });
+      continue;
+    }
+    if (action.kind === "replace_exercise") {
+      touchedPrescriptions.set(prescription.id, prescription);
+      if (replacedPrescriptions.has(prescription.id)) {
+        issues.push({
+          code: "invalid_action",
+          message: "Uma prescrição não pode ser trocada duas vezes.",
+        });
+        continue;
+      }
+      replacedPrescriptions.add(prescription.id);
+      for (const set of prescription.sets) replacedSetIds.add(set.id);
+      issues.push(...validateReplacement(action, prescription, context));
       continue;
     }
     if (action.kind === "add_prescription_set") {
@@ -482,6 +649,19 @@ export function validateCoachProposal(
       });
     }
   }
+  if (
+    proposal.actions.some(
+      (action) =>
+        action.kind === "adjust_absolute_load_target" &&
+        (replacedSetIds.has(action.prescriptionSetId) ||
+          replacedPrescriptions.has(action.exercisePrescriptionId)),
+    )
+  )
+    issues.push({
+      code: "invalid_action",
+      message:
+        "Carga absoluta de uma prescrição trocada é definida apenas pela transição de carga da troca.",
+    });
   for (const prescription of touchedPrescriptions.values()) {
     const result = materializeProposalPrescription(
       prescription,
@@ -492,6 +672,90 @@ export function validateCoachProposal(
         code: "invalid_structure",
         message: "Uma prescrição precisa manter pelo menos uma série.",
       });
+    // Replacement load transitions are checked on the final sets; other
+    // actions were already validated individually above.
+    if (replacedPrescriptions.has(prescription.id))
+      for (const set of result.sets)
+        try {
+          assertPrescriptionSet(set);
+        } catch (error) {
+          issues.push({
+            code: "invalid_structure",
+            message:
+              error instanceof Error
+                ? error.message
+                : "A prescrição resultante viola invariantes de treino.",
+          });
+        }
   }
   return { valid: issues.length === 0, issues };
+}
+
+function validateReplacement(
+  action: ReplaceExerciseAction,
+  prescription: ExercisePrescription,
+  context: Readonly<{
+    replacementCandidates?: ExerciseReplacementContext | null;
+    exerciseRelations?: readonly ExerciseRelationEdge[];
+  }>,
+): readonly ProposalValidationIssue[] {
+  const issues: ProposalValidationIssue[] = [];
+  if (prescription.exerciseId !== action.sourceExerciseId)
+    issues.push({
+      code: "invalid_action",
+      message: "O exercício de origem não corresponde à prescrição.",
+    });
+  if (action.replacementExerciseId === action.sourceExerciseId)
+    issues.push({
+      code: "invalid_action",
+      message: "O exercício substituto deve ser diferente do atual.",
+    });
+  const candidate = context.replacementCandidates?.items
+    .find((item) => item.sourceExerciseId === prescription.exerciseId)
+    ?.candidates.find(
+      (item) => item.exerciseId === action.replacementExerciseId,
+    );
+  if (!candidate)
+    issues.push({
+      code: "invalid_action",
+      message:
+        "O exercício substituto não está entre os candidatos fornecidos (relação explícita obrigatória).",
+    });
+  const real = context.exerciseRelations
+    ? relationsBetween(
+        prescription.exerciseId,
+        action.replacementExerciseId,
+        context.exerciseRelations,
+      )
+    : (candidate?.relations ?? []);
+  if (!real.length)
+    issues.push({
+      code: "invalid_action",
+      message: "Não existe relação explícita entre os exercícios.",
+    });
+  else if (!sameRelationContext(action.relationshipContext, real))
+    issues.push({
+      code: "invalid_action",
+      message:
+        "O contexto de relação da proposta não corresponde às relações registradas.",
+    });
+  const transition = action.loadTransition;
+  if (
+    transition.mode === "preserve_non_absolute" &&
+    prescription.sets.some((set) => set.loadKind === "absolute")
+  )
+    issues.push({
+      code: "invalid_action",
+      message:
+        "Carga absoluta não é copiada entre exercícios: escolha carga do atleta ou uma carga explícita.",
+    });
+  if (
+    transition.mode === "explicit_absolute" &&
+    (!Number.isFinite(transition.loadKg) || transition.loadKg <= 0)
+  )
+    issues.push({
+      code: "invalid_structure",
+      message: "A carga explícita do exercício substituto deve ser positiva.",
+    });
+  return issues;
 }

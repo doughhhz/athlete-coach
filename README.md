@@ -164,3 +164,7 @@ O Personal pode propor adicionar ou remover séries de um exercício (`coach-pro
 ## Correção — Edge Functions no Deno
 
 As Edge Functions do Personal agora inicializam no runtime Deno local do Supabase: imports relativos dos packages usam extensão `.ts` e `supabase/functions/deno.json` mapeia os packages do workspace (ADR-0067). Para testar localmente: `node scripts/run-supabase.mjs functions serve`.
+
+## Phase 14 — Troca de exercício revisada
+
+O Personal pode propor trocar um exercício por outro com relação registrada no catálogo (`coach-proposal-v3`), sempre com transição de carga explícita, revisão humana e materialização só em rascunho. Outcomes mostram o exercício anterior e o ativado lado a lado sem comparar carga ou 1RM estimado; cada exercício mantém seu histórico e seus recordes. Dossier `athlete-training-dossier-v5`, prompts v5. Edge Functions autenticam antes de revelar configuração do provider. Próximo passo recomendado: revisão humana da Phase 14.

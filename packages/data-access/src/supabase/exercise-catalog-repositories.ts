@@ -6,6 +6,7 @@ import type {
   Equipment,
   ExerciseCatalogFacets,
   ExerciseDetails,
+  ExerciseRelationEdge,
   ExerciseSummary,
   Muscle,
   MuscleGroup,
@@ -22,6 +23,12 @@ import {
 import { z } from "zod";
 import type { AthleteCoachSupabaseClient } from "./create-athlete-coach-supabase-client.ts";
 import { DataAccessError } from "./supabase-repositories.ts";
+
+const relationEdgeSchema = z.object({
+  source_exercise_id: z.uuid(),
+  target_exercise_id: z.uuid(),
+  relation_type: z.enum(exerciseRelationTypes),
+});
 
 const summarySchema = z.object({
   id: z.uuid(),
@@ -175,6 +182,39 @@ export class SupabaseExerciseCatalogRepository implements ExerciseCatalogReposit
       primaryMuscleGroups: row.primary_muscle_groups,
       equipment: row.equipment,
       isActive: true,
+    }));
+  }
+  async listRelationEdges(
+    exerciseIds: readonly string[],
+  ): Promise<readonly ExerciseRelationEdge[]> {
+    // Only canonical UUIDs reach the PostgREST filter expression.
+    const ids = [...new Set(exerciseIds)].filter(
+      (id) => z.uuid().safeParse(id).success,
+    );
+    if (!ids.length) return [];
+    const list = ids.join(",");
+    const { data, error } = await this.client
+      .from("exercise_relations")
+      .select("source_exercise_id,target_exercise_id,relation_type")
+      .or(`source_exercise_id.in.(${list}),target_exercise_id.in.(${list})`)
+      .order("source_exercise_id")
+      .order("target_exercise_id")
+      .order("relation_type");
+    if (error)
+      throw new DataAccessError(
+        "Não foi possível carregar as relações entre exercícios.",
+        { cause: error },
+      );
+    const rows = z.array(relationEdgeSchema).safeParse(data ?? []);
+    if (!rows.success)
+      throw new DataAccessError(
+        "As relações retornadas pelo servidor são inválidas.",
+        { cause: rows.error },
+      );
+    return rows.data.map((row) => ({
+      sourceExerciseId: row.source_exercise_id,
+      targetExerciseId: row.target_exercise_id,
+      relationType: row.relation_type,
     }));
   }
   async getBySlug(slug: string): Promise<ExerciseDetails | null> {

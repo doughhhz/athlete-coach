@@ -161,3 +161,7 @@ Sem persistência: `individual-response-memory-v1` é reconstruída de `coach_de
 ## Phase 13 — Proposal v2 e set_count
 
 `coach_decisions.proposal_schema_version` aceita `coach-proposal-v1` e `coach-proposal-v2`, com o snapshot obrigatoriamente na mesma versão. Snapshots v1 permanecem intactos. Sem novas tabelas: `set_count` é derivado de `prescription_sets` do programa de origem e do ativado; o conteúdo de sets adicionados vive no snapshot da proposta e, após materialização, como linhas normais do draft. `PrescriptionSet.sequence` continua positivo, único e contíguo após add/remove. Uma prescrição mantém pelo menos um set.
+
+## Phase 14 — Proposal v3 e troca de exercício
+
+`coach_decisions.proposal_schema_version` aceita v1, v2 e v3, com snapshot na mesma versão. A troca altera `exercise_prescriptions.exercise_id` apenas no draft criado; `workout_exercises.exercise_id`, sets executados, prescrições e programas históricos nunca são reescritos. `exercise_relations` continua a fonte das relações (sem novas tabelas). Outcome v3 inclui `crossExercisePairs`; IRE v4, memória v3 e dossier v5 carregam pares direcionados e candidatos bounded.

@@ -84,3 +84,7 @@ Histórico de performance nunca justifica continuar com dor ou sintomas; os gate
 ## Phase 13 — Mudanças de séries
 
 Adicionar ou remover séries é proposta revisada por humano, materializada apenas em draft e nunca ativada automaticamente. Safety da Phase 9/10 continua bloqueando propostas quando há sinais de dor, lesão ou sintomas; histórico de séries não supera essas regras. Não há inferência de volume ideal nem adaptação automática.
+
+## Phase 14 — Troca não é tratamento
+
+Dor aguda, possível lesão ou questões médicas continuam bloqueadas pelo safety gate antes de qualquer proposta; o prompt v5 proíbe usar `replace_exercise` como tratamento. Autenticação agora precede qualquer revelação de configuração do provider nas Edge Functions (ADR-0073).

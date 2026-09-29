@@ -1,4 +1,5 @@
 import {
+  isReplaceExerciseAction,
   buildIndividualResponseEvidence,
   buildIndividualResponseMemory,
   buildInterventionHistory,
@@ -14,7 +15,11 @@ import {
 } from "@athlete-coach/domain";
 import type { PerformanceReadRepository } from "../performance/ports.ts";
 import type { TrainingProgramRepository } from "../training/ports.ts";
-import type { BodyWeightHistoryReader, CoachDecisionReader } from "./ports.ts";
+import type {
+  BodyWeightHistoryReader,
+  CoachDecisionReader,
+  ExerciseRelationReader,
+} from "./ports.ts";
 
 /**
  * Rebuilds every outcome projection on demand from the decision ledger,
@@ -27,18 +32,21 @@ export class BuildInterventionOutcomes {
   private readonly performance: PerformanceReadRepository;
   private readonly bodyWeights: BodyWeightHistoryReader;
   private readonly now: () => Date;
+  private readonly relations: ExerciseRelationReader | null;
   constructor(
     decisions: CoachDecisionReader,
     programs: Pick<TrainingProgramRepository, "get">,
     performance: PerformanceReadRepository,
     bodyWeights: BodyWeightHistoryReader,
     now: () => Date = () => new Date(),
+    relations: ExerciseRelationReader | null = null,
   ) {
     this.decisions = decisions;
     this.programs = programs;
     this.performance = performance;
     this.bodyWeights = bodyWeights;
     this.now = now;
+    this.relations = relations;
   }
   async execute(
     filter?: (decision: CoachDecision) => boolean,
@@ -83,6 +91,28 @@ export class BuildInterventionOutcomes {
       const program = id ? (programs.get(id) ?? null) : null;
       return program && program.athleteId === athleteId ? program : null;
     };
+    // Replacement relations are rebuilt from the stored graph for the
+    // exercises actually present in the source and activated programs.
+    const hasReplacement = decisions.some((decision) =>
+      decision.proposal.actions.some(isReplaceExerciseAction),
+    );
+    const exerciseIds = [...programs.values()].flatMap((program) =>
+      program
+        ? program.blocks.flatMap((block) =>
+            block.weeks.flatMap((week) =>
+              week.days.flatMap((day) =>
+                day.prescriptions.map(
+                  (prescription) => prescription.exerciseId,
+                ),
+              ),
+            ),
+          )
+        : [],
+    );
+    const exerciseRelations =
+      hasReplacement && this.relations
+        ? await this.relations.listRelationEdges([...new Set(exerciseIds)])
+        : [];
     const interventionProgramIds = new Set(
       all
         .map((decision) => decision.materializedProgramId)
@@ -106,6 +136,7 @@ export class BuildInterventionOutcomes {
             sessions,
             bodyWeights,
             interventionProgramIds,
+            exerciseRelations,
             generatedAt,
           }),
         ),

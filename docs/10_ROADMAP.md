@@ -131,3 +131,7 @@ Proposal v2 com add/remove set, validator e espelho puro, RPC transacional, comp
 ## Correção pós-Phase 13 — Edge Functions bootáveis no Deno
 
 Import map versionado e extensões `.ts` explícitas tornaram as três Edge Functions inicializáveis no runtime local, com smoke HTTP. Sem nova funcionalidade nem alteração de regra de negócio; nenhuma Phase 14 iniciada.
+
+## Phase 14 — Exercise Replacement Intelligence & Cross-Exercise Outcome Semantics — complete
+
+Auth antes da configuração do provider, candidatos determinísticos por relação, `coach-proposal-v3` com transição de carga, RPC revalidando no banco, outcome v3 com pares entre exercícios sem deltas, IRE v4, memória v3 com pares direcionados, dossier v5, prompts v5, UI e cenário integrado foram implementados. Fora de escopo: troca automática, ranking/melhor exercício, conversão de carga, delta de 1RM/carga entre exercícios, transferência de PR, frequência, volume muscular, aprovação/ativação automáticas, Coach autônomo, causalidade, ML/RL, HealthKit, nutrição, web/RAG e multi-agentes.

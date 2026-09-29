@@ -12,6 +12,7 @@ import {
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import {
+  CROSS_EXERCISE_WARNING,
   changeDirectionLabels,
   comparabilityReasonLabel,
   dimensionLabels,
@@ -87,7 +88,9 @@ export function ResponseMemoryScreen() {
         Histórico observado
       </Text>
       <Text style={[s.heading, text]}>
-        {group.exerciseName} · {dimensionLabels[group.interventionDimension]}
+        {group.replacementExerciseId
+          ? `${group.exerciseName} → ${group.replacementExerciseName ?? "outro exercício"}`
+          : `${group.exerciseName} · ${dimensionLabels[group.interventionDimension]}`}
         {group.targetMetric ? ` (${group.targetMetric})` : ""}
       </Text>
       <Text style={muted}>
@@ -114,6 +117,25 @@ export function ResponseMemoryScreen() {
                 : ` · mediana ${formatDelta(item.medianAbsoluteDelta, item.unit)}`}
             </Text>
           ))}
+        {group.replacementSummary ? (
+          <>
+            <Text style={muted}>
+              Exposições após as trocas:{" "}
+              {group.replacementSummary.postExposureTotal} · séries planejadas{" "}
+              {group.replacementSummary.postPlannedSetTotal} · concluídas{" "}
+              {group.replacementSummary.postCompletedSetTotal}
+            </Text>
+            <Text style={muted}>
+              Relações registradas observadas:{" "}
+              {group.replacementSummary.relationTypesObserved.length
+                ? group.replacementSummary.relationTypesObserved.join(", ")
+                : "nenhuma"}{" "}
+              · com histórico anterior do novo exercício:{" "}
+              {group.replacementSummary.episodesWithReplacementPriorHistory}
+            </Text>
+            <Text style={muted}>{CROSS_EXERCISE_WARNING}</Text>
+          </>
+        ) : null}
         {group.aggregates.some((item) => item.contradictory) ? (
           <Text style={text}>
             Os episódios observados apontaram em direções diferentes.
@@ -144,6 +166,16 @@ export function ResponseMemoryScreen() {
             Amostra: {episode.baselineExposureCount} sessão(ões) antes ·{" "}
             {episode.postExposureCount} depois
           </Text>
+          {episode.crossExercisePair
+            ? episode.crossExercisePair.sideBySide.map((fact) => (
+                <Text key={`pair-${fact.metric}`} style={muted}>
+                  {metricLabels[fact.metric]} · lado a lado: Antes{" "}
+                  {formatMetricValue(fact.before, fact.unit)} · Depois{" "}
+                  {formatMetricValue(fact.after, fact.unit)} · Amostra{" "}
+                  {fact.beforeSampleCount}/{fact.afterSampleCount}
+                </Text>
+              ))
+            : null}
           {episode.observations
             .filter((item) => item.absoluteDelta !== null)
             .map((item) => (

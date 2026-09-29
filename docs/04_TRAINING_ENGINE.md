@@ -128,3 +128,10 @@ Uma `CoachProposal` nunca é um `ProgramRevision`. O validator reutiliza `assert
 - Contagem líquida por prescrição: `beforeSetCount`, `afterSetCount`, `absoluteDelta`. Remove + add com contagem igual não é intervenção de `set_count`.
 - Outcome: séries planejadas, concluídas e reps por exposição (denominador = exposições que contêm sets do escopo), carga registrada, e1RM, target, RIR e descanso, sempre separando planejado de concluído.
 - Proibido: volume muscular, sets efetivos/hard sets, stimulus, tonnage, workload, MEV/MAV/MRV, número ótimo de séries, progressão automática.
+
+## Phase 14 — Troca de exercício
+
+- Candidatos: relação armazenada obrigatória, direção preservada, catálogo canônico, sem IDs inventados.
+- Materialização: séries, alvos, RIR, descanso e tempo preservados; carga pela `loadTransition` (`preserve_non_absolute` só sem carga absoluta, `athlete_selected`, `explicit_absolute` nova). Sem conversão de carga.
+- Outcome: baseline do exercício de origem e pós do exercício ativado lado a lado (séries planejadas/concluídas, reps por exposição, alvo, cobertura de RIR/descanso); carga registrada e 1RM estimado não comparáveis entre exercícios; PRs nunca transferidos; histórico prévio do novo exercício separado.
+- Futuro, não implementado: intervenção de frequência e modelagem de volume por músculo.

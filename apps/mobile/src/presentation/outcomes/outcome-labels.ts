@@ -27,6 +27,7 @@ export const dimensionLabels: Readonly<Record<InterventionDimension, string>> =
     planned_rest: "Descanso planejado",
     absolute_load: "Carga absoluta planejada",
     set_count: "Quantidade de séries planejadas",
+    exercise_replacement: "Troca de exercício",
   };
 
 export const metricLabels: Readonly<Record<OutcomeMetric, string>> = {
@@ -82,6 +83,8 @@ export const limitationLabels: Readonly<Record<OutcomeLimitationCode, string>> =
     load_observations_missing: "Carga não registrada",
     set_structure_changed_without_count_change:
       "Séries trocadas sem mudar a quantidade planejada",
+    replacement_relation_missing:
+      "Não há relação registrada entre o exercício anterior e o ativado",
     body_weight_unavailable: "Peso corporal indisponível no período",
     body_weight_changed: "O peso corporal registrado mudou no período",
   };
@@ -101,6 +104,8 @@ export function formatPrescriptionValue(
     return `RIR ${range(value.min, value.max, "")}`;
   if (value.dimension === "planned_rest")
     return range(value.minSeconds, value.maxSeconds, " s");
+  if (value.dimension === "exercise_replacement")
+    return value.exerciseName ?? "exercício selecionado";
   if (value.dimension === "set_count")
     return `${value.count} ${value.count === 1 ? "série" : "séries"}`;
   return value.loadKind === "absolute" && value.loadKg !== null
@@ -132,6 +137,7 @@ export const changeDirectionLabels: Readonly<Record<ChangeDirection, string>> =
     unchanged: "sem mudança",
     mixed: "faixa alterada nos dois sentidos",
     not_comparable: "não comparável",
+    replaced: "troca de exercício",
   };
 
 export const signPatternLabels: Readonly<Record<DeltaSignPattern, string>> = {
@@ -185,3 +191,39 @@ export function formatPlannedSet(
     .filter((item): item is string => item !== null)
     .join(" · ");
 }
+
+const relationTypeLabels: Readonly<Record<string, string>> = {
+  variation_of: "variação de",
+  similar_pattern: "padrão de movimento semelhante a",
+  similar_target: "alvo muscular semelhante a",
+  equipment_alternative: "alternativa de equipamento a",
+  regression: "regressão de",
+  progression: "progressão de",
+};
+
+/** "B é variação de A" keeping the stored direction; context, not equivalence. */
+export function formatRelation(
+  relation: Readonly<{ relationType: string; direction: string }>,
+  sourceName: string,
+  candidateName: string,
+): string {
+  const label =
+    relationTypeLabels[relation.relationType] ?? relation.relationType;
+  return relation.direction === "candidate_to_source"
+    ? `${candidateName} é ${label} ${sourceName}`
+    : `${sourceName} é ${label} ${candidateName}`;
+}
+
+export function formatLoadTransition(
+  transition: Readonly<{ mode: string; loadKg?: number }>,
+): string {
+  if (transition.mode === "athlete_selected") return "selecionada pelo atleta";
+  if (transition.mode === "explicit_absolute")
+    return `${transition.loadKg} kg planejados para o novo exercício (não é conversão)`;
+  return "mantida (sem carga absoluta)";
+}
+
+export const CROSS_EXERCISE_WARNING =
+  "Carga e 1RM estimado não são diretamente comparáveis entre exercícios diferentes.";
+export const RELATION_CONTEXT_WARNING =
+  "Essas relações contextualizam a troca e não significam equivalência de carga ou resultado.";

@@ -104,7 +104,7 @@ const remove = (setId, prescriptionId = "p1") => ({
   evidence: [evidence],
 });
 const proposal = (actions, change = {}) => ({
-  schemaVersion: COACH_PROPOSAL_SCHEMA_VERSION,
+  schemaVersion: "coach-proposal-v2",
   id: "proposal",
   analysisId: "analysis",
   sourceProgramId: "program",
@@ -122,7 +122,7 @@ const proposal = (actions, change = {}) => ({
     model: "deterministic",
     promptVersion: "coach-proposal-prompt-v4",
     policyVersion: "coach-safety-v1",
-    dossierSchemaVersion: "athlete-training-dossier-v4",
+    dossierSchemaVersion: "athlete-training-dossier-v5",
   },
   ...change,
 });
@@ -138,8 +138,8 @@ const codes = (result) => result.issues.map((issue) => issue.code);
 
 // ADD ---------------------------------------------------------------------
 
-test("contract v2 is the current proposal version", () =>
-  assert.equal(COACH_PROPOSAL_SCHEMA_VERSION, "coach-proposal-v2"));
+test("contract v3 is the current proposal version; v2 set-count proposals stay valid", () =>
+  assert.equal(COACH_PROPOSAL_SCHEMA_VERSION, "coach-proposal-v3"));
 
 test("valid add-set action (with explicit snapshot and copy provenance)", () => {
   assert.equal(validate([add()]).valid, true);

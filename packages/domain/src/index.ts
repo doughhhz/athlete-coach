@@ -8,3 +8,4 @@ export * from "./coach/coach.ts";
 export * from "./coach/proposal.ts";
 export * from "./outcomes/outcomes.ts";
 export * from "./response-memory/response-memory.ts";
+export * from "./exercise/replacement.ts";

@@ -223,6 +223,9 @@ export function ProgressScreen() {
                 </Text>
                 <Text style={{ color: theme.colors.textMuted }}>
                   {dimensionLabels[group.interventionDimension]}
+                  {group.replacementExerciseName
+                    ? ` → ${group.replacementExerciseName}`
+                    : ""}
                 </Text>
                 <Text style={{ color: theme.colors.textMuted }}>
                   {group.coverage.totalEpisodes} intervenção(ões) registrada(s)

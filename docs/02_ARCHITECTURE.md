@@ -176,3 +176,7 @@ Validação local das Edge Functions: além da falha ambiental de TLS já conhec
 ## Edge Functions no runtime Deno (ADR-0067)
 
 As Edge Functions reutilizam os packages canônicos diretamente. O Deno resolve especificadores de workspace pelo import map `supabase/functions/deno.json`, ligado por `import_map` em `supabase/config.toml` para cada function; imports relativos dos packages usam sempre extensão `.ts`. Não há bundler nem cópia de lógica em `supabase/functions`. A dívida "Edge Functions não inicializam no runtime Deno local" registrada na Phase 13 foi resolvida.
+
+## Phase 14 exercise replacement boundary
+
+`packages/domain/src/exercise/replacement.ts` deriva candidatos e relações a partir de linhas direcionadas de `exercise_relations`; `GetExerciseReplacementCandidates` usa o repositório do catálogo (`listRelationEdges`, read-only) e alimenta o dossier v5. `GenerateCoachProposal` valida trocas contra esses candidatos construídos pelo backend; a RPC `materialize_coach_decision` (`20260930120000`) revalida tudo no banco. `BuildInterventionOutcomes` recebe o mesmo leitor de relações para reconstruir o contexto do par ativado. Nenhum package novo nas Edge Functions (o import map da ADR-0067 continua suficiente). Autenticação ocorre antes de qualquer checagem de configuração do provider (ADR-0073).

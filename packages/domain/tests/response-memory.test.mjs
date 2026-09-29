@@ -196,6 +196,7 @@ function evaluation({
       { ...window(post), closed: true, closeReason: "max_exposures_reached" },
     ],
     comparisons,
+    crossExercisePairs: [],
     dataCoverage: { exposureLimit: 3, exercises: [] },
     bodyWeightContext: {
       atActivation: null,
@@ -289,7 +290,7 @@ test("group identity is a stable structured key, not a random ID", () => {
   assert.deepEqual(one.groups.items[0].evidence[0], {
     kind: "response_memory_group",
     id: `${BENCH}.planned_rir`,
-    version: "individual-response-memory-v2",
+    version: "individual-response-memory-v3",
   });
 });
 
@@ -683,7 +684,7 @@ test("dossier v3 carries bounded memory by reference without duplicating history
     interventionHistory: buildInterventionHistory(items),
     responseMemory: build(items),
   });
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v4");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v5");
   assert.equal(dossier.interventionHistory.included, 2);
   assert.equal(dossier.responseMemory.groups.included, 1);
   const episode = dossier.responseMemory.groups.items[0].episodes.items[0];

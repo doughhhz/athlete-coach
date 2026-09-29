@@ -13,8 +13,10 @@ import {
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import {
+  CROSS_EXERCISE_WARNING,
   dimensionLabels,
   formatDelta,
+  formatRelation,
   formatMetricValue,
   formatPrescriptionValue,
   limitationLabels,
@@ -155,47 +157,97 @@ export function InterventionOutcomeScreen() {
           );
         })}
       </View>
-      {outcome.dataCoverage.exercises.map((coverage) => {
-        const comparisons = outcome.comparisons.filter(
-          (item) => item.scope.exerciseId === coverage.exerciseId,
-        );
-        const name =
-          outcome.baseline.find(
-            (window) => window.exerciseId === coverage.exerciseId,
-          )?.exerciseName ?? coverage.exerciseId;
-        return (
-          <View key={coverage.exerciseId} style={card}>
-            <Text style={[s.heading, text]}>{name}</Text>
-            <Text style={muted}>
-              AMOSTRA · {coverage.baselineExposureCount} sessão(ões) antes ·{" "}
-              {coverage.postExposureCount} depois (até{" "}
-              {outcome.dataCoverage.exposureLimit} de cada lado)
-            </Text>
-            {comparisons.length === 0 ? (
-              <Text style={muted}>
-                Ainda não há dados suficientes para comparar antes e depois.
+      {outcome.crossExercisePairs.map((pair) => (
+        <View key={`pair-${pair.beforeExerciseId}`} style={card}>
+          <Text style={[s.heading, text]}>Troca de exercício</Text>
+          <Text style={text}>ANTES: {pair.beforeExerciseName}</Text>
+          <Text style={text}>
+            DEPOIS:{" "}
+            {pair.afterExerciseName ?? "exercício ainda não identificado"}
+          </Text>
+          <Text style={muted}>
+            Exposições antes: {pair.baseline.exposures.length} · Exposições
+            depois: {pair.postIntervention?.exposures.length ?? 0}
+          </Text>
+          {pair.relationshipContext.length ? (
+            pair.relationshipContext.map((relation) => (
+              <Text
+                key={`${relation.relationType}-${relation.direction}`}
+                style={muted}
+              >
+                Relação registrada:{" "}
+                {formatRelation(
+                  relation,
+                  pair.beforeExerciseName,
+                  pair.afterExerciseName ?? "novo exercício",
+                )}
               </Text>
-            ) : (
-              comparisons.map((item) => (
-                <View key={`${item.scope.kind}-${item.metric}`} style={s.row}>
-                  <Text style={text}>
-                    {metricLabels[item.metric]}
-                    {item.scope.kind === "affected_prescription_sets"
-                      ? " · séries alteradas"
-                      : " · todas as séries do exercício"}
-                  </Text>
-                  <Text style={muted}>
-                    ANTES {formatMetricValue(item.before, item.unit)} · DEPOIS{" "}
-                    {formatMetricValue(item.after, item.unit)} · DIFERENÇA{" "}
-                    {formatDelta(item.absoluteDelta, item.unit)} · AMOSTRA{" "}
-                    {item.beforeSampleCount}/{item.afterSampleCount}
-                  </Text>
-                </View>
-              ))
-            )}
-          </View>
-        );
-      })}
+            ))
+          ) : (
+            <Text style={muted}>
+              Não há relação registrada entre esses exercícios.
+            </Text>
+          )}
+          {pair.sideBySide.map((fact) => (
+            <Text key={fact.metric} style={muted}>
+              {metricLabels[fact.metric]} · lado a lado: ANTES{" "}
+              {formatMetricValue(fact.before, fact.unit)} · DEPOIS{" "}
+              {formatMetricValue(fact.after, fact.unit)} · AMOSTRA{" "}
+              {fact.beforeSampleCount}/{fact.afterSampleCount}
+            </Text>
+          ))}
+          {pair.replacementPriorHistory.available ? (
+            <Text style={muted}>
+              Este exercício já tinha histórico anterior, mantido separado do
+              período antes da troca.
+            </Text>
+          ) : null}
+          <Text style={text}>{CROSS_EXERCISE_WARNING}</Text>
+        </View>
+      ))}
+      {outcome.dataCoverage.exercises
+        .filter((coverage) => coverage.replacementExerciseId === null)
+        .map((coverage) => {
+          const comparisons = outcome.comparisons.filter(
+            (item) => item.scope.exerciseId === coverage.exerciseId,
+          );
+          const name =
+            outcome.baseline.find(
+              (window) => window.exerciseId === coverage.exerciseId,
+            )?.exerciseName ?? coverage.exerciseId;
+          return (
+            <View key={coverage.exerciseId} style={card}>
+              <Text style={[s.heading, text]}>{name}</Text>
+              <Text style={muted}>
+                AMOSTRA · {coverage.baselineExposureCount} sessão(ões) antes ·{" "}
+                {coverage.postExposureCount} depois (até{" "}
+                {outcome.dataCoverage.exposureLimit} de cada lado)
+              </Text>
+              {comparisons.length === 0 ? (
+                <Text style={muted}>
+                  Ainda não há dados suficientes para comparar antes e depois.
+                </Text>
+              ) : (
+                comparisons.map((item) => (
+                  <View key={`${item.scope.kind}-${item.metric}`} style={s.row}>
+                    <Text style={text}>
+                      {metricLabels[item.metric]}
+                      {item.scope.kind === "affected_prescription_sets"
+                        ? " · séries alteradas"
+                        : " · todas as séries do exercício"}
+                    </Text>
+                    <Text style={muted}>
+                      ANTES {formatMetricValue(item.before, item.unit)} · DEPOIS{" "}
+                      {formatMetricValue(item.after, item.unit)} · DIFERENÇA{" "}
+                      {formatDelta(item.absoluteDelta, item.unit)} · AMOSTRA{" "}
+                      {item.beforeSampleCount}/{item.afterSampleCount}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          );
+        })}
       {outcome.bodyWeightContext.absoluteDeltaKg !== null ? (
         <Text style={muted}>
           Peso corporal registrado:{" "}

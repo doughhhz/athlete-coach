@@ -41,6 +41,7 @@ import {
   BuildInterventionOutcomes,
   BuildInterventionContext,
   GetResponseMemoryGroup,
+  GetExerciseReplacementCandidates,
   ListInterventionOutcomes,
   GetCoachDecisionOutcome,
   GetIndividualResponseEvidence,
@@ -90,6 +91,8 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     programs,
     performance,
     weightRepository,
+    undefined,
+    exerciseRepository,
   );
   const buildTrainingDossier = new BuildAthleteTrainingDossier(
     loadProfile,
@@ -98,6 +101,7 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     performance,
     undefined,
     new BuildInterventionContext(interventionOutcomes),
+    new GetExerciseReplacementCandidates(exerciseRepository),
   );
   return {
     authRepository,

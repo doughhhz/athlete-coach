@@ -1,6 +1,8 @@
-import type {
-  ExerciseCatalogFilters,
-  MovementPattern,
+import {
+  buildExerciseReplacementContext,
+  type ExerciseCatalogFilters,
+  type ExerciseReplacementContext,
+  type MovementPattern,
 } from "@athlete-coach/domain";
 import type { AnatomyRepository, ExerciseCatalogRepository } from "./ports.ts";
 
@@ -74,5 +76,28 @@ export class ListExerciseCatalogFacets {
   }
   execute() {
     return this.anatomy.listCatalogFacets();
+  }
+}
+
+/**
+ * Deterministic replacement candidates for the given exercises, derived from
+ * the stored relation graph and the canonical catalog (ADR-0069). The model
+ * never supplies candidates.
+ */
+export class GetExerciseReplacementCandidates {
+  private readonly catalog: ExerciseCatalogRepository;
+  constructor(catalog: ExerciseCatalogRepository) {
+    this.catalog = catalog;
+  }
+  async execute(
+    exerciseIds: readonly string[],
+  ): Promise<ExerciseReplacementContext> {
+    const ids = [...new Set(exerciseIds)];
+    if (!ids.length) return buildExerciseReplacementContext([], [], []);
+    const [edges, catalog] = await Promise.all([
+      this.catalog.listRelationEdges(ids),
+      this.catalog.list(),
+    ]);
+    return buildExerciseReplacementContext(ids, edges, catalog);
   }
 }

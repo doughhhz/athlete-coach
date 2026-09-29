@@ -253,7 +253,7 @@ test("dossier embeds intervention history only when a loader is composed", async
     ...deps,
     new BuildInterventionContext(outcomes),
   ).execute();
-  assert.equal(withHistory.schemaVersion, "athlete-training-dossier-v4");
+  assert.equal(withHistory.schemaVersion, "athlete-training-dossier-v5");
   assert.equal(withHistory.responseMemory.totalEpisodes, 0);
   assert.equal(without.responseMemory, null);
   assert.deepEqual(

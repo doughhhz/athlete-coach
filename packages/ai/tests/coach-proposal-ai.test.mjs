@@ -5,6 +5,7 @@ import {
   COACH_PROPOSAL_PROMPT_V2,
   COACH_PROPOSAL_PROMPT_V3,
   COACH_PROPOSAL_PROMPT_V4,
+  COACH_PROPOSAL_PROMPT_V5,
   COACH_PROPOSAL_PROMPT_VERSION,
   FixtureCoachProposalProvider,
   GeminiHttpCoachProposalProvider,
@@ -73,7 +74,7 @@ test("Gemini proposal adapter separates policy and rejects malformed output", as
       ),
     (error) => error.code === "invalid_response",
   );
-  assert.equal(body.systemInstruction.parts[0].text, COACH_PROPOSAL_PROMPT_V4);
+  assert.equal(body.systemInstruction.parts[0].text, COACH_PROPOSAL_PROMPT_V5);
   assert.match(body.contents[0].parts[0].text, /"dataTrust":"untrusted"/);
 });
 test("proposal prompt v3: past positive delta alone never justifies repeating", () => {
@@ -92,7 +93,6 @@ test("proposal prompt v3: past positive delta alone never justifies repeating", 
   );
 });
 test("proposal prompt v4 allows structured set actions without contradicting rules", () => {
-  assert.equal(COACH_PROPOSAL_PROMPT_VERSION, "coach-proposal-prompt-v4");
   assert.match(COACH_PROPOSAL_PROMPT_V4, /coach-proposal-v2/);
   assert.match(COACH_PROPOSAL_PROMPT_V4, /add_prescription_set/);
   assert.match(COACH_PROPOSAL_PROMPT_V4, /remove_prescription_set/);
@@ -134,7 +134,7 @@ const v2Proposal = (actions) => ({
     model: "m",
     promptVersion: "coach-system-v4",
     policyVersion: "coach-safety-v1",
-    dossierSchemaVersion: "athlete-training-dossier-v4",
+    dossierSchemaVersion: "athlete-training-dossier-v5",
   },
 });
 const base = {
@@ -210,6 +210,95 @@ test("malformed or unsupported set actions from the model are rejected", async (
     await assert.rejects(
       () =>
         geminiReturning(v2Proposal([bad])).generate(
+          { analysis: {}, dossier: {}, sourceProgram: {} },
+          "r",
+        ),
+      (error) => error.code === "invalid_response",
+    );
+});
+
+test("proposal prompt v5 allows only candidate replacements with explicit load transition", () => {
+  assert.equal(COACH_PROPOSAL_PROMPT_VERSION, "coach-proposal-prompt-v5");
+  assert.match(COACH_PROPOSAL_PROMPT_V5, /coach-proposal-v3/);
+  assert.match(COACH_PROPOSAL_PROMPT_V5, /replace_exercise/);
+  assert.doesNotMatch(COACH_PROPOSAL_PROMPT_V5, /replace exercises/);
+  for (const invariant of [
+    "must be one of dossier.exerciseReplacementCandidates",
+    "never an invented or catalog-wide ID",
+    "stored relation is required and is context, not equivalence",
+    "explain why the replacement is being considered",
+    "stated preference only if the athlete actually stated it",
+    "never a converted value",
+    "never use replacement as treatment for pain, injury or medical concerns",
+    "safety blocks remain authoritative",
+    "prior replacement observation alone never justifies repeating it",
+    "create exercises, aliases or relations",
+    'A proposal remains optional and \{"proposal":null\} is valid',
+    "requiresHumanApproval is always true",
+  ])
+    assert.match(COACH_PROPOSAL_PROMPT_V5, new RegExp(invariant, "i"));
+});
+
+const replaceAction = {
+  ...base,
+  kind: "replace_exercise",
+  sourceExerciseId: uuid(5),
+  replacementExerciseId: uuid(6),
+  relationshipContext: [
+    { relationType: "variation_of", direction: "candidate_to_source" },
+  ],
+  loadTransition: { mode: "athlete_selected" },
+};
+const v3Proposal = (actions) => ({
+  ...v2Proposal(actions),
+  schemaVersion: "coach-proposal-v3",
+});
+
+test("fixture and Gemini adapters carry a valid replacement proposal and no-change", async () => {
+  const fixture = new FixtureCoachProposalProvider(v3Proposal([replaceAction]));
+  assert.equal(
+    (await fixture.generate({}, "r")).actions[0].kind,
+    "replace_exercise",
+  );
+  const parsed = await geminiReturning(v3Proposal([replaceAction])).generate(
+    { analysis: {}, dossier: {}, sourceProgram: {} },
+    "r",
+  );
+  assert.equal(parsed.actions[0].replacementExerciseId, uuid(6));
+  assert.equal(
+    await geminiReturning(null).generate(
+      { analysis: {}, dossier: {}, sourceProgram: {} },
+      "r",
+    ),
+    null,
+  );
+});
+
+test("malformed replacements from the model are rejected by the schema", async () => {
+  for (const proposal of [
+    v3Proposal([
+      { ...replaceAction, replacementExerciseId: "supino-halteres" },
+    ]),
+    v3Proposal([{ ...replaceAction, relationshipContext: [] }]),
+    v3Proposal([
+      {
+        ...replaceAction,
+        relationshipContext: [
+          { relationType: "equivalent", direction: "candidate_to_source" },
+        ],
+      },
+    ]),
+    v3Proposal([
+      { ...replaceAction, loadTransition: { mode: "convert", factor: 0.4 } },
+    ]),
+    v3Proposal([
+      { ...replaceAction, loadTransition: { mode: "explicit_absolute" } },
+    ]),
+    v2Proposal([replaceAction]),
+  ])
+    await assert.rejects(
+      () =>
+        geminiReturning(proposal).generate(
           { analysis: {}, dossier: {}, sourceProgram: {} },
           "r",
         ),

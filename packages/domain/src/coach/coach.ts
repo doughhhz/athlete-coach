@@ -110,6 +110,14 @@ export function collectDossierEvidenceIds(
     ...(dossier.responseMemory?.groups.items.flatMap(
       (group) => group.evidence,
     ) ?? []),
+    ...(dossier.exerciseReplacementCandidates?.items.flatMap((item) => [
+      { kind: "exercise" as const, id: item.sourceExerciseId, version: null },
+      ...item.candidates.map((candidate) => ({
+        kind: "exercise" as const,
+        id: candidate.exerciseId,
+        version: null,
+      })),
+    ]) ?? []),
   ];
   return new Set(refs.map((reference) => `${reference.kind}:${reference.id}`));
 }

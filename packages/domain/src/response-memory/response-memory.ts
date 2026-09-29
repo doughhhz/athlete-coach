@@ -3,7 +3,9 @@ import {
   INDIVIDUAL_RESPONSE_NOTICE,
   OUTCOME_INTERPRETATION_NOTICE,
   buildIndividualResponseEvidence,
+  compactCrossExercisePair,
   outcomeMetricDimensions,
+  type CompactCrossExercisePair,
   type BodyWeightContext,
   type IndividualResponseEpisode,
   type IndividualResponseEvidence,
@@ -21,7 +23,7 @@ import {
 import type { TargetMetric } from "../training/training.ts";
 
 export const INDIVIDUAL_RESPONSE_MEMORY_SCHEMA_VERSION =
-  "individual-response-memory-v2" as const;
+  "individual-response-memory-v3" as const;
 export const RESPONSE_MEMORY_NOTICE =
   "Response Memory remembers observations, not truths." as const;
 export const RESPONSE_MEMORY_POLICY_NOTICE =
@@ -45,6 +47,7 @@ export const changeDirections = [
   "unchanged",
   "mixed",
   "not_comparable",
+  "replaced",
 ] as const;
 export type ChangeDirection = (typeof changeDirections)[number];
 
@@ -108,6 +111,11 @@ export function deriveChangeDirection(
       after.minSeconds,
       after.maxSeconds,
     );
+  if (
+    before.dimension === "exercise_replacement" &&
+    after.dimension === "exercise_replacement"
+  )
+    return before.exerciseId === after.exerciseId ? "unchanged" : "replaced";
   if (before.dimension === "set_count" && after.dimension === "set_count")
     return numericDirection(before.count, after.count);
   if (
@@ -203,6 +211,8 @@ export type ResponseMetricKey = Readonly<{
 export function responseMetricsFor(
   dimension: InterventionDimension,
 ): readonly ResponseMetricKey[] {
+  // Cross-exercise pairs have no numeric deltas to aggregate (ADR-0072).
+  if (dimension === "exercise_replacement") return [];
   const changed = (Object.keys(outcomeMetricDimensions) as OutcomeMetric[])
     .filter((metric) => outcomeMetricDimensions[metric].includes(dimension))
     .map((metric) => ({
@@ -314,6 +324,8 @@ export type ResponseMemoryEpisode = Readonly<{
   observations: readonly ResponseMetricObservation[];
   limitationCodes: readonly OutcomeLimitationCode[];
   bodyWeightContext: BodyWeightContext;
+  /** Replacement episodes: side-by-side facts only, never deltas. */
+  crossExercisePair: CompactCrossExercisePair | null;
   evidence: readonly EvidenceReference[];
 }>;
 
@@ -334,6 +346,18 @@ export type ComparableInterventionGroup = Readonly<{
   exerciseName: string;
   interventionDimension: InterventionDimension;
   targetMetric: TargetMetric | null;
+  /** Directed pair: source → this activated replacement. */
+  replacementExerciseId: string | null;
+  replacementExerciseName: string | null;
+  /** Counts only; no cross-exercise numeric aggregation, no effectiveness. */
+  replacementSummary: Readonly<{
+    relationTypesObserved: readonly string[];
+    episodesWithReplacementPriorHistory: number;
+    episodesWithoutStoredRelation: number;
+    postExposureTotal: number;
+    postPlannedSetTotal: number;
+    postCompletedSetTotal: number;
+  }> | null;
   firstActivatedAt: string;
   latestActivatedAt: string;
   coverage: ResponseMemoryCoverage;
@@ -385,7 +409,10 @@ export function responseMemoryGroupKey(
   exerciseId: string,
   dimension: InterventionDimension,
   targetMetric: TargetMetric | null,
+  replacementExerciseId: string | null = null,
 ): string {
+  if (dimension === "exercise_replacement")
+    return `${exerciseId}.exercise_replacement.${replacementExerciseId ?? ""}`;
   return targetMetric
     ? `${exerciseId}.${dimension}.${targetMetric}`
     : `${exerciseId}.${dimension}`;
@@ -401,6 +428,7 @@ export function responseMemoryGroupKeyForAction(
     action.exerciseId,
     action.dimension,
     value.dimension === "target" ? value.metric : null,
+    value.dimension === "exercise_replacement" ? value.exerciseId : null,
   );
 }
 
@@ -426,7 +454,14 @@ function classify(
       .filter((item) => item.scope === "affected_prescription_sets")
       .map((item) => item.metric),
   );
-  if (
+  if (dimension === "exercise_replacement") {
+    if (
+      !episode.crossExercisePair?.sideBySide.some(
+        (fact) => fact.before !== null && fact.after !== null,
+      )
+    )
+      reasons.push("no_relevant_comparison");
+  } else if (
     !observations.some(
       (item) =>
         item.scope === "affected_prescription_sets" &&
@@ -493,6 +528,9 @@ function toEpisode(
     observations,
     limitationCodes: [...new Set(episode.limitations.map((item) => item.code))],
     bodyWeightContext: episode.bodyWeightContext,
+    crossExercisePair: episode.crossExercisePair
+      ? compactCrossExercisePair(episode.crossExercisePair)
+      : null,
     evidence: [
       { kind: "coach_decision", id: episode.decisionId, version: null },
       ...(episode.interventionProgram
@@ -602,6 +640,10 @@ function toGroup(
     evidence.exerciseId,
     evidence.interventionDimension,
     evidence.targetMetric,
+    evidence.replacementExerciseId,
+  );
+  const crossPairs = episodes.flatMap((episode) =>
+    episode.crossExercisePair ? [episode.crossExercisePair] : [],
   );
   const activations = episodes.map((episode) => episode.activatedAt).sort();
   return {
@@ -610,6 +652,42 @@ function toGroup(
     exerciseName: evidence.exerciseName,
     interventionDimension: evidence.interventionDimension,
     targetMetric: evidence.targetMetric,
+    replacementExerciseId: evidence.replacementExerciseId,
+    replacementExerciseName: evidence.replacementExerciseName,
+    replacementSummary:
+      evidence.interventionDimension === "exercise_replacement"
+        ? {
+            relationTypesObserved: [
+              ...new Set(
+                crossPairs.flatMap((pair) =>
+                  pair.relationshipContext.map(
+                    (relation) =>
+                      `${relation.relationType}:${relation.direction}`,
+                  ),
+                ),
+              ),
+            ].sort(),
+            episodesWithReplacementPriorHistory: crossPairs.filter(
+              (pair) => pair.replacementPriorHistoryAvailable,
+            ).length,
+            episodesWithoutStoredRelation: crossPairs.filter(
+              (pair) => pair.relationshipContext.length === 0,
+            ).length,
+            postExposureTotal: crossPairs.reduce(
+              (sum, pair) => sum + pair.postExposureCount,
+              0,
+            ),
+            postPlannedSetTotal: evidence.episodes.reduce(
+              (sum, episode) => sum + (episode.postFacts?.plannedSetCount ?? 0),
+              0,
+            ),
+            postCompletedSetTotal: evidence.episodes.reduce(
+              (sum, episode) =>
+                sum + (episode.postFacts?.completedSetCount ?? 0),
+              0,
+            ),
+          }
+        : null,
     firstActivatedAt: activations[0]!,
     latestActivatedAt: activations.at(-1)!,
     coverage: {
