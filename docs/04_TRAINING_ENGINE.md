@@ -157,3 +157,7 @@ Categorias factuais: `exercise_changed`, `set_added`, `set_removed`, `target_cha
 ## Implementation Phase 18 — Linhagem estrutural
 
 Clone/revisão preservam a linhagem; elemento novo recebe nova; removido some; reordenação muda `sequence` e mantém linhagem; troca de exercício (`replace_exercise` ou edição no builder) mantém a linhagem da prescrição e muda `exercise_id`; séries mantêm linhagem ao mudar alvo, RIR, descanso, tempo, carga ou posição. Linhagem não é identidade de desempenho: histórico, PRs e comparações continuam por exercício canônico.
+
+## Correção pós-Implementation Phase 18 — Preservação de rascunho
+
+Edição de um dia não altera outros dias, semanas ou blocos; linhas são recriadas no salvamento (novos row ids), mas linhagem e valores dos nós intocados permanecem idênticos. Remoção só por ação explícita; novos nós recebem nova linhagem. Rascunhos criados por Coach, proposta proativa, auto-draft, set-count e troca de exercício abrem inteiros no builder e mantêm suas alterações em outros dias.

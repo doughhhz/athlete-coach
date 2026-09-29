@@ -188,3 +188,7 @@ O app agora mostra o que aconteceu com cada rascunho criado a partir de uma prop
 ## Implementation Phase 18 — Identidade estável entre revisões
 
 Blocos, semanas, dias, prescrições e séries agora têm uma linhagem estável (`lineage_id`) que atravessa revisões: clonar, materializar uma proposta, criar rascunho automático ou salvar um rascunho no builder preservam a linhagem dos elementos existentes; elementos novos recebem nova linhagem; removidos desaparecem. Assim, reordenar exercícios aparece como "Ordem" e não como troca de exercício, e uma troca de exercício continua sendo a mesma prescrição. Programas anteriores a esta fase usam um fallback posicional explícito. Evidência de revisão `coach-draft-review-evidence-v2`, dossier `athlete-training-dossier-v7`.
+
+## Correção pós-Implementation Phase 18 — O builder preserva o programa inteiro
+
+Corrigido: o builder carregava e salvava apenas o primeiro bloco/semana/dia, e o salvamento (que substitui a estrutura inteira do rascunho) apagava os demais dias. Agora o builder mantém o programa completo em edição, permite escolher qualquer dia ("Dia em edição"), acumula alterações de vários dias antes de salvar e sempre envia a árvore completa; nada some sem uma remoção explícita. Faixas de RIR e descanso, notas, instruções e exercícios fora do catálogo também passaram a ser preservados.

@@ -57,6 +57,10 @@ import {
   BuildCoachDraftReviews,
   GetCoachDraftReviewEvidence,
   ListCoachDraftReviewHistory,
+  programToStructureInput,
+  structureEdits,
+  listDays,
+  dayAt,
 } from "../packages/application/src/index.ts";
 import {
   assessCoachAutoDraftEligibility,
@@ -2950,9 +2954,379 @@ assert.deepEqual(
   await preferences.setAutonomyMode("manual");
 }
 
+// Corrective pass — full draft structure preservation (ADR-0095/0096). ------
+{
+  const programsRepo = new SupabaseTrainingProgramRepository(reloadedClient);
+  const readDecisions = new SupabaseCoachDecisionRepository(
+    reloadedClient,
+    identity.userId,
+  );
+  const reviews = new BuildCoachDraftReviews(readDecisions, programsRepo);
+  const reviewOf = (decisionId) =>
+    new GetCoachDraftReviewEvidence(reviews).execute(decisionId);
+  // Every node: path, lineage and content (row ids excluded on purpose).
+  const snapshot = (program) =>
+    program.blocks.flatMap((block) => [
+      {
+        path: `B:${block.name}`,
+        lineage: block.lineageId,
+        content: block.name,
+      },
+      ...block.weeks.flatMap((week) => [
+        {
+          path: `B:${block.name}/W${week.sequence}`,
+          lineage: week.lineageId,
+          content: `${week.name}|${week.notes}`,
+        },
+        ...week.days.flatMap((day) => [
+          {
+            path: `D:${day.name}`,
+            lineage: day.lineageId,
+            content: `${day.notes}|${day.preferredWeekday}`,
+          },
+          ...day.prescriptions.flatMap((prescription) => [
+            {
+              path: `P:${day.name}/${prescription.sequence}`,
+              lineage: prescription.lineageId,
+              content: `${prescription.exerciseId}|${prescription.instructions}`,
+            },
+            ...prescription.sets.map((set) => ({
+              path: `S:${day.name}/${prescription.sequence}/${set.sequence}`,
+              lineage: set.lineageId,
+              content: JSON.stringify([
+                set.targetMin,
+                set.targetMax,
+                set.rirMin,
+                set.rirMax,
+                set.restMinSeconds,
+                set.restMaxSeconds,
+                set.tempo,
+                set.loadKind,
+                set.loadKg,
+              ]),
+            })),
+          ]),
+        ]),
+      ]),
+    ]);
+  const byPath = (items) =>
+    Object.fromEntries(items.map((item) => [item.path, item]));
+  const unchangedExcept = (before, after, prefixes) => {
+    const a = byPath(before);
+    const b = byPath(after);
+    assert.deepEqual(
+      Object.keys(b).sort(),
+      Object.keys(a).sort(),
+      "no node lost or added",
+    );
+    for (const path of Object.keys(a))
+      if (!prefixes.some((prefix) => path.startsWith(prefix)))
+        assert.deepEqual(b[path], a[path], `${path} untouched`);
+  };
+  const pathOf = (structure, dayName) => {
+    const found = listDays(structure).find(
+      (item) => dayAt(structure, item.path).name === dayName,
+    );
+    assert.ok(found, dayName);
+    return found.path;
+  };
+  const plannedSet = (change = {}) => ({
+    sequence: 1,
+    targetMetric: "reps",
+    targetMin: 8,
+    targetMax: 10,
+    rirMin: 1,
+    rirMax: 3,
+    restMinSeconds: 90,
+    restMaxSeconds: 150,
+    tempo: "3-1-1-0",
+    loadKind: "athlete_selected",
+    loadKg: null,
+    ...change,
+  });
+  const dayInput = (sequence, name, exerciseId) => ({
+    sequence,
+    name,
+    notes: `notas ${name}`,
+    preferredWeekday: sequence,
+    prescriptions: [
+      {
+        sequence: 1,
+        exerciseId,
+        instructions: `instr ${name}`,
+        sets: [plannedSet(), plannedSet({ sequence: 2 })],
+      },
+    ],
+  });
+  // 1-3. Multi-block / multi-week / multi-day draft; record the full hierarchy.
+  const draft = await reloaded.createProgram.execute({
+    name: "Programa completo",
+  });
+  await reloaded.saveProgram.execute(draft.id, {
+    blocks: [
+      {
+        sequence: 1,
+        name: "Bloco A",
+        weeks: [
+          {
+            sequence: 1,
+            name: "Semana 1",
+            days: [dayInput(1, "Dia 1", EX_X), dayInput(2, "Dia 2", EX_Z)],
+          },
+          {
+            sequence: 2,
+            name: "Semana 2",
+            notes: "deload",
+            days: [dayInput(1, "Dia 3", EX_Y)],
+          },
+        ],
+      },
+      {
+        sequence: 2,
+        name: "Bloco B",
+        weeks: [
+          { sequence: 1, name: "Semana 1", days: [dayInput(1, "Dia 4", EX_X)] },
+        ],
+      },
+    ],
+  });
+  let program = await reloaded.getProgram.execute(draft.id);
+  const initial = snapshot(program);
+  assert.equal(initial.filter((item) => item.path.startsWith("D:")).length, 4);
+  // 4-6. The builder model edits Day 1 only and saves the whole tree.
+  let structure = programToStructureInput(program);
+  structure = structureEdits.updateSet(
+    structure,
+    pathOf(structure, "Dia 1"),
+    0,
+    0,
+    { rirMin: 2, rirMax: 2 },
+  );
+  await reloaded.saveProgram.execute(draft.id, structure);
+  program = await reloaded.getProgram.execute(draft.id);
+  unchangedExcept(initial, snapshot(program), ["S:Dia 1/1/1"]);
+  assert.equal(
+    byPath(snapshot(program))["S:Dia 1/1/1"].lineage,
+    byPath(initial)["S:Dia 1/1/1"].lineage,
+  );
+  // 7-9. Edit Day 3 in a later session: the Day 1 edit stays.
+  structure = structureEdits.updateSet(
+    programToStructureInput(program),
+    pathOf(structure, "Dia 3"),
+    0,
+    1,
+    { loadKind: "absolute", loadKg: 40 },
+  );
+  await reloaded.saveProgram.execute(draft.id, structure);
+  program = await reloaded.getProgram.execute(draft.id);
+  const afterTwo = byPath(snapshot(program));
+  assert.equal(
+    JSON.parse(afterTwo["S:Dia 1/1/1"].content)[2],
+    2,
+    "Day 1 edit remains",
+  );
+  assert.equal(
+    JSON.parse(afterTwo["S:Dia 3/1/2"].content)[8],
+    40,
+    "Day 3 edit saved",
+  );
+  unchangedExcept(initial, snapshot(program), ["S:Dia 1/1/1", "S:Dia 3/1/2"]);
+  // 10-12. Coach-materialized multi-day draft: an unrelated day edit keeps the Coach change.
+  const active = await reloaded.activateProgram.execute(draft.id);
+  const dossierNow = await replacementApi().dossier.execute();
+  const evidenceActive = dossierNow.evidence.find(
+    (item) => item.kind === "training_program" && item.id === active.id,
+  );
+  const day4 = active.blocks[1].weeks[0].days[0];
+  const coachDecision = await new GenerateCoachProposal(
+    { execute: async () => dossierNow },
+    programsRepo,
+    new FixtureCoachProposalProvider({
+      ...proposalFixture,
+      schemaVersion: "coach-proposal-v3",
+      id: crypto.randomUUID(),
+      sourceProgramId: active.id,
+      sourceProgramRevision: active.revision,
+      evidenceReferences: [evidenceActive],
+      actions: [
+        {
+          kind: "adjust_prescription_rir",
+          trainingDayId: day4.id,
+          exercisePrescriptionId: day4.prescriptions[0].id,
+          prescriptionSetId: day4.prescriptions[0].sets[0].id,
+          rirMin: 3,
+          rirMax: 4,
+          rationale: "Ajuste proposto.",
+          evidence: [evidenceActive],
+        },
+      ],
+    }),
+    decisions,
+  ).execute(await authoritative());
+  const coachDraftId = (await decisions.materialize(coachDecision.id))
+    .materializedProgramId;
+  let coachDraft = await reloaded.getProgram.execute(coachDraftId);
+  const coachBefore = snapshot(coachDraft);
+  structure = structureEdits.updateSet(
+    programToStructureInput(coachDraft),
+    pathOf(programToStructureInput(coachDraft), "Dia 2"),
+    0,
+    0,
+    { targetMin: 6, targetMax: 8 },
+  );
+  await reloaded.saveProgram.execute(coachDraftId, structure);
+  coachDraft = await reloaded.getProgram.execute(coachDraftId);
+  unchangedExcept(coachBefore, snapshot(coachDraft), ["S:Dia 2/1/1"]);
+  assert.deepEqual(
+    JSON.parse(byPath(snapshot(coachDraft))["S:Dia 4/1/1"].content).slice(2, 4),
+    [3, 4],
+    "Coach change on Day 4 remains",
+  );
+  let review = await reviewOf(coachDecision.id);
+  assert.equal(review.matchingStrategy, "lineage");
+  assert.equal(
+    review.actionComparisons[0].reviewedDiffersFromMaterialized,
+    false,
+  );
+  assert.deepEqual(review.changeCategories, ["target_changed"]);
+  assert.equal(review.changesOutsideProposal, true);
+  // 13-17. Auto-draft on Day 3, then a manual Day 1 edit: the automatic change survives.
+  const preferences = new SupabaseCoachPreferenceRepository(reloadedClient);
+  await preferences.setAutonomyMode("proactive");
+  await preferences.setDraftAuthorityMode("standard_auto_draft");
+  const activeQ = await reloaded.activateProgram.execute(coachDraftId);
+  const dossierQ = await replacementApi().dossier.execute();
+  const evidenceQ = dossierQ.evidence.find(
+    (item) => item.kind === "training_program" && item.id === activeQ.id,
+  );
+  const day3 = activeQ.blocks[0].weeks[1].days[0];
+  const autoRun = await new AnalyzeAthleteWithCoachAndGovernance(
+    new AnalyzeAthleteWithCoach(
+      { execute: async () => dossierQ },
+      {
+        async analyze(_request, requestId) {
+          return {
+            analysis: {
+              ...coachFixture,
+              requestId,
+              observations: coachFixture.observations.map((item) => ({
+                ...item,
+                evidence: [evidenceQ],
+              })),
+              recommendations: coachFixture.recommendations.map((item) => ({
+                ...item,
+                evidence: [evidenceQ],
+              })),
+              evidenceUsed: [evidenceQ],
+            },
+            provider: "fixture",
+            model: "deterministic",
+            inputTokens: null,
+            outputTokens: null,
+          };
+        },
+      },
+      new DeterministicCoachSafetyPolicy(),
+    ),
+    analysisRuns,
+    analysisProgramFrom({ execute: async () => dossierQ }),
+    new GenerateCoachProposal(
+      { execute: async () => dossierQ },
+      programsRepo,
+      new FixtureCoachProposalProvider({
+        ...proposalFixture,
+        schemaVersion: "coach-proposal-v3",
+        id: crypto.randomUUID(),
+        sourceProgramId: activeQ.id,
+        sourceProgramRevision: activeQ.revision,
+        evidenceReferences: [evidenceQ],
+        actions: [
+          {
+            kind: "adjust_prescription_rest",
+            trainingDayId: day3.id,
+            exercisePrescriptionId: day3.prescriptions[0].id,
+            prescriptionSetId: day3.prescriptions[0].sets[0].id,
+            restMinSeconds: 120,
+            restMaxSeconds: 180,
+            rationale: "Ajuste conservador.",
+            evidence: [evidenceQ],
+          },
+        ],
+      }),
+      decisions,
+    ),
+    preferences,
+    undefined,
+    new PrepareConservativeAutoDraft(preferences, programsRepo, decisions),
+  ).execute({
+    userRequest: "Estrutura completa",
+    analysisMode: "question",
+    analysisRequestId: crypto.randomUUID(),
+  });
+  assert.equal(autoRun.autoDraft.status, "materialized");
+  const autoDraftId = autoRun.autoDraft.draftProgramId;
+  let autoDraft = await reloaded.getProgram.execute(autoDraftId);
+  const autoBefore = snapshot(autoDraft);
+  assert.deepEqual(
+    JSON.parse(byPath(autoBefore)["S:Dia 3/1/1"].content).slice(4, 6),
+    [120, 180],
+  );
+  structure = programToStructureInput(autoDraft);
+  structure = structureEdits.updateSet(
+    structure,
+    pathOf(structure, "Dia 1"),
+    0,
+    1,
+    { tempo: "2-0-2-0" },
+  );
+  await reloaded.saveProgram.execute(autoDraftId, structure);
+  autoDraft = await reloaded.getProgram.execute(autoDraftId);
+  unchangedExcept(autoBefore, snapshot(autoDraft), ["S:Dia 1/1/2"]);
+  assert.deepEqual(
+    JSON.parse(byPath(snapshot(autoDraft))["S:Dia 3/1/1"].content).slice(4, 6),
+    [120, 180],
+    "auto-draft change on Day 3 preserved",
+  );
+  review = await reviewOf(autoRun.autoDraft.decision.id);
+  assert.equal(review.reviewStatus, "awaiting_review");
+  assert.equal(
+    review.actionComparisons[0].reviewedDiffersFromMaterialized,
+    false,
+    "auto-draft expected change intact",
+  );
+  assert.deepEqual(
+    review.changeCategories,
+    ["tempo_changed"],
+    "only the real manual change",
+  );
+  assert.equal(review.changesOutsideProposal, true);
+  // 18-19. Human activation; outcomes and history remain valid.
+  await reloaded.activateProgram.execute(autoDraftId);
+  review = await reviewOf(autoRun.autoDraft.decision.id);
+  assert.equal(review.reviewStatus, "activated_with_edits");
+  const outcomeApi = replacementApi();
+  assert.notEqual(
+    (await outcomeApi.get.execute(autoRun.autoDraft.decision.id)).status,
+    "awaiting_activation",
+  );
+  assert.ok(
+    (await readDecisions.list()).some((item) => item.id === coachDecision.id),
+  );
+  // 20-21. Logout/login: the complete structure rebuilds identically.
+  const finalBefore = snapshot(await reloaded.getProgram.execute(autoDraftId));
+  await reloaded.signOut.execute();
+  await reloaded.signIn.execute(credentials);
+  assert.deepEqual(
+    snapshot(await reloaded.getProgram.execute(autoDraftId)),
+    finalBefore,
+  );
+  await preferences.setDraftAuthorityMode("manual_draft");
+  await preferences.setAutonomyMode("manual");
+}
+
 firstClient.auth.stopAutoRefresh();
 reloadedClient.auth.stopAutoRefresh();
 serviceClient.auth.stopAutoRefresh();
 console.log(
-  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage flow passed.",
+  "Local Auth/onboarding/training/workout/performance/dossier/coach/proposal/draft/outcome/response-memory/set-count/exercise-replacement/governance/analysis-authority/auto-draft/draft-review/lineage/full-structure flow passed.",
 );

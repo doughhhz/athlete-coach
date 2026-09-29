@@ -108,3 +108,8 @@ Ativação de programa é sempre uma ação humana explícita. Ativação autom�
 - **Revision identity is not sequence identity.**
 - **Reordering an existing training element does not make it a new element.**
 - **Lineage identifies structural continuity; it does not imply semantic equivalence of changed exercise content.**
+
+## Correção pós-Implementation Phase 18 — Escopo de edição
+
+- **A partial editing surface must never imply a full-aggregate replacement.**
+- **Saving one visible training node must preserve every untouched node in the draft.**

@@ -804,3 +804,17 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Data: 2026-10-05
 - Status: accepted
 - Decisão: um único matcher canônico (`training/lineage.ts`) para evidência de revisão e fidelidade de outcome. `coach-draft-review-evidence-v2`/`coach-draft-review-history-v2` (v1 histórico) adicionam `matchingStrategy` e `sequence_changed`; `athlete-training-dossier-v7` (v6 histórico). Fidelidade de outcome: correspondência de prescrição/série por linhagem quando disponível; contrato `intervention-outcome-v3` e semântica fisiológica inalterados (em modo linhagem, `set_count` também sinaliza série substituída com a mesma contagem, preservando a sensibilidade anterior); comportamento legado idêntico. Prompts não mudam (v6). `coach-auto-draft-v1` inalterado.
+
+### ADR-0095 — Full aggregate builder state; viewport is not save scope
+
+- Data: 2026-10-06
+- Status: accepted
+- Contexto (reproduzido): com rascunho Bloco 1 (Dia A, Dia B) + Bloco 2 (Dia C), o builder carregava só `blocks[0].weeks[0].days[0]`, enviava apenas Dia A a `replace_training_program_structure` (substituição do agregado inteiro) e Dia B e Dia C eram apagados. Também: exercícios fora do catálogo eram descartados, notas/instruções/cues/dia preferido não eram reenviados e faixas de RIR/descanso eram colapsadas.
+- Decisão: **A partial editing surface must never imply a full-aggregate replacement.** **Saving one visible training node must preserve every untouched node in the draft.** O builder mantém o agregado inteiro (modelo puro na aplicação) e sempre salva a árvore completa; a seleção de dia é só viewport; trocar de dia não descarta edições.
+- Impacto: aplicação, mobile, integração, testes de arquitetura.
+
+### ADR-0096 — Explicit structural deletion and verified whole-tree saves
+
+- Data: 2026-10-06
+- Status: accepted
+- Decisão: ausência de um nó no viewport nunca significa remoção; remoção só por operação explícita (`removePrescription`, `removeSet`). A RPC de salvamento rejeita árvores incompletas e verifica o resultado antes do commit, de forma atômica, preservando a validação de linhagem (desconhecida, de outro atleta, nível errado, duplicada). Rascunhos de Coach, proativos, auto-draft, set-count e troca preservam alterações em dias não editados. `coach-auto-draft-v1`, ativação humana, contratos de Coach, dossier e prompts inalterados.

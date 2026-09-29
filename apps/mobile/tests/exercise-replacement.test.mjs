@@ -40,7 +40,7 @@ test("proposal review shows the factual replacement diff, relations and load tra
 test("builder lets the athlete swap the exercise while keeping sets", () => {
   assert.match(builder, /Trocar exercício/);
   assert.match(builder, /Cancelar troca/);
-  assert.match(builder, /As séries são mantidas/);
+  assert.match(builder, /As séries são\s+mantidas/);
   assert.match(builder, /não é convertida entre\s+exercícios/);
 });
 

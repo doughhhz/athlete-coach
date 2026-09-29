@@ -107,3 +107,7 @@ Histórico de decisões: "Rascunho preparado automaticamente → Ativado sem alt
 ## Implementation Phase 18 — Revisão mais precisa
 
 A revisão do rascunho ganha a categoria "Ordem" (reordenação) e deixa de reportar troca de exercício falsa quando exercícios apenas mudam de posição. Nenhum UUID de linhagem é exibido.
+
+## Correção pós-Implementation Phase 18 — Navegação mínima entre dias
+
+"Dia em edição": lista horizontal compacta com todos os dias ("Bloco · Semana · Dia (n)") e "+ Dia nesta semana". Campos de nome passam a editar o bloco/semana/dia selecionado. Aviso "Alterações não salvas em todo o programa — trocar de dia não as descarta." Dia vazio mostra "Este dia ainda não tem exercícios." (sem pular para outro dia); salvar com dia vazio informa quais dias precisam de exercício. Exercício fora do catálogo aparece como "Exercício fora do catálogo (mantido)" e não é descartado. RIR e descanso ganham campos mínimo/máximo, sem colapsar faixas. Reordenação por ↑/↓. Sem redesign da aba Treino.

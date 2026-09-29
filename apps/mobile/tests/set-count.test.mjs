@@ -44,7 +44,7 @@ test("planned set formatting shows reps, RIR, rest, tempo and load", () => {
 test("builder can add and remove individual sets but never the last one", () => {
   assert.match(builder, /\+ Adicionar série/);
   assert.match(builder, /Remover série/);
-  assert.match(builder, /p\.sets\.length > 1/);
+  assert.match(builder, /prescription\.sets\.length > 1/);
 });
 
 test("observed response distinguishes planned from completed sets", () => {

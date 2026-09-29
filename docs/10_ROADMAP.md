@@ -162,3 +162,7 @@ Projeção derivada `coach-draft-review-evidence-v1` e histórico `coach-draft-r
 ## Implementation Phase 18 — Stable Training Structure Lineage & Identity-Preserving Revision Diffs — complete
 
 Linhagem estável nos cinco níveis, atribuição controlada pelo servidor, fallback legado explícito, matcher canônico único para revisão e fidelidade, evidência de revisão v2, dossier v7 e cenário integrado de 22 passos. Fora de escopo: ampliação de auto-draft, ativação automática, reward/score, ML/RL, Coach em background e qualquer Implementation Phase 19.
+
+## Correção pós-Implementation Phase 18 — Full Program Structure Preservation & Multi-Day Builder Safety — complete
+
+Defeito reproduzido e corrigido (dias fora do primeiro nó eram apagados ao salvar); modelo completo de edição, navegação mínima entre dias, salvamento verificado e atômico, cenário integrado de 21 passos incluindo rascunho de Coach e auto-draft. A limitação registrada na Implementation Phase 18 ("o builder edita só o primeiro bloco/semana/dia") está resolvida. Fora de escopo: CRUD de bloco/semana, calendário, drag-and-drop, ampliação de auto-draft, ativação automática.
