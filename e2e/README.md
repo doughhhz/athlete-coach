@@ -74,10 +74,10 @@ $env:E2E_PASSWORD = Read-Host "E2E senha"
 ./scripts/run-maestro-cloud.ps1 -AppPath artifacts/e2e/build.tar.gz -SmokeOnly
 ```
 
-- O script extrai o `.app` do `.tar.gz` e chama `maestro cloud` com `--app-file`, `--flows e2e`, `--project-id`, `--device-model iPhone-11`, `--device-os iOS-18-2`, `--format junit` e `--output artifacts/e2e/…xml`.
+- O script extrai o `.app` do `.tar.gz` e chama `maestro cloud` com `--app-file`, `--flows e2e`, `--config e2e/config.yaml`, `--api-key` (da variável de ambiente, nunca impresso), `--project-id`, `--device-model iPhone-11`, `--device-os iOS-18-2`, `--format JUNIT` e `--output artifacts/e2e/…xml`.
 - As credenciais E2E vão por `-e`, e a API key fica só na variável de ambiente.
 - Código de saída: 0 quando todos os fluxos passam; diferente de zero em qualquer falha.
-- Se a sua versão do Maestro mudar nomes de opções, confira `maestro cloud --help` e ajuste o script.
+- Flags conferidas com o Maestro CLI 2.11.0 (`maestro cloud --help`); dispositivos disponíveis: `maestro list-cloud-devices`.
 
 ## 6. Alvo
 

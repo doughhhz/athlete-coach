@@ -10,6 +10,7 @@
     MAESTRO_PROJECT_ID     Maestro Cloud project id
     E2E_EMAIL, E2E_PASSWORD  dedicated E2E account (not needed with -SmokeOnly)
   Exit code: 0 when every flow passed; non-zero otherwise (Maestro's code).
+  Devices: `maestro list-cloud-devices` (iPhone-11 supports iOS-18-2).
 
 .EXAMPLE
   ./scripts/run-maestro-cloud.ps1 -AppPath artifacts/e2e/build.tar.gz
@@ -59,18 +60,20 @@ $arguments = @(
   "cloud",
   "--app-file", $resolvedApp,
   "--flows", $Workspace,
+  "--config", (Join-Path $Workspace "config.yaml"),
+  "--api-key", $env:MAESTRO_CLOUD_API_KEY,
   "--project-id", $env:MAESTRO_PROJECT_ID,
   "--device-model", $DeviceModel,
   "--device-os", $DeviceOs,
   "--name", "athlete-coach-e2e-$stamp",
-  "--format", "junit",
+  "--format", "JUNIT",
   "--output", $report
 )
 if ($SmokeOnly) { $arguments += @("--include-tags", "smoke") }
 else { $arguments += @("-e", "E2E_EMAIL=$($env:E2E_EMAIL)", "-e", "E2E_PASSWORD=$($env:E2E_PASSWORD)") }
 
-# The API key is read by the Maestro CLI from MAESTRO_CLOUD_API_KEY; it is
-# never placed on the command line nor printed. Credentials are not echoed.
+# Flags verified against Maestro CLI 2.11.0 (`maestro cloud --help`). The API
+# key and E2E credentials are passed to the CLI but never echoed by this script.
 Write-Host "Maestro Cloud: $DeviceModel / $DeviceOs"
 Write-Host "App: $resolvedApp"
 Write-Host "Flows: $Workspace $(if ($SmokeOnly) { '(apenas smoke)' })"
