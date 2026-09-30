@@ -43,3 +43,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Cloud E2E: builds, downloaded artifacts, reports, videos, screenshots
+artifacts/
+*.app/
+*.ipa
+*.apk
+*.aab
+*.tar.gz
+e2e/**/*.mp4
+e2e/**/*.png
+e2e/**/*.xml

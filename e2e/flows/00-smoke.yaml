@@ -1,0 +1,19 @@
+# Smoke: the E2E build launches, is configured (no "Backend não configurado"),
+# renders the sign-in screen and responds to interaction. No network login,
+# no Coach/Gemini.
+appId: app.athletecoach.e2e
+name: 00-smoke
+tags:
+  - smoke
+---
+- runFlow: ../subflows/launch-clean.yaml
+- assertNotVisible: "Backend não configurado"
+- takeScreenshot: 00-smoke-sign-in
+- tapOn:
+    id: "auth-switch-mode"
+- assertVisible:
+    id: "auth-sign-up-screen"
+- tapOn:
+    id: "auth-switch-mode"
+- assertVisible:
+    id: "auth-sign-in-screen"

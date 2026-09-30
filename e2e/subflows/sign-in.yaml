@@ -1,0 +1,15 @@
+# Signs in with the dedicated E2E account. Credentials come only from
+# environment variables passed to Maestro (-e), never from YAML.
+appId: app.athletecoach.e2e
+---
+# Fails fast when the credentials were not passed with -e.
+- assertTrue: ${typeof E2E_EMAIL === 'string' && E2E_EMAIL.length > 3 && typeof E2E_PASSWORD === 'string' && E2E_PASSWORD.length > 5}
+- tapOn:
+    id: "auth-email"
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: "auth-password"
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "auth-submit"

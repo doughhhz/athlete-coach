@@ -1,0 +1,77 @@
+# Onboarding: completes onboarding for the E2E account when it is still
+# pending (idempotent: an already onboarded account goes straight to the tab
+# check). Uses clearly fictional data.
+appId: app.athletecoach.e2e
+name: 02-onboarding
+tags:
+  - onboarding
+---
+- runFlow: ../subflows/launch-clean.yaml
+- runFlow: ../subflows/sign-in.yaml
+- extendedWaitUntil:
+    visible:
+      id: "tab-index|onboarding-screen"
+    timeout: 45000
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-screen"
+    commands:
+      # 0. Vamos começar
+      - tapOn:
+          id: "onboarding-continue"
+      # 1. Sobre você
+      - tapOn:
+          id: "onboarding-name"
+      - inputText: "Atleta E2E"
+      - tapOn:
+          id: "onboarding-birth-date"
+      - inputText: "1995-06-15"
+      - tapOn:
+          id: "onboarding-height"
+      - inputText: "178"
+      - tapOn:
+          id: "onboarding-weight"
+      - inputText: "75"
+      - hideKeyboard
+      - tapOn:
+          id: "onboarding-continue"
+      # 2. Seu objetivo
+      - tapOn: "Força"
+      - tapOn:
+          id: "onboarding-continue"
+      # 3. Experiência
+      - tapOn:
+          id: "onboarding-training-months"
+      - eraseText
+      - inputText: "24"
+      - hideKeyboard
+      - tapOn: "Consistente"
+      - tapOn:
+          id: "onboarding-continue"
+      # 4. Sua rotina
+      - tapOn: "Academia comercial"
+      - tapOn:
+          id: "onboarding-routine"
+      - inputText: "Rotina fictícia de teste E2E."
+      - hideKeyboard
+      - tapOn:
+          id: "onboarding-continue"
+      # 5. Disponibilidade
+      - tapOn: "Seg"
+      - tapOn: "Qua"
+      - tapOn: "Sex"
+      - tapOn:
+          id: "onboarding-continue"
+      # 6. Observações (optional)
+      - tapOn:
+          id: "onboarding-continue"
+      # 7. Revise seus dados
+      - assertVisible: "Revise seus dados"
+      - tapOn:
+          id: "onboarding-finish"
+      - extendedWaitUntil:
+          visible:
+            id: "tab-index"
+          timeout: 45000
+- runFlow: ../subflows/assert-main-tabs.yaml

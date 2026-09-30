@@ -50,6 +50,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: theme.colors.background }]}
+      testID={isSignUp ? "auth-sign-up-screen" : "auth-sign-in-screen"}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -75,6 +76,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             keyboardType="email-address"
             label="E-mail"
             onChangeText={setEmail}
+            testID="auth-email"
             value={email}
           />
           <FormField
@@ -82,6 +84,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             autoComplete={isSignUp ? "new-password" : "current-password"}
             label="Senha"
             onChangeText={setPassword}
+            testID="auth-password"
             secureTextEntry
             value={password}
           />
@@ -94,11 +97,13 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             disabled={busy}
             label={busy ? "Aguarde…" : isSignUp ? "Criar conta" : "Entrar"}
             onPress={() => void submit()}
+            testID="auth-submit"
           />
           <View style={styles.linkRow}>
             <Link
               href={(isSignUp ? "/(auth)" : "/(auth)/sign-up") as Href}
               style={{ color: theme.colors.accent, fontWeight: "700" }}
+              testID="auth-switch-mode"
             >
               {isSignUp ? "Já tenho conta" : "Criar uma conta"}
             </Link>

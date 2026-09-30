@@ -29,6 +29,8 @@ export default function TabsLayout() {
           options={{
             title: tab.label,
             tabBarAccessibilityLabel: tab.accessibilityLabel,
+            // Stable E2E selector (Maestro): tab-index, tab-treino, ...
+            tabBarButtonTestID: `tab-${tab.route}`,
           }}
         />
       ))}

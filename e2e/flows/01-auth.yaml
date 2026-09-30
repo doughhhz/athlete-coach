@@ -1,0 +1,27 @@
+# Auth: the dedicated E2E account signs in against the remote E2E Supabase and
+# reaches an authenticated state: the main tabs (already onboarded account)
+# or onboarding (first run; 02-onboarding completes it).
+appId: app.athletecoach.e2e
+name: 01-auth
+tags:
+  - auth
+---
+- runFlow: ../subflows/launch-clean.yaml
+- runFlow: ../subflows/sign-in.yaml
+- extendedWaitUntil:
+    visible:
+      id: "tab-index|onboarding-screen"
+    timeout: 45000
+- assertNotVisible:
+    id: "auth-sign-in-screen"
+- runFlow:
+    when:
+      visible:
+        id: "tab-index"
+    file: ../subflows/assert-main-tabs.yaml
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-screen"
+    commands:
+      - takeScreenshot: 01-auth-onboarding-required

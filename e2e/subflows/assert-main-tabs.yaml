@@ -1,0 +1,18 @@
+# Authenticated shell: the five main tabs exist and are navigable.
+appId: app.athletecoach.e2e
+---
+- assertVisible:
+    id: "tab-index"
+- tapOn:
+    id: "tab-treino"
+- assertVisible:
+    id: "tab-treino"
+- tapOn:
+    id: "tab-nutricao"
+- tapOn:
+    id: "tab-progresso"
+- tapOn:
+    id: "tab-personal"
+- tapOn:
+    id: "tab-index"
+- takeScreenshot: main-tabs

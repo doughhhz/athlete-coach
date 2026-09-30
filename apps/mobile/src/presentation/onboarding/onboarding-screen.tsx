@@ -206,6 +206,7 @@ export function OnboardingScreen() {
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: theme.colors.background }]}
+      testID="onboarding-screen"
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -231,23 +232,27 @@ export function OnboardingScreen() {
                 text="Use medidas atuais em kg e cm. Estes limites detectam erros de digitação; não são avaliação de saúde."
               />
               <FormField
+                testID="onboarding-name"
                 label="Como prefere ser chamado"
                 value={draft.preferredName}
                 onChangeText={(v) => update("preferredName", v)}
               />
               <FormField
+                testID="onboarding-birth-date"
                 label="Data de nascimento (AAAA-MM-DD)"
                 keyboardType="numbers-and-punctuation"
                 value={draft.birthDate}
                 onChangeText={(v) => update("birthDate", v)}
               />
               <FormField
+                testID="onboarding-height"
                 label="Altura (cm)"
                 keyboardType="decimal-pad"
                 value={draft.heightCm}
                 onChangeText={(v) => update("heightCm", v)}
               />
               <FormField
+                testID="onboarding-weight"
                 label="Peso atual (kg)"
                 keyboardType="decimal-pad"
                 value={draft.weightKg}
@@ -288,6 +293,7 @@ export function OnboardingScreen() {
                 text="Informe o tempo aproximado de treino resistido e sua consistência recente."
               />
               <FormField
+                testID="onboarding-training-months"
                 label="Meses de treino resistido"
                 keyboardType="number-pad"
                 value={draft.resistanceTrainingMonths}
@@ -312,6 +318,7 @@ export function OnboardingScreen() {
                 onSelect={(v) => update("trainingEnvironment", v)}
               />
               <FormField
+                testID="onboarding-session-minutes"
                 label="Duração típica disponível (minutos)"
                 keyboardType="number-pad"
                 value={draft.preferredSessionDurationMinutes}
@@ -320,6 +327,7 @@ export function OnboardingScreen() {
                 }
               />
               <FormField
+                testID="onboarding-routine"
                 label="Resumo curto da rotina"
                 maxLength={500}
                 multiline
@@ -419,6 +427,7 @@ export function OnboardingScreen() {
                   : "Continuar"
               }
               onPress={() => (step === 7 ? void finish() : next())}
+              testID={step === 7 ? "onboarding-finish" : "onboarding-continue"}
             />
           </View>
         </ScrollView>

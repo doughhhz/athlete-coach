@@ -1,0 +1,10 @@
+# Maestro workspace (cloud iOS harness). Runs the top-level flows in order;
+# subflows are only reached through runFlow.
+flows:
+  - "flows/*"
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - 00-smoke
+    - 01-auth
+    - 02-onboarding

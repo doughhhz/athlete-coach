@@ -39,16 +39,20 @@ export function PrimaryButton({
   disabled,
   label,
   onPress,
+  testID,
 }: {
   disabled?: boolean;
   label: string;
   onPress(): void;
+  /** Stable E2E selector (Maestro); never read by application logic. */
+  testID?: string;
 }) {
   const theme = useAppTheme();
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
+      testID={testID}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
