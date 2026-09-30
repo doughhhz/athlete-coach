@@ -1,7 +1,8 @@
 // Manual Coach model evaluation (ADR-0112). Runs the production analysis path
 // (AnalyzeAthleteWithCoach + Gemini provider with structured output + Zod +
 // grounding + Safety Gate) against a SYNTHETIC dossier, for several models.
-// Prints metrics only: never questions' answers, model output or the key.
+// Prints metrics only: never model output or the key. Non-provider error
+// messages are printed because the dossier is synthetic (no real data).
 //
 // Usage (PowerShell, key typed at runtime, only in this session):
 //   $env:GEMINI_API_KEY = Read-Host "GEMINI_API_KEY"
@@ -28,7 +29,7 @@ if (!apiKey) {
 }
 const models = argument(
   "models",
-  "gemini-3.5-flash,gemini-3.5-flash-lite,gemini-2.5-pro,gemini-3.1-flash-lite,gemini-flash-latest",
+  "gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.1-pro-preview,gemini-pro-latest,gemini-2.5-pro",
 ).split(",");
 const rounds = Number(argument("rounds", "3"));
 const questions = [
@@ -200,7 +201,9 @@ for (const model of models) {
                 ]
                   .filter(Boolean)
                   .join(" ")
-              : `${error?.name ?? "Error"} (grounding/safety/other)`,
+              : `${error?.name ?? "Error"}: ${String(error?.message ?? "")
+                  .replace(/s+/g, " ")
+                  .slice(0, 160)}`,
         });
       }
       Object.assign(row, {
