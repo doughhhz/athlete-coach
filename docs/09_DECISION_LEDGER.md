@@ -943,3 +943,14 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Evidência (diagnóstico da ADR-0107): com `gemini-3.5-flash` (ADR-0106), a análise estourou o tempo (`coach_timeout`, 20,6 s). Modelos com raciocínio interno demoram mais e consomem tokens de saída antes do JSON.
 - Regra nova: padrões `COACH_TIMEOUT_MS=60000` e `COACH_MAX_OUTPUT_TOKENS=8192`, abaixo do limite de 150 s por requisição das Edge Functions hospedadas. Os dois continuam configuráveis por secret; no projeto hospedado já estão definidos com esses valores.
 - Afetados: padrões em `coach-analyze` e `coach-propose` e `supabase/functions/.env.example`. Prompts, schemas, contratos e Safety Gate não mudaram.
+
+### ADR-0109 — Retry transient provider errors within the timeout budget
+
+- Data: 2026-10-11
+- Status: accepted
+- Evidência (diagnóstico da ADR-0107): o Gemini respondeu `HTTP 503` em cerca de 2 s (sobrecarga temporária do modelo), e o Coach falhava na primeira tentativa.
+- Decisão: os providers Gemini de análise e de proposta repetem a chamada **somente** para erros transitórios de servidor (500, 502, 503, 504), no máximo 2 vezes, com pausas de 1 s e 3 s.
+  - As tentativas e as pausas respeitam o mesmo `COACH_TIMEOUT_MS` (sinal de abort único).
+  - Erros de cliente e de cota (400, 403, 404, 429) nunca são repetidos, e falhas persistentes continuam aparecendo com o diagnóstico `stage: http` e `status`.
+  - A geração é somente leitura, e o registro da análise é idempotente por `analysisRequestId`, então repetir não gera efeitos duplicados.
+- Afetados: `packages/ai` (`fetchWithTransientRetry`) e o deploy das Edge Functions do Coach. Contratos, prompts, schemas e Safety Gate não mudaram.

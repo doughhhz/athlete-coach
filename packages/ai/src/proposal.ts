@@ -5,7 +5,10 @@ import {
   type CoachProposalProvider,
 } from "@athlete-coach/application";
 import type { CoachProposal } from "@athlete-coach/domain";
-import type { GeminiCoachConfiguration } from "./providers.ts";
+import {
+  fetchWithTransientRetry,
+  type GeminiCoachConfiguration,
+} from "./providers.ts";
 /** Prompt version (distinct from the coach-proposal-v1 output schema). */
 export const COACH_PROPOSAL_PROMPT_VERSION =
   "coach-proposal-prompt-v6" as const;
@@ -83,7 +86,8 @@ export class GeminiHttpCoachProposalProvider implements CoachProposalProvider {
     const controller = new AbortController(),
       timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     try {
-      const response = await this.fetcher(
+      const response = await fetchWithTransientRetry(
+        this.fetcher,
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.config.model)}:generateContent`,
         {
           method: "POST",
@@ -115,6 +119,7 @@ export class GeminiHttpCoachProposalProvider implements CoachProposalProvider {
             },
           }),
         },
+        this.config.retryDelaysMs,
       );
       if (!response.ok)
         throw new CoachProviderError(

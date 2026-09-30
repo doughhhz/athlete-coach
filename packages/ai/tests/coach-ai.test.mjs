@@ -262,3 +262,95 @@ test("provider failures expose safe diagnostics (status, finish reason, issue pa
       `diagnostics leak ${secret}`,
     );
 });
+
+// ADR-0109: transient provider errors are retried within the timeout budget.
+test("transient 5xx is retried; persistent or non-transient errors are not hidden", async () => {
+  const { fetchWithTransientRetry } = await import("../src/index.ts");
+  const sequence = (...statuses) => {
+    const calls = [];
+    return {
+      calls,
+      fetcher: async (url) => {
+        calls.push(url);
+        const status =
+          statuses[Math.min(calls.length - 1, statuses.length - 1)];
+        return new Response("{}", { status });
+      },
+    };
+  };
+  const recovered = sequence(503, 200);
+  assert.equal(
+    (await fetchWithTransientRetry(recovered.fetcher, "u", {}, [0, 0])).status,
+    200,
+  );
+  assert.equal(recovered.calls.length, 2);
+  const persistent = sequence(503);
+  assert.equal(
+    (await fetchWithTransientRetry(persistent.fetcher, "u", {}, [0, 0])).status,
+    503,
+  );
+  assert.equal(
+    persistent.calls.length,
+    3,
+    "one call + two retries, then gives up",
+  );
+  for (const status of [400, 403, 404, 429]) {
+    const once = sequence(status);
+    await fetchWithTransientRetry(once.fetcher, "u", {}, [0, 0]);
+    assert.equal(once.calls.length, 1, `${status} is not retried`);
+  }
+  // The overall timeout still bounds the pauses between attempts.
+  const controller = new AbortController();
+  const slow = sequence(503);
+  setTimeout(() => controller.abort(), 20);
+  await assert.rejects(
+    fetchWithTransientRetry(
+      slow.fetcher,
+      "u",
+      { signal: controller.signal },
+      [10_000],
+    ),
+  );
+  assert.equal(slow.calls.length, 1);
+  // End to end: the provider recovers from one 503.
+  const body = {
+    candidates: [
+      { content: { parts: [{ text: '{"summary":1}' }] }, finishReason: "STOP" },
+    ],
+  };
+  let calls = 0;
+  const provider = new GeminiHttpCoachModelProvider(
+    {
+      apiKey: "k",
+      model: "m",
+      temperature: 0,
+      timeoutMs: 1000,
+      maxOutputTokens: 10,
+      retryDelaysMs: [0],
+    },
+    async () => {
+      calls += 1;
+      return new Response(JSON.stringify(calls === 1 ? {} : body), {
+        status: calls === 1 ? 503 : 200,
+      });
+    },
+  );
+  const error = await provider
+    .analyze(
+      {
+        schemaVersion: "coach-request-v1",
+        dossier: { schemaVersion: "athlete-training-dossier-v7" },
+        userRequest: "q",
+        analysisMode: "question",
+        conversationContext: [],
+      },
+      "r",
+    )
+    .catch((failure) => failure);
+  assert.equal(calls, 2, "retried once after 503");
+  assert.equal(
+    error.diagnostics.stage,
+    "schema",
+    "then reached validation (fixture body is not a full analysis)",
+  );
+});

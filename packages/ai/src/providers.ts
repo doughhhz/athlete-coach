@@ -21,7 +21,43 @@ export type GeminiCoachConfiguration = Readonly<{
   temperature: number;
   timeoutMs: number;
   maxOutputTokens: number;
+  /** Pauses before retrying a transient provider error (default 1 s, 3 s). */
+  retryDelaysMs?: readonly number[] | undefined;
 }>;
+/** HTTP statuses Google uses for temporary overload/outage (not quota: 429). */
+const TRANSIENT_STATUSES = new Set([500, 502, 503, 504]);
+/**
+ * Calls the provider and retries only transient server errors, within the
+ * same abort signal (the overall timeout still bounds every attempt and
+ * pause). Generation is read-only, so a retry has no side effects; the
+ * analysis record is idempotent by analysisRequestId (ADR-0109).
+ */
+export async function fetchWithTransientRetry(
+  fetcher: typeof fetch,
+  url: string,
+  init: RequestInit,
+  delaysMs: readonly number[] = [1000, 3000],
+): Promise<Response> {
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await fetcher(url, init);
+    const delay = delaysMs[attempt];
+    if (!TRANSIENT_STATUSES.has(response.status) || delay === undefined)
+      return response;
+    await new Promise<void>((resolve, reject) => {
+      const signal = init.signal;
+      if (signal?.aborted) return reject(signal.reason);
+      const timer = setTimeout(resolve, delay);
+      signal?.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timer);
+          reject(signal.reason);
+        },
+        { once: true },
+      );
+    });
+  }
+}
 export class FixtureCoachModelProvider implements CoachModelProvider {
   private readonly response: CoachAnalysis | Error;
   constructor(response: CoachAnalysis | Error) {
@@ -55,7 +91,8 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     try {
-      const response = await this.fetcher(
+      const response = await fetchWithTransientRetry(
+        this.fetcher,
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.config.model)}:generateContent`,
         {
           method: "POST",
@@ -81,6 +118,7 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
             },
           }),
         },
+        this.config.retryDelaysMs,
       );
       if (!response.ok)
         throw new CoachProviderError(
