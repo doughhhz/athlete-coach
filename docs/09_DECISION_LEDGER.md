@@ -994,3 +994,26 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - Imprime apenas métricas: sucesso, latência, códigos HTTP, diagnósticos da ADR-0107 e contagens. Nunca imprime o texto do modelo.
   - Não roda no CI nem no `validate`, porque chama o provider real e tem custo. É uma avaliação manual.
 - Afetados: `scripts/`.
+
+### ADR-0113 — Coach model `gemini-3.6-flash` (supersedes ADR-0106 model choice)
+
+- Data: 2026-10-11
+- Status: accepted
+- Regra anterior (ADR-0106): modelo padrão e hospedado `gemini-3.5-flash`. A ADR-0106 fica **superseded** apenas na escolha do modelo; a regra de não usar aliases móveis continua valendo.
+- Evidência: avaliação manual (`scripts/eval-coach-models.mjs`, ADR-0112) no caminho de produção, com dossiê sintético, em duas rodadas.
+
+  | Modelo                                                                           | Resultado                                                                             |
+  | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+  | **gemini-3.6-flash**                                                             | **9/10**; única falha foi 503 persistente; nenhuma evidência inventada; mediana ~16 s |
+  | gemini-3.8-flash / 3.7-flash                                                     | 1/4 cada, com sobrecarga (9 respostas 5xx cada)                                       |
+  | gemini-3.5-flash                                                                 | 0/4 sem 5xx na primeira rodada e 0/6 por 429 (cota) na segunda                        |
+  | gemini-flash-lite-latest                                                         | 5/6, com 1 evidência inventada                                                        |
+  | gemini-3.5-flash-lite                                                            | 5/10, com 4 evidências inventadas                                                     |
+  | gemini-3.1-flash-lite                                                            | 3/10                                                                                  |
+  | gemini-3-flash-preview                                                           | 2/6, com timeout e evidência inventada                                                |
+  | gemini-2.5-flash-lite                                                            | 404                                                                                   |
+  | gemini-2.5-pro, gemini-pro-latest, gemini-3.1-pro-preview, gemini-omni-1.1-flash | 0 sucesso; nas execuções detalhadas, 429                                              |
+
+- Regra nova: padrão e secret hospedado `GEMINI_MODEL=gemini-3.6-flash`. A grounding check continua rejeitando evidência inventada, e isso é critério de escolha de modelo.
+- Limitação: no plano gratuito cada modelo tem cota diária própria (429 quando esgotada). O uso intenso pode indisponibilizar o Coach até a renovação da cota.
+- Afetados: padrões em `coach-analyze` e `coach-propose`, `supabase/functions/.env.example` e o secret hospedado (alterado pelo usuário).

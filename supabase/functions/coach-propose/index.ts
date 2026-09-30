@@ -38,7 +38,7 @@ Deno.serve(async (request) => {
     const analyses = new SupabaseCoachAnalysisRepository(serviceClient, auth.user.id);
     const decisions = new SupabaseCoachDecisionRepository(serviceClient, auth.user.id);
     // Safety, existing-decision reuse and staleness are resolved before the provider is needed.
-    const provider = apiKey ? new GeminiHttpCoachProposalProvider({ apiKey, model: Deno.env.get("GEMINI_MODEL") ?? "gemini-3.5-flash", temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "60000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "8192") }) : { generate: () => { throw new CoachProviderError("unavailable", "Provider not configured"); } };
+    const provider = apiKey ? new GeminiHttpCoachProposalProvider({ apiKey, model: Deno.env.get("GEMINI_MODEL") ?? "gemini-3.6-flash", temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "60000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "8192") }) : { generate: () => { throw new CoachProviderError("unavailable", "Provider not configured"); } };
     const autonomyMode = await new SupabaseCoachPreferenceRepository(userClient).getAutonomyMode();
     const decision = await new GenerateCoachProposalForAnalysisRequest(analyses, new GenerateCoachProposal(dossier, programs, provider, decisions, () => requestId)).execute(body, { autonomyModeAtCreation: autonomyMode });
     return reply(200, { decision });
