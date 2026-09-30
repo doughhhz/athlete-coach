@@ -202,7 +202,7 @@ for (const model of models) {
                   .filter(Boolean)
                   .join(" ")
               : `${error?.name ?? "Error"}: ${String(error?.message ?? "")
-                  .replace(/s+/g, " ")
+                  .replace(/\s+/g, " ")
                   .slice(0, 160)}`,
         });
       }
