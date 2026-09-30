@@ -396,12 +396,11 @@ test("analysis requests Gemini structured output derived from the contract", asy
   assert.deepEqual(schema.properties.schemaVersion.enum, ["coach-analysis-v1"]);
   assert.deepEqual(
     schema.properties.observations.items.properties.limitations,
-    {
-      maxItems: 8,
-      type: "array",
-      items: { type: "string", minLength: 1, maxLength: 500 },
-    },
+    // Bounds are dropped for Gemini (HTTP 400 otherwise) and enforced by Zod.
+    { type: "array", items: { type: "string" } },
   );
+  for (const keyword of ["minLength", "maxLength", "minItems", "maxItems"])
+    assert.equal(text.includes(`"${keyword}"`), false, keyword);
   assert.deepEqual(
     schema.properties.recommendations.items.properties.category.enum,
     coachAnalysisModelOutputJsonSchema.properties.recommendations.items

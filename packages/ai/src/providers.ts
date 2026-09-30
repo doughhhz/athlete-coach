@@ -26,16 +26,29 @@ export type GeminiCoachConfiguration = Readonly<{
   retryDelaysMs?: readonly number[] | undefined;
 }>;
 /**
- * Adapts a JSON Schema to the subset Gemini structured output accepts:
- * drops `$schema` and `pattern` (the long ISO date regex; Zod still
- * enforces it after parsing) and turns `const` into a single-value `enum`.
+ * Keywords removed before sending a schema to Gemini. Length/count bounds
+ * make Gemini reject the analysis schema with HTTP 400 (verified by
+ * elimination, ADR-0111); `pattern` is the long ISO date regex. All of them
+ * are still enforced by the Zod contract after parsing.
+ */
+const GEMINI_UNSUPPORTED_KEYWORDS = new Set([
+  "$schema",
+  "pattern",
+  "minLength",
+  "maxLength",
+  "minItems",
+  "maxItems",
+]);
+/**
+ * Adapts a JSON Schema to the subset Gemini structured output accepts and
+ * turns `const` into a single-value `enum`.
  */
 export function toGeminiResponseSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) return schema.map(toGeminiResponseSchema);
   if (!schema || typeof schema !== "object") return schema;
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(schema)) {
-    if (key === "$schema" || key === "pattern") continue;
+    if (GEMINI_UNSUPPORTED_KEYWORDS.has(key)) continue;
     if (key === "const") result["enum"] = [value];
     else if (key === "properties" && value && typeof value === "object")
       result[key] = Object.fromEntries(

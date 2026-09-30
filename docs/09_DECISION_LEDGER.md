@@ -968,3 +968,17 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - O texto do prompt não mudou (continua `coach-system-v6`), e o contrato de saída também não (continua `coach-analysis-v1`).
 - Pendente: o provider de propostas ainda não usa saída estruturada (schema com uniões discriminadas). Avaliar quando o fluxo de propostas for exercitado no projeto hospedado.
 - Afetados: `packages/application` (`coachAnalysisModelOutputJsonSchema`), `packages/ai` (`toGeminiResponseSchema` e o provider de análise) e o deploy das Edge Functions.
+
+### ADR-0111 — Gemini response schema without length/count bounds
+
+- Data: 2026-10-11
+- Status: accepted
+- Complementa a ADR-0110.
+- Evidência: com o schema da ADR-0110, o Gemini respondeu `HTTP 400 INVALID_ARGUMENT`, sem detalhe. Testei por eliminação, com a mesma chave e o mesmo modelo, variantes do schema:
+  - 400 se mantinham `minLength`, `maxLength` e `maxItems`, mesmo quando removiam `additionalProperties`, `anyOf` ou `format`;
+  - aceito sem esses limites (200, ou 503 por sobrecarga temporária).
+- Regra nova: o adaptador Gemini remove `minLength`, `maxLength`, `minItems` e `maxItems`, além de `$schema` e `pattern`, antes de enviar o schema.
+  - Tipos, enums, campos obrigatórios, `additionalProperties`, `anyOf` e `format` continuam sendo enviados.
+  - Os limites removidos continuam sendo aplicados pela validação Zod do contrato `coach-analysis-v1` depois do parse.
+  - Resposta que exceder um limite é rejeitada e aparece no log com `issuePaths` do tipo `too_big` (ADR-0107). Não há truncamento silencioso.
+- Afetados: `packages/ai` (`GEMINI_UNSUPPORTED_KEYWORDS`) e o deploy das Edge Functions do Coach.
