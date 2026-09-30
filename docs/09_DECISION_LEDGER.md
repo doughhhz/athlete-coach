@@ -934,3 +934,12 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - `coach-analyze` e `coach-propose` registram esses campos nos logs de falha.
   - Nunca entram prompt, dossier, pergunta, saída do modelo, chaves ou corpo de erro do provider (teste em `packages/ai`).
 - Afetados: `packages/application` (porta), `packages/ai` (providers), Edge Functions do Coach. Contratos de API, respostas ao cliente, prompts e Safety Gate não mudaram.
+
+### ADR-0108 — Coach provider limits for thinking models
+
+- Data: 2026-10-11
+- Status: accepted
+- Regra anterior: `COACH_TIMEOUT_MS=20000` e `COACH_MAX_OUTPUT_TOKENS=4096` por padrão.
+- Evidência (diagnóstico da ADR-0107): com `gemini-3.5-flash` (ADR-0106), a análise estourou o tempo (`coach_timeout`, 20,6 s). Modelos com raciocínio interno demoram mais e consomem tokens de saída antes do JSON.
+- Regra nova: padrões `COACH_TIMEOUT_MS=60000` e `COACH_MAX_OUTPUT_TOKENS=8192`, abaixo do limite de 150 s por requisição das Edge Functions hospedadas. Os dois continuam configuráveis por secret; no projeto hospedado já estão definidos com esses valores.
+- Afetados: padrões em `coach-analyze` e `coach-propose` e `supabase/functions/.env.example`. Prompts, schemas, contratos e Safety Gate não mudaram.
