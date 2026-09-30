@@ -1,0 +1,89 @@
+# Training: create a program in the builder (two days, one exercise each,
+# including an explicit "+ Dia nesta semana"), save it atomically, activate it
+# by explicit human action and see it as the active program. Unique name per
+# run; activation archives the previous active program, so reruns are safe.
+# Needs the exercise catalog seed in the E2E project.
+appId: app.athletecoach.e2e
+name: 03-training
+tags:
+  - training
+---
+- runFlow: ../subflows/sign-in-to-tabs.yaml
+- evalScript: ${output.programName = 'E2E Programa ' + Date.now()}
+- tapOn:
+    id: "tab-treino"
+- tapOn:
+    id: "training-create-program"
+- extendedWaitUntil:
+    visible:
+      id: "builder-program-name"
+    timeout: 20000
+- tapOn:
+    id: "builder-program-name"
+- inputText: ${output.programName}
+# Closes the keyboard: non-interactive text (keyboardShouldPersistTaps="handled").
+- tapOn: "Monte a inten.*"
+# Day A: first exercise of the catalog.
+- scrollUntilVisible:
+    element:
+      id: "builder-exercise-.*"
+    direction: DOWN
+- tapOn:
+    id: "builder-exercise-.*"
+    index: 0
+- assertNotVisible: "Este dia ainda n.o tem exerc.cios."
+# Day B: explicit structural edit, then an exercise for the new day.
+- scrollUntilVisible:
+    element:
+      id: "builder-add-day"
+    direction: UP
+- tapOn:
+    id: "builder-add-day"
+# The new (second) day is selected and still empty.
+- assertVisible: "Este dia ainda n.o tem exerc.cios."
+- scrollUntilVisible:
+    element:
+      id: "builder-exercise-.*"
+    direction: DOWN
+- tapOn:
+    id: "builder-exercise-.*"
+    index: 0
+- assertNotVisible: "Este dia ainda n.o tem exerc.cios."
+# Atomic creation, then the program detail.
+- scrollUntilVisible:
+    element:
+      id: "builder-save"
+    direction: DOWN
+- tapOn:
+    id: "builder-save"
+- extendedWaitUntil:
+    visible:
+      id: "program-activate"
+    timeout: 30000
+- assertVisible: ${output.programName}
+- takeScreenshot: 03-training-draft
+# Activation is an explicit human action.
+- scrollUntilVisible:
+    element:
+      id: "program-activate"
+    direction: DOWN
+- tapOn:
+    id: "program-activate"
+- extendedWaitUntil:
+    visible:
+      id: "program-start-workout"
+    timeout: 30000
+# Relaunch (session kept): the Treino tab shows it as the active program.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "tab-index"
+    timeout: 45000
+- tapOn:
+    id: "tab-treino"
+- extendedWaitUntil:
+    visible:
+      id: "training-active-program-name"
+      text: ${output.programName}
+    timeout: 20000
+- takeScreenshot: 03-training-active

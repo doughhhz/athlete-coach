@@ -82,6 +82,7 @@ function SetEditor({
           <View style={s.inputs}>
             <TextInput
               accessibilityLabel="Valor realizado"
+              testID="workout-set-value"
               keyboardType="decimal-pad"
               value={value}
               onChangeText={setValue}
@@ -95,6 +96,7 @@ function SetEditor({
             </Text>
             <TextInput
               accessibilityLabel="Carga em kg"
+              testID="workout-set-load"
               keyboardType="decimal-pad"
               placeholder="kg"
               value={load}
@@ -106,6 +108,7 @@ function SetEditor({
             />
             <TextInput
               accessibilityLabel="RIR realizado"
+              testID="workout-set-rir"
               keyboardType="number-pad"
               placeholder="RIR"
               value={rir}
@@ -119,6 +122,7 @@ function SetEditor({
           <Pressable
             disabled={saving}
             onPress={save}
+            testID="workout-set-complete"
             style={[s.button, { backgroundColor: theme.colors.accent }]}
           >
             <Text style={s.buttonText}>
@@ -230,6 +234,7 @@ export function WorkoutRunnerScreen() {
         <>
           <Pressable
             onPress={finish}
+            testID="workout-finish"
             style={[s.button, { backgroundColor: theme.colors.accent }]}
           >
             <Text style={s.buttonText}>

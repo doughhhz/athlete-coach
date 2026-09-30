@@ -128,7 +128,10 @@ export function TrainingProgramsScreen() {
         </Text>
         {active ? (
           <>
-            <Text style={[s.program, { color: theme.colors.text }]}>
+            <Text
+              style={[s.program, { color: theme.colors.text }]}
+              testID="training-active-program-name"
+            >
               {active.name}
             </Text>
             <Text style={{ color: theme.colors.textMuted }}>
@@ -155,6 +158,7 @@ export function TrainingProgramsScreen() {
         </Text>
         <Link href={"/programs/new" as Href} asChild>
           <Pressable
+            testID="training-create-program"
             style={StyleSheet.flatten([
               s.button,
               { backgroundColor: theme.colors.accent },

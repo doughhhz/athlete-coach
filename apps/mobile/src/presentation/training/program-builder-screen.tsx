@@ -325,6 +325,7 @@ export function ProgramBuilderScreen() {
           id ? "Nome do programa (mantido nesta revisão)" : "Nome do programa"
         }
         value={name}
+        testID="builder-program-name"
         onChangeText={(value) => {
           setName(value);
           track("edited");
@@ -409,6 +410,7 @@ export function ProgramBuilderScreen() {
         {catalog.map((ex) => (
           <Pressable
             key={ex.id}
+            testID={`builder-exercise-${ex.slug}`}
             onPress={() => {
               if (!day || day.prescriptions.some((p) => p.exerciseId === ex.id))
                 return;
@@ -637,6 +639,7 @@ export function ProgramBuilderScreen() {
       <Pressable
         disabled={busy}
         onPress={save}
+        testID="builder-save"
         style={[s.button, { backgroundColor: theme.colors.accent }]}
       >
         {busy ? (
@@ -687,6 +690,7 @@ function LevelSelector({
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               onPress={() => onSelect(index)}
+              testID={`builder-${level}-${index}`}
               style={[
                 s.chip,
                 {
@@ -703,6 +707,7 @@ function LevelSelector({
         <Pressable
           accessibilityRole="button"
           onPress={onAdd}
+          testID={`builder-add-${level}`}
           style={[s.chip, { borderColor: theme.colors.border }]}
         >
           <Text style={{ color: theme.colors.accent }}>{labels.add}</Text>
@@ -775,6 +780,8 @@ function Field({
   editable?: boolean;
   value: string;
   onChangeText(v: string): void;
+  /** Stable E2E selector (Maestro); never read by application logic. */
+  testID?: string;
 }) {
   const theme = useAppTheme();
   return (

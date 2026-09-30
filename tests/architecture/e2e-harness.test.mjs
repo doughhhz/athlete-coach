@@ -67,7 +67,10 @@ test("every Maestro id exists in the app and appId matches the E2E build", async
           assert.match(app, new RegExp(`route: "${tab[1]}"`), `${path}: ${id}`);
         } else
           assert.ok(
-            app.includes(`"${id}"`),
+            app.includes(`"${id}"`) ||
+              // Template testIDs, e.g. `builder-exercise-${ex.slug}` matched by
+              // "builder-exercise-.*" or `builder-add-${level}` by "builder-add-day".
+              app.includes("`" + id.replace(/-(\.\*|[^-]*)$/, "-") + "${"),
             `${path}: selector ${id} has no testID in the app`,
           );
       }

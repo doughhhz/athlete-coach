@@ -1,0 +1,10 @@
+# Clean install, sign in with the (already onboarded) E2E account and wait for
+# the main tabs. Requires 02-onboarding to have run once for the account.
+appId: app.athletecoach.e2e
+---
+- runFlow: launch-clean.yaml
+- runFlow: sign-in.yaml
+- extendedWaitUntil:
+    visible:
+      id: "tab-index"
+    timeout: 45000

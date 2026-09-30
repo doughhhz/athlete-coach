@@ -8,3 +8,5 @@ executionOrder:
     - 00-smoke
     - 01-auth
     - 02-onboarding
+    - 03-training
+    - 04-workout

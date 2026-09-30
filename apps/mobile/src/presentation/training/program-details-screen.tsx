@@ -159,6 +159,7 @@ export function ProgramDetailsScreen() {
                     <Pressable
                       disabled={busy}
                       onPress={() => startWorkout(d.id)}
+                      testID="program-start-workout"
                       style={[
                         s.button,
                         { backgroundColor: theme.colors.accent },
@@ -191,6 +192,7 @@ export function ProgramDetailsScreen() {
           <Pressable
             disabled={busy}
             onPress={() => action("activate")}
+            testID="program-activate"
             style={[s.button, { backgroundColor: theme.colors.accent }]}
           >
             <Text style={s.buttonText}>Ativar programa</Text>

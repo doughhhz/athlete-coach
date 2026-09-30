@@ -1,0 +1,80 @@
+# Workout: start a session from the active program (or continue one left in
+# progress by an interrupted run), record one set (reps, load, RIR), finish
+# and read the factual summary. Requires 03-training (active program).
+appId: app.athletecoach.e2e
+name: 04-workout
+tags:
+  - workout
+---
+- runFlow: ../subflows/sign-in-to-tabs.yaml
+- tapOn:
+    id: "tab-treino"
+- extendedWaitUntil:
+    visible:
+      id: "training-active-program-name"
+    timeout: 20000
+- runFlow:
+    when:
+      notVisible: "Continuar treino"
+    commands:
+      - tapOn: "Ver alvos planejados"
+      - scrollUntilVisible:
+          element:
+            id: "program-start-workout"
+          direction: DOWN
+      - tapOn:
+          id: "program-start-workout"
+          index: 0
+- runFlow:
+    when:
+      visible: "Continuar treino"
+    commands:
+      - tapOn: "Continuar treino"
+# Runner: the first set of the first exercise.
+- extendedWaitUntil:
+    visible:
+      id: "workout-set-value"
+    timeout: 30000
+- tapOn:
+    id: "workout-set-value"
+    index: 0
+- eraseText
+- inputText: "8"
+# Closes the keyboard (the runner ScrollView dismisses it on outside taps).
+- tapOn:
+    text: "REALIZADO"
+    index: 0
+- tapOn:
+    id: "workout-set-load"
+    index: 0
+- eraseText
+- inputText: "40"
+- tapOn:
+    text: "REALIZADO"
+    index: 0
+- tapOn:
+    id: "workout-set-rir"
+    index: 0
+- eraseText
+- inputText: "2"
+- tapOn:
+    text: "REALIZADO"
+    index: 0
+- tapOn:
+    id: "workout-set-complete"
+    index: 0
+- extendedWaitUntil:
+    visible: "Corrigir s.rie"
+    timeout: 20000
+# Finish (remaining sets, if any, stay pending) and read the summary.
+- scrollUntilVisible:
+    element:
+      id: "workout-finish"
+    direction: DOWN
+- tapOn:
+    id: "workout-finish"
+- extendedWaitUntil:
+    visible: "Resumo factual"
+    timeout: 30000
+- assertVisible: "Conclu.do .* [1-9][0-9]* conclu.das .*"
+- takeScreenshot: 04-workout-summary
