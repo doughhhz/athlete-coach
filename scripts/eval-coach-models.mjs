@@ -232,4 +232,12 @@ for (const model of models) {
   console.log(
     `${model.padEnd(24)} sucesso ${ok.length}/${rows.length}  mediana ${(median(ok.map((row) => row.seconds)) ?? 0).toFixed(1)}s  respostas 5xx ${transient}`,
   );
+  // Failure reasons grouped, so the summary alone explains every FAIL.
+  const reasons = new Map();
+  for (const row of rows.filter((item) => !item.ok)) {
+    const reason = row.detail.slice(0, 110);
+    reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+  }
+  for (const [reason, count] of reasons)
+    console.log(`${"".padEnd(24)}   ${count}x ${reason}`);
 }
