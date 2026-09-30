@@ -1,5 +1,6 @@
 import {
   CoachProviderError,
+  schemaIssuePaths,
   coachProposalSchema,
   type CoachProposalProvider,
 } from "@athlete-coach/application";
@@ -119,15 +120,21 @@ export class GeminiHttpCoachProposalProvider implements CoachProposalProvider {
         throw new CoachProviderError(
           "unavailable",
           "Proposal provider unavailable.",
+          { diagnostics: { stage: "http", status: response.status } },
         );
       const payload = (await response.json()) as {
-        candidates?: { content?: { parts?: { text?: string }[] } }[];
+        candidates?: {
+          content?: { parts?: { text?: string }[] };
+          finishReason?: string;
+        }[];
       };
       const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+      const finishReason = payload.candidates?.[0]?.finishReason;
       if (!text)
         throw new CoachProviderError(
           "invalid_response",
           "Proposal provider returned no content.",
+          { diagnostics: { stage: "empty", finishReason } },
         );
       let parsed: unknown;
       try {
@@ -136,7 +143,7 @@ export class GeminiHttpCoachProposalProvider implements CoachProposalProvider {
         throw new CoachProviderError(
           "invalid_response",
           "Proposal provider returned malformed JSON.",
-          { cause: error },
+          { cause: error, diagnostics: { stage: "json", finishReason } },
         );
       }
       const envelope = parsed as { proposal?: unknown };
@@ -146,6 +153,13 @@ export class GeminiHttpCoachProposalProvider implements CoachProposalProvider {
         throw new CoachProviderError(
           "invalid_response",
           "Proposal provider response failed schema validation.",
+          {
+            diagnostics: {
+              stage: "schema",
+              finishReason,
+              issuePaths: schemaIssuePaths(result.error.issues),
+            },
+          },
         );
       return result.data as CoachProposal;
     } catch (error) {
@@ -159,7 +173,7 @@ export class GeminiHttpCoachProposalProvider implements CoachProposalProvider {
       throw new CoachProviderError(
         "unavailable",
         "Proposal provider unavailable.",
-        { cause: error },
+        { cause: error, diagnostics: { stage: "network" } },
       );
     } finally {
       clearTimeout(timer);

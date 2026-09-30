@@ -919,3 +919,18 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Evidência: com uma chave nova, `generateContent` em `gemini-2.5-flash` devolveu HTTP 404, apesar de o modelo ainda aparecer na listagem (modelo em aposentadoria). Com a mesma chave, `gemini-3.5-flash` respondeu normalmente. O Coach no projeto hospedado falhava com `coach_unavailable` em cerca de 1 s.
 - Regra nova: o padrão passa a ser `gemini-3.5-flash`, a versão estável da família Flash. O modelo continua configurável pelo secret `GEMINI_MODEL`, que no projeto hospedado já está definido como `gemini-3.5-flash`. Não usar aliases móveis (`*-latest`): cada análise registra o modelo que a gerou, para rastreabilidade.
 - Afetados: padrões em `coach-analyze` e `coach-propose` e `supabase/functions/.env.example`. Prompts, schemas, contratos, Safety Gate e dossier não mudaram. O provider continua substituível (ADR anterior).
+
+### ADR-0107 — Loggable provider diagnostics (metadata only)
+
+- Data: 2026-10-11
+- Status: accepted
+- Contexto: no projeto hospedado, falhas do Gemini apareciam apenas como `errorCategory: coach_unavailable`, sem distinguir HTTP 404 (modelo), corpo vazio, JSON truncado ou schema inválido.
+- Decisão:
+  - `CoachProviderError` ganha `diagnostics`, que registra:
+    - `stage`: `http`, `empty`, `json`, `schema` ou `network`;
+    - `status`: o código HTTP;
+    - `finishReason`: o motivo de término informado pelo modelo;
+    - `issuePaths`: somente o caminho e o código de cada problema do Zod, sem valores, até 12 itens.
+  - `coach-analyze` e `coach-propose` registram esses campos nos logs de falha.
+  - Nunca entram prompt, dossier, pergunta, saída do modelo, chaves ou corpo de erro do provider (teste em `packages/ai`).
+- Afetados: `packages/application` (porta), `packages/ai` (providers), Edge Functions do Coach. Contratos de API, respostas ao cliente, prompts e Safety Gate não mudaram.

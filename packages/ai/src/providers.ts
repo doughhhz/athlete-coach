@@ -1,5 +1,6 @@
 import {
   CoachProviderError,
+  schemaIssuePaths,
   coachAnalysisSchema,
   type CoachModelProvider,
   type CoachProviderResult,
@@ -85,19 +86,25 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
         throw new CoachProviderError(
           "unavailable",
           "Coach provider unavailable.",
+          { diagnostics: { stage: "http", status: response.status } },
         );
       const payload = (await response.json()) as {
-        candidates?: { content?: { parts?: { text?: string }[] } }[];
+        candidates?: {
+          content?: { parts?: { text?: string }[] };
+          finishReason?: string;
+        }[];
         usageMetadata?: {
           promptTokenCount?: number;
           candidatesTokenCount?: number;
         };
       };
       const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+      const finishReason = payload.candidates?.[0]?.finishReason;
       if (!text)
         throw new CoachProviderError(
           "invalid_response",
           "Coach provider returned no structured content.",
+          { diagnostics: { stage: "empty", finishReason } },
         );
       let parsed: unknown;
       try {
@@ -106,7 +113,7 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
         throw new CoachProviderError(
           "invalid_response",
           "Coach provider returned malformed JSON.",
-          { cause: error },
+          { cause: error, diagnostics: { stage: "json", finishReason } },
         );
       }
       const usage = payload.usageMetadata;
@@ -128,6 +135,13 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
         throw new CoachProviderError(
           "invalid_response",
           "Coach provider response failed schema validation.",
+          {
+            diagnostics: {
+              stage: "schema",
+              finishReason,
+              issuePaths: schemaIssuePaths(validation.error.issues),
+            },
+          },
         );
       return {
         analysis: validation.data,
@@ -145,7 +159,7 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
       throw new CoachProviderError(
         "unavailable",
         "Coach provider unavailable.",
-        { cause: error },
+        { cause: error, diagnostics: { stage: "network" } },
       );
     } finally {
       clearTimeout(timer);

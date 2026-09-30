@@ -46,6 +46,8 @@ Deno.serve(async (request) => {
     if (error instanceof CoachAnalysisNotFoundError) return reply(404, { error: { code: "analysis_not_found", requestId } });
     if (error instanceof StaleCoachAnalysisError) return reply(409, { error: { code: "stale_analysis", requestId } });
     if (error instanceof CoachProposalBlockedError && error.reasons.some((reason) => reason !== "proposal_validation_failed")) return reply(422, { error: { code: "proposal_blocked", requestId } });
+    // Metadata only (ADR-0107): provider stage/status/finishReason/issue paths, never content.
+    if (error instanceof CoachProviderError) console.error(JSON.stringify({ requestId, success: false, errorCategory: error.code === "timeout" ? "coach_timeout" : "coach_unavailable", providerErrorCode: error.code, ...error.diagnostics }));
     if (error instanceof CoachProviderError) return reply(503, { error: { code: error.code === "timeout" ? "coach_timeout" : "coach_unavailable", requestId } });
     return reply(422, { error: { code: "proposal_invalid", requestId } });
   }

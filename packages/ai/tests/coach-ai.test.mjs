@@ -178,3 +178,87 @@ test("coach-system-v6 adds the draft review policy on top of v5 verbatim", () =>
   ])
     assert.match(COACH_SYSTEM_PROMPT_V6, new RegExp(invariant, "i"));
 });
+
+// ADR-0107: provider failures carry loggable metadata, never content.
+test("provider failures expose safe diagnostics (status, finish reason, issue paths)", async () => {
+  const request = {
+    schemaVersion: "coach-request-v1",
+    dossier: { schemaVersion: "athlete-training-dossier-v7" },
+    userRequest: "Pergunta privada do atleta",
+    analysisMode: "question",
+    conversationContext: [],
+  };
+  const config = {
+    apiKey: "test-key",
+    model: "m",
+    temperature: 0,
+    timeoutMs: 1000,
+    maxOutputTokens: 100,
+  };
+  const reply =
+    (body, status = 200) =>
+    async () =>
+      new Response(JSON.stringify(body), { status });
+  const failure = async (fetcher) => {
+    try {
+      await new GeminiHttpCoachModelProvider(config, fetcher).analyze(
+        request,
+        "r",
+      );
+    } catch (error) {
+      return error;
+    }
+    assert.fail("expected a provider failure");
+  };
+  const http = await failure(reply({ error: { message: "secret" } }, 404));
+  assert.deepEqual(
+    [http.code, http.diagnostics],
+    ["unavailable", { stage: "http", status: 404 }],
+  );
+  const empty = await failure(
+    reply({ candidates: [{ content: { parts: [] }, finishReason: "SAFETY" }] }),
+  );
+  assert.deepEqual(empty.diagnostics, {
+    stage: "empty",
+    finishReason: "SAFETY",
+  });
+  const truncated = await failure(
+    reply({
+      candidates: [
+        {
+          content: { parts: [{ text: '{"summary":' }] },
+          finishReason: "MAX_TOKENS",
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(truncated.diagnostics, {
+    stage: "json",
+    finishReason: "MAX_TOKENS",
+  });
+  const schema = await failure(
+    reply({
+      candidates: [
+        {
+          content: { parts: [{ text: '{"summary":42}' }] },
+          finishReason: "STOP",
+        },
+      ],
+    }),
+  );
+  assert.equal(schema.diagnostics.stage, "schema");
+  assert.equal(schema.diagnostics.finishReason, "STOP");
+  assert.ok(schema.diagnostics.issuePaths.length > 0);
+  assert.ok(
+    schema.diagnostics.issuePaths.every((path) => /^[\w.()]+:\w+$/.test(path)),
+  );
+  const serialized = JSON.stringify(
+    [http, empty, truncated, schema].map((e) => e.diagnostics),
+  );
+  for (const secret of ["Pergunta privada", "secret", "test-key", "42"])
+    assert.equal(
+      serialized.includes(secret),
+      false,
+      `diagnostics leak ${secret}`,
+    );
+});

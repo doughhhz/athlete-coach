@@ -66,7 +66,9 @@ Deno.serve(async (request) => {
       return reply(409, { error: { code: "analysis_request_conflict", requestId } });
     }
     const code = error instanceof CoachProviderError && error.code === "timeout" ? "coach_timeout" : error instanceof CoachProviderError ? "coach_unavailable" : "coach_failed";
-    console.error(JSON.stringify({ requestId, latencyMs: Date.now() - started, success: false, errorCategory: code }));
+    // Metadata only (ADR-0107): provider stage/status/finishReason/issue paths, never content.
+    const provider = error instanceof CoachProviderError ? { providerErrorCode: error.code, ...error.diagnostics } : { errorName: error instanceof Error ? error.name : typeof error };
+    console.error(JSON.stringify({ requestId, latencyMs: Date.now() - started, success: false, errorCategory: code, ...provider }));
     return reply(code === "coach_failed" ? 422 : 503, { error: { code, requestId } });
   }
 });
