@@ -982,3 +982,15 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - Os limites removidos continuam sendo aplicados pela validação Zod do contrato `coach-analysis-v1` depois do parse.
   - Resposta que exceder um limite é rejeitada e aparece no log com `issuePaths` do tipo `too_big` (ADR-0107). Não há truncamento silencioso.
 - Afetados: `packages/ai` (`GEMINI_UNSUPPORTED_KEYWORDS`) e o deploy das Edge Functions do Coach.
+
+### ADR-0112 — Manual Coach model evaluation script
+
+- Data: 2026-10-11
+- Status: accepted
+- Contexto: a escolha do modelo Gemini (ADR-0106) afeta disponibilidade (503), tempo de resposta e aderência ao contrato. É preciso comparar os modelos com evidência, não por tentativa no app.
+- Decisão: `scripts/eval-coach-models.mjs` executa o caminho de produção da análise para vários modelos, várias perguntas e rodadas. O caminho inclui `AnalyzeAthleteWithCoach`, o provider Gemini com saída estruturada e retry, Zod, grounding e o Safety Gate.
+  - Usa um dossiê **sintético**, montado por `buildAthleteTrainingDossier`, sem dados reais.
+  - A chave vem só da variável de ambiente da sessão do usuário.
+  - Imprime apenas métricas: sucesso, latência, códigos HTTP, diagnósticos da ADR-0107 e contagens. Nunca imprime o texto do modelo.
+  - Não roda no CI nem no `validate`, porque chama o provider real e tem custo. É uma avaliação manual.
+- Afetados: `scripts/`.
