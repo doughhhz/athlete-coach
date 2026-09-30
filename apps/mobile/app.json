@@ -12,9 +12,18 @@
     "android": {
       "predictiveBackGestureEnabled": false
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router"
+    ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "44643bb6-b82c-462d-804a-df8e1227bf95"
+      }
+    },
+    "owner": "doughhzz"
   }
 }
