@@ -954,3 +954,17 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - Erros de cliente e de cota (400, 403, 404, 429) nunca são repetidos, e falhas persistentes continuam aparecendo com o diagnóstico `stage: http` e `status`.
   - A geração é somente leitura, e o registro da análise é idempotente por `analysisRequestId`, então repetir não gera efeitos duplicados.
 - Afetados: `packages/ai` (`fetchWithTransientRetry`) e o deploy das Edge Functions do Coach. Contratos, prompts, schemas e Safety Gate não mudaram.
+
+### ADR-0110 — Structured output for Coach analysis derived from the contract
+
+- Data: 2026-10-11
+- Status: accepted
+- Regra anterior: o formato da análise era descrito apenas no texto do prompt, que lista os nomes dos campos sem tipos nem valores permitidos. A resposta era validada depois, com Zod.
+- Evidência (diagnóstico da ADR-0107): o `gemini-3.5-flash` devolveu `limitations` com o tipo errado e `category` fora do enum (`issuePaths` `observations.*.limitations:invalid_type`, `recommendations.*.category:invalid_value`). A resposta foi corretamente rejeitada.
+- Regra nova:
+  - O provider de análise envia `generationConfig.responseJsonSchema`, gerado com `z.toJSONSchema` a partir do próprio `coachAnalysisSchema`, sem os campos que o adapter preenche (`requestId`, `metadata`).
+  - O adapter Gemini só remove `$schema` e `pattern` (a regex de data ISO, que o Zod continua validando) e converte `const` em `enum`.
+  - Continua valendo a validação Zod completa da resposta, junto com a verificação de evidências e o Safety Gate: o schema enviado orienta o modelo, mas não substitui a validação.
+  - O texto do prompt não mudou (continua `coach-system-v6`), e o contrato de saída também não (continua `coach-analysis-v1`).
+- Pendente: o provider de propostas ainda não usa saída estruturada (schema com uniões discriminadas). Avaliar quando o fluxo de propostas for exercitado no projeto hospedado.
+- Afetados: `packages/application` (`coachAnalysisModelOutputJsonSchema`), `packages/ai` (`toGeminiResponseSchema` e o provider de análise) e o deploy das Edge Functions.

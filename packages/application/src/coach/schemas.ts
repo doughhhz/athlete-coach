@@ -87,6 +87,18 @@ export const coachAnalysisSchema = z.object({
 });
 
 /**
+ * JSON Schema (provider-neutral) of the fields the MODEL must produce: the
+ * canonical contract minus `requestId` and `metadata`, which the adapter
+ * sets itself. Generated from the same Zod schema that validates the output,
+ * so the requested shape cannot drift from the enforced one (ADR-0110).
+ */
+export const coachAnalysisModelOutputJsonSchema: Readonly<
+  Record<string, unknown>
+> = z.toJSONSchema(
+  coachAnalysisSchema.omit({ requestId: true, metadata: true }),
+) as Record<string, unknown>;
+
+/**
  * coach-analyze request. Strict: the client cannot send athlete identity,
  * analyses, safety state, origin or review class; `analysisRequestId` is
  * only an idempotency key (ADR-0078).

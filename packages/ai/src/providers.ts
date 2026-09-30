@@ -2,6 +2,7 @@ import {
   CoachProviderError,
   schemaIssuePaths,
   coachAnalysisSchema,
+  coachAnalysisModelOutputJsonSchema,
   type CoachModelProvider,
   type CoachProviderResult,
 } from "@athlete-coach/application";
@@ -24,6 +25,32 @@ export type GeminiCoachConfiguration = Readonly<{
   /** Pauses before retrying a transient provider error (default 1 s, 3 s). */
   retryDelaysMs?: readonly number[] | undefined;
 }>;
+/**
+ * Adapts a JSON Schema to the subset Gemini structured output accepts:
+ * drops `$schema` and `pattern` (the long ISO date regex; Zod still
+ * enforces it after parsing) and turns `const` into a single-value `enum`.
+ */
+export function toGeminiResponseSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(toGeminiResponseSchema);
+  if (!schema || typeof schema !== "object") return schema;
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (key === "$schema" || key === "pattern") continue;
+    if (key === "const") result["enum"] = [value];
+    else if (key === "properties" && value && typeof value === "object")
+      result[key] = Object.fromEntries(
+        Object.entries(value).map(([name, child]) => [
+          name,
+          toGeminiResponseSchema(child),
+        ]),
+      );
+    else result[key] = toGeminiResponseSchema(value);
+  }
+  return result;
+}
+const COACH_ANALYSIS_RESPONSE_SCHEMA = toGeminiResponseSchema(
+  coachAnalysisModelOutputJsonSchema,
+);
 /** HTTP statuses Google uses for temporary overload/outage (not quota: 429). */
 const TRANSIENT_STATUSES = new Set([500, 502, 503, 504]);
 /**
@@ -115,6 +142,8 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
               temperature: this.config.temperature,
               maxOutputTokens: this.config.maxOutputTokens,
               responseMimeType: "application/json",
+              // Structured output: the model must follow the canonical contract.
+              responseJsonSchema: COACH_ANALYSIS_RESPONSE_SCHEMA,
             },
           }),
         },

@@ -354,3 +354,60 @@ test("transient 5xx is retried; persistent or non-transient errors are not hidde
     "then reached validation (fixture body is not a full analysis)",
   );
 });
+
+// ADR-0110: the analysis request carries a structured-output schema derived
+// from the canonical Zod contract.
+test("analysis requests Gemini structured output derived from the contract", async () => {
+  const { coachAnalysisModelOutputJsonSchema } =
+    await import("@athlete-coach/application");
+  let body;
+  const provider = new GeminiHttpCoachModelProvider(
+    {
+      apiKey: "k",
+      model: "m",
+      temperature: 0,
+      timeoutMs: 1000,
+      maxOutputTokens: 10,
+      retryDelaysMs: [],
+    },
+    async (_url, init) => {
+      body = JSON.parse(init.body);
+      return new Response("{}", { status: 500 });
+    },
+  );
+  await provider
+    .analyze(
+      {
+        schemaVersion: "coach-request-v1",
+        dossier: { schemaVersion: "athlete-training-dossier-v7" },
+        userRequest: "q",
+        analysisMode: "question",
+        conversationContext: [],
+      },
+      "r",
+    )
+    .catch(() => undefined);
+  const schema = body.generationConfig.responseJsonSchema;
+  assert.equal(body.generationConfig.responseMimeType, "application/json");
+  const text = JSON.stringify(schema);
+  assert.equal(text.includes('"$schema"'), false);
+  assert.equal(text.includes('"pattern"'), false);
+  assert.equal(text.includes('"const"'), false);
+  assert.deepEqual(schema.properties.schemaVersion.enum, ["coach-analysis-v1"]);
+  assert.deepEqual(
+    schema.properties.observations.items.properties.limitations,
+    {
+      maxItems: 8,
+      type: "array",
+      items: { type: "string", minLength: 1, maxLength: 500 },
+    },
+  );
+  assert.deepEqual(
+    schema.properties.recommendations.items.properties.category.enum,
+    coachAnalysisModelOutputJsonSchema.properties.recommendations.items
+      .properties.category.enum,
+  );
+  // Adapter-owned fields are not requested from the model.
+  assert.equal("requestId" in schema.properties, false);
+  assert.equal("metadata" in schema.properties, false);
+});
