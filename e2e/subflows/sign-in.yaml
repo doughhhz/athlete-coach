@@ -10,6 +10,11 @@ appId: app.athletecoach.e2e
 - tapOn:
     id: "auth-password"
 - inputText: ${E2E_PASSWORD}
-- hideKeyboard
+# hideKeyboard is unreliable on iOS with React Native inputs: keep the
+# keyboard open and bring the button into view instead.
+- scrollUntilVisible:
+    element:
+      id: "auth-submit"
+    direction: DOWN
 - tapOn:
     id: "auth-submit"

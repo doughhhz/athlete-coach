@@ -56,7 +56,7 @@ Nunca configure a `service_role`, uma `sb_secret_...`, a senha do banco ou a cha
 
 | Variável | Uso |
 |---|---|
-| `MAESTRO_CLOUD_API_KEY` | API key do Maestro Cloud (lida pelo próprio Maestro CLI) |
+| `MAESTRO_CLOUD_API_KEY` | API key do Maestro Cloud (opcional: sem ela, o script usa a sessão de `maestro login`, que evita expor a chave) |
 | `MAESTRO_PROJECT_ID` | Project ID do Maestro Cloud |
 | `E2E_EMAIL` / `E2E_PASSWORD` | conta de teste do Supabase E2E (dispensável com `-SmokeOnly`) |
 
@@ -116,6 +116,12 @@ Os seletores usam `testID` estáveis: `auth-*`, `onboarding-*`, `tab-index|trein
 - **JUnit:** fica em `artifacts/e2e/maestro-cloud-*.xml`. A pasta `artifacts/` é ignorada pelo git.
 
 ## 10. Problemas comuns
+
+- **Conta Maestro sem trial/plano:** `403 Your trial has not started yet`, e o CLI pergunta o nome da empresa. Ative o trial em app.maestro.dev (7 dias; depois exige plano).
+- **`hideKeyboard` falha no iOS** ("Couldn't hide the keyboard") com inputs React Native. Os fluxos não usam esse comando: tocam num texto não interativo (por exemplo "ETAPA N DE 8"; as telas usam `keyboardShouldPersistTaps="handled"`) e usam `scrollUntilVisible` antes de tocar em botões.
+- **Acentos:** o Maestro no Windows lê os YAML como Latin-1. Texto acentuado nunca casa, e `assertNotVisible` passa em silêncio. Os YAML são só ASCII (regex com `.`: `"For.a"`, `"Backend n.o configurado"`), e `tests/architecture/e2e-harness.test.mjs` bloqueia não-ASCII.
+- **`01-auth` falha após "Entrar":** teste as credenciais direto no Auth do projeto E2E. Um `invalid_credentials` significa conta inexistente nesse projeto ou senha diferente.
+- **Timezone:** o simulador usa `America/Los_Angeles`, então o onboarding grava esse fuso para a conta E2E.
 
 - **"Backend não configurado" no smoke:** o build foi feito sem as variáveis EAS. Normalmente o guarda do build já impede isso; confira `eas env:list --environment preview`.
 - **`01-auth` preso na tela de login:** senha ou e-mail errados, e-mail não confirmado, ou o projeto apontado pelo build não é o E2E.

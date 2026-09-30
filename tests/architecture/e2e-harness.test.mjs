@@ -30,6 +30,9 @@ test("Maestro flows are well-formed: header, separator, spaces, command list", a
       /\t/,
       `${path}: tabs are not valid YAML indentation`,
     );
+    // Maestro on Windows reads flows as Latin-1: accented text never matches
+    // (and assertNotVisible silently passes). Use ASCII and "." in regexes.
+    assert.doesNotMatch(text, /[^\x00-\x7F]/, `${path}: non-ASCII character`);
     const [header, commands] = text.split(/^---$/m);
     assert.ok(commands, `${path}: missing --- between config and commands`);
     assert.match(header, /^appId: app\.athletecoach\.e2e$/m, `${path}: appId`);

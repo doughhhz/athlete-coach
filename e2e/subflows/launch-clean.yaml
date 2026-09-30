@@ -1,5 +1,5 @@
 # Fresh install state: no session, no stored data. The app must reach the
-# sign-in screen; "Backend não configurado" here means the E2E build was made
+# sign-in screen; "Backend nao configurado" here means the E2E build was made
 # without the public Supabase variables.
 appId: app.athletecoach.e2e
 ---

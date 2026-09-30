@@ -1,6 +1,8 @@
 # Onboarding: completes onboarding for the E2E account when it is still
 # pending (idempotent: an already onboarded account goes straight to the tab
-# check). Uses clearly fictional data.
+# check). Uses clearly fictional data. No hideKeyboard (unreliable on iOS
+# with React Native inputs): after each input the keyboard is closed by tapping
+# the non-interactive step indicator, and targets are scrolled into view.
 appId: app.athletecoach.e2e
 name: 02-onboarding
 tags:
@@ -17,53 +19,102 @@ tags:
       visible:
         id: "onboarding-screen"
     commands:
-      # 0. Vamos começar
+      # 0. Vamos comecar
       - tapOn:
           id: "onboarding-continue"
-      # 1. Sobre você
+      # 1. Sobre voce
+      - extendedWaitUntil:
+          visible: "Sobre voc."
+          timeout: 10000
       - tapOn:
           id: "onboarding-name"
       - inputText: "Atleta E2E"
+      - tapOn: "ETAPA [0-9] DE 8" # closes the keyboard (non-interactive text)
       - tapOn:
           id: "onboarding-birth-date"
       - inputText: "1995-06-15"
+      - tapOn: "ETAPA [0-9] DE 8" # closes the keyboard (non-interactive text)
       - tapOn:
           id: "onboarding-height"
       - inputText: "178"
+      - tapOn: "ETAPA [0-9] DE 8" # closes the keyboard (non-interactive text)
       - tapOn:
           id: "onboarding-weight"
       - inputText: "75"
-      - hideKeyboard
+      - tapOn: "ETAPA [0-9] DE 8" # closes the keyboard (non-interactive text)
+      - scrollUntilVisible:
+          element:
+            id: "onboarding-continue"
+          direction: DOWN
       - tapOn:
           id: "onboarding-continue"
       # 2. Seu objetivo
-      - tapOn: "Força"
+      - extendedWaitUntil:
+          visible: "Seu objetivo"
+          timeout: 10000
+      - scrollUntilVisible:
+          element: "For.a" # "Forca" (ASCII-only regex)
+          direction: DOWN
+      - tapOn: "For.a"
       - tapOn:
           id: "onboarding-continue"
-      # 3. Experiência
+      # 3. Experiencia
+      - extendedWaitUntil:
+          visible: "Experi.ncia"
+          timeout: 10000
       - tapOn:
           id: "onboarding-training-months"
       - eraseText
       - inputText: "24"
-      - hideKeyboard
+      - tapOn: "ETAPA [0-9] DE 8" # closes the keyboard (non-interactive text)
+      - scrollUntilVisible:
+          element: "Consistente"
+          direction: DOWN
       - tapOn: "Consistente"
+      - scrollUntilVisible:
+          element:
+            id: "onboarding-continue"
+          direction: DOWN
       - tapOn:
           id: "onboarding-continue"
       # 4. Sua rotina
+      - extendedWaitUntil:
+          visible: "Sua rotina"
+          timeout: 10000
+      - scrollUntilVisible:
+          element: "Academia comercial"
+          direction: DOWN
       - tapOn: "Academia comercial"
       - tapOn:
           id: "onboarding-routine"
-      - inputText: "Rotina fictícia de teste E2E."
-      - hideKeyboard
+      - inputText: "Rotina ficticia de teste E2E."
+      - tapOn: "ETAPA [0-9] DE 8" # closes the keyboard (non-interactive text)
+      - scrollUntilVisible:
+          element:
+            id: "onboarding-continue"
+          direction: DOWN
       - tapOn:
           id: "onboarding-continue"
       # 5. Disponibilidade
+      - extendedWaitUntil:
+          visible: "Disponibilidade"
+          timeout: 10000
+      - scrollUntilVisible:
+          element: "Seg"
+          direction: DOWN
       - tapOn: "Seg"
       - tapOn: "Qua"
       - tapOn: "Sex"
+      - scrollUntilVisible:
+          element:
+            id: "onboarding-continue"
+          direction: DOWN
       - tapOn:
           id: "onboarding-continue"
-      # 6. Observações (optional)
+      # 6. Observacoes (optional)
+      - extendedWaitUntil:
+          visible: "Observa..es"
+          timeout: 10000
       - tapOn:
           id: "onboarding-continue"
       # 7. Revise seus dados

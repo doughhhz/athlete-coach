@@ -1,4 +1,4 @@
-# Smoke: the E2E build launches, is configured (no "Backend não configurado"),
+# Smoke: the E2E build launches, is configured (no "Backend nao configurado"),
 # renders the sign-in screen and responds to interaction. No network login,
 # no Coach/Gemini.
 appId: app.athletecoach.e2e
@@ -7,7 +7,8 @@ tags:
   - smoke
 ---
 - runFlow: ../subflows/launch-clean.yaml
-- assertNotVisible: "Backend não configurado"
+# ASCII-only regex: Maestro on Windows reads flows as Latin-1 ("nao" = "n.o").
+- assertNotVisible: "Backend n.o configurado"
 - takeScreenshot: 00-smoke-sign-in
 - tapOn:
     id: "auth-switch-mode"
