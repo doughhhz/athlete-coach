@@ -48,6 +48,7 @@ test("details labels prescription as planned and offers revision", async () => {
   assert.match(text, /Criar revisão editável/);
   assert.match(text, /Concluído normalmente/);
   assert.match(text, /Arquivado \(retirado\)/);
-  assert.match(text, /Série/);
+  // Planned sets are grouped for display ("3 séries × 8–10 reps").
+  assert.match(text, /groupPrescriptionSets\(ep\.sets\)/);
   assert.doesNotMatch(text, /recorde pessoal|dados realizados|cronômetro/i);
 });

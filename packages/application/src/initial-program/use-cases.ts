@@ -1,6 +1,7 @@
 import {
   buildBasicInitialProgram,
   computeInitialProgramEnvelope,
+  reviewInitialProgramRationales,
   validateInitialProgramPlan,
   type AthleteSnapshot,
   type InitialProgramEnvelope,
@@ -216,7 +217,11 @@ export class GenerateInitialProgram {
     let output = initialProgramOutputSchema.parse(result.output);
     let repaired = false;
     if (output.outcome === "program" && output.program) {
-      const issues = validateInitialProgramPlan(output.program, envelope);
+      // Hard limits and weak explanations both ask for the single repair.
+      const issues = [
+        ...validateInitialProgramPlan(output.program, envelope),
+        ...reviewInitialProgramRationales(output.program, envelope),
+      ];
       if (issues.length) {
         // One repair attempt with the system's issues; never more.
         repaired = true;
@@ -232,6 +237,7 @@ export class GenerateInitialProgram {
         status: "cannot_build",
         reason: output.cannotBuildReason ?? "",
       };
+    // Only hard limits block; explanation quality never rejects a program.
     const issues = validateInitialProgramPlan(output.program, envelope);
     if (issues.length) throw new InitialProgramInvalidError(issues);
     return this.persist(request, output.program, {

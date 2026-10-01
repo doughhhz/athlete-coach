@@ -597,3 +597,49 @@ test("basic template follows the approved rules", () => {
     buildBasicInitialProgram(envelopeFor()),
   );
 });
+
+test("exercise reasons must explain, not repeat the exercise name", async () => {
+  const { reviewInitialProgramRationales, MIN_RATIONALE_CHARACTERS } =
+    await import("../src/index.ts");
+  const envelope = envelopeFor();
+  const target = catalog[1]; // dumbbell-bench-press, namePt = slug
+  const withReason = (rationale) =>
+    plan([
+      day({ exercises: [exercise({ exerciseId: target.id, rationale })] }),
+    ]);
+  assert.equal(MIN_RATIONALE_CHARACTERS, 30);
+  // Only the name (any case or punctuation) is insufficient.
+  for (const rationale of [
+    "dumbbell-bench-press",
+    "Dumbbell bench press.",
+    "Dumbbell bench press para peito",
+  ])
+    assert.deepEqual(
+      reviewInitialProgramRationales(withReason(rationale), envelope).map(
+        (issue) => [issue.code, issue.dayIndex, issue.exerciseIndex],
+      ),
+      [["rationale_insufficient", 0, 0]],
+      rationale,
+    );
+  assert.deepEqual(
+    reviewInitialProgramRationales(
+      withReason(
+        "Empurrar horizontal principal do dia, com halteres por você treinar em casa e ainda ser iniciante.",
+      ),
+      envelope,
+    ),
+    [],
+  );
+  // Accents and case do not matter when removing the name.
+  const accented = {
+    ...envelope,
+    allowedExercises: [{ ...target, namePt: "Supino reto com halteres" }],
+  };
+  assert.equal(
+    reviewInitialProgramRationales(
+      withReason("SUPINO RETO COM HALTERES — supino"),
+      accented,
+    ).length,
+    1,
+  );
+});

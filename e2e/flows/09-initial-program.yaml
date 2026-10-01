@@ -103,5 +103,5 @@ tags:
     element: "Por que este exerc.cio.*"
     direction: DOWN
     timeout: 20000
-- assertVisible: ".*carga escolhida pelo atleta.*"
+- assertVisible: ".*Carga: voc. escolhe pelo RIR.*"
 - takeScreenshot: 09-initial-program-reasons

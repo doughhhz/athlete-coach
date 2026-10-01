@@ -420,6 +420,57 @@ export function validateInitialProgramPlan(
   return issues;
 }
 
+// --- Explanation quality (soft: asks for one repair, never blocks) -------
+
+/** Minimum explanation left after removing the exercise name. */
+export const MIN_RATIONALE_CHARACTERS = 30;
+export type InitialProgramQualityIssue = Readonly<{
+  code: "rationale_insufficient";
+  message: string;
+  dayIndex: number;
+  exerciseIndex: number;
+}>;
+const normalized = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+/**
+ * An exercise reason must explain why, not repeat the exercise name: after
+ * removing the name's words, at least MIN_RATIONALE_CHARACTERS must remain.
+ */
+export function reviewInitialProgramRationales(
+  plan: InitialProgramPlan,
+  envelope: InitialProgramEnvelope,
+): readonly InitialProgramQualityIssue[] {
+  const names = new Map(
+    envelope.allowedExercises.map((item) => [item.id, item.namePt]),
+  );
+  const issues: InitialProgramQualityIssue[] = [];
+  plan.days.forEach((day, dayIndex) =>
+    day.exercises.forEach((exercise, exerciseIndex) => {
+      const nameWords = new Set(
+        normalized(names.get(exercise.exerciseId) ?? "").split(" "),
+      );
+      const remaining = normalized(exercise.rationale)
+        .split(" ")
+        .filter((word) => word && !nameWords.has(word))
+        .join(" ");
+      if (remaining.length < MIN_RATIONALE_CHARACTERS)
+        issues.push({
+          code: "rationale_insufficient",
+          message:
+            "Explique por que este exercício foi escolhido para este atleta (papel na sessão e dado do atleta que ele atende), sem só repetir o nome.",
+          dayIndex,
+          exerciseIndex,
+        });
+    }),
+  );
+  return issues;
+}
+
 // --- Basic template (fallback, clearly labeled; ADR-0119 decision 5) ------
 
 type Slot = readonly MovementPattern[];

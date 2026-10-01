@@ -1,4 +1,4 @@
-import type { PrescriptionSet, TrainingProgram } from "@athlete-coach/domain";
+import type { TrainingProgram } from "@athlete-coach/domain";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useAppSession } from "@/presentation/auth/app-session";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
+import { groupPrescriptionSets } from "./prescription-format";
 const statusLabels = {
   draft: "Rascunho",
   active: "Ativo",
@@ -18,21 +19,6 @@ const statusLabels = {
   archived: "Arquivado (retirado)",
 } as const;
 const weekdayNames = ["", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
-function range(a: number, b: number) {
-  return a === b ? `${a}` : `${a}–${b}`;
-}
-function describe(s: PrescriptionSet) {
-  const unit = { reps: "reps", seconds: "s", meters: "m" }[s.targetMetric];
-  const parts = [`${range(s.targetMin, s.targetMax)} ${unit}`];
-  if (s.rirMin !== null) parts.push(`RIR ${range(s.rirMin, s.rirMax!)}`);
-  if (s.restMinSeconds !== null)
-    parts.push(`descanso ${range(s.restMinSeconds, s.restMaxSeconds!)} s`);
-  if (s.tempo) parts.push(`tempo ${s.tempo}`);
-  if (s.loadKind === "absolute") parts.push(`${s.loadKg} kg`);
-  else if (s.loadKind === "athlete_selected")
-    parts.push("carga escolhida pelo atleta");
-  return parts.join(" · ");
-}
 export function ProgramDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>(),
     app = useAppSession(),
@@ -163,7 +149,13 @@ export function ProgramDetailsScreen() {
                     </Text>
                   ) : null}
                   {d.prescriptions.map((ep) => (
-                    <View key={ep.id}>
+                    <View
+                      key={ep.id}
+                      style={[
+                        s.exerciseCard,
+                        { borderColor: theme.colors.border },
+                      ]}
+                    >
                       <Text style={[s.exercise, { color: theme.colors.text }]}>
                         {ep.sequence}. {ep.exerciseName}
                       </Text>
@@ -177,13 +169,33 @@ export function ProgramDetailsScreen() {
                           {ep.instructions}
                         </Text>
                       ) : null}
-                      {ep.sets.map((set) => (
-                        <Text
-                          key={set.id}
-                          style={{ color: theme.colors.textMuted }}
-                        >
-                          Série {set.sequence}: {describe(set)}
-                        </Text>
+                      {groupPrescriptionSets(ep.sets).map((group, index) => (
+                        <View key={index} style={s.setGroup}>
+                          <Text
+                            style={[
+                              s.setHeadline,
+                              { color: theme.colors.text },
+                            ]}
+                          >
+                            {group.headline}
+                          </Text>
+                          <View style={s.chips}>
+                            {group.details.map((detail) => (
+                              <Text
+                                key={detail}
+                                style={[
+                                  s.chip,
+                                  {
+                                    color: theme.colors.text,
+                                    borderColor: theme.colors.border,
+                                  },
+                                ]}
+                              >
+                                {detail}
+                              </Text>
+                            ))}
+                          </View>
+                        </View>
                       ))}
                     </View>
                   ))}
@@ -268,7 +280,19 @@ const s = StyleSheet.create({
   week: { fontSize: 17, fontWeight: "700" },
   card: { borderRadius: 14, borderWidth: 1, gap: 10, padding: 16 },
   day: { fontSize: 18, fontWeight: "800" },
-  exercise: { fontWeight: "700", marginBottom: 4 },
+  exercise: { fontSize: 16, fontWeight: "800" },
+  exerciseCard: { borderTopWidth: 1, gap: 6, paddingTop: 10 },
+  setGroup: { gap: 6 },
+  setHeadline: { fontSize: 15, fontWeight: "700" },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    fontSize: 13,
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
   actions: { gap: 12, marginTop: 10 },
   button: {
     alignItems: "center",

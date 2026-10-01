@@ -1152,3 +1152,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Evidência e ajuste pós-implementação:
   - Avaliação manual (`scripts/eval-initial-program.mjs`, `gemini-3.5-flash-lite`, 4 perfis × 2 rodadas) com `initial-program-prompt-v1`: **8/8 programas válidos**, sem reparo nem recusa, 4–15 s. Problema encontrado: sessões bem abaixo do tempo oferecido (ex.: ~43 de 90 min, ~38 de 60 min).
   - **`initial-program-prompt-v2`** (aprovado pelo usuário) = v1 + meta de duração: mirar entre 70% e 100% da duração preferida, sem passar do máximo; sessão mais curta só com motivo declarado (iniciante, recomeçando, recuperação, outros esportes, dor), explicado na justificativa do dia. O envelope não mudou: o sistema continua bloqueando só o excesso.
+  - **Explicação e apresentação (feedback do usuário no celular):** as justificativas por exercício às vezes só repetiam o nome do exercício.
+    - `initial-program-prompt-v3` = v2 + regra: dizer o papel do exercício na sessão e qual dado do atleta ele atende; nunca repetir só o nome nem copiar a mesma frase entre exercícios.
+    - O sistema passou a conferir (`reviewInitialProgramRationales`): sobram menos de 30 caracteres depois de tirar as palavras do nome → o problema `rationale_insufficient` vai para a única tentativa de reparo. É uma checagem leve: sozinha, nunca bloqueia o programa.
+    - A tela do programa agrupa séries iguais ("3 séries × 8–10 reps") e mostra RIR, descanso (em minutos quando inteiros) e carga em etiquetas separadas, em vez de uma linha por série.

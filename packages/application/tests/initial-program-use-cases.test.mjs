@@ -100,7 +100,8 @@ const planExercise = (exerciseId, change = {}) => ({
   rirMax: 2,
   restMinSeconds: 120,
   restMaxSeconds: 150,
-  rationale: "Base do dia.",
+  rationale:
+    "Composto principal do dia, escolhido pelo seu objetivo e experiência.",
   ...change,
 });
 const validPlan = {
@@ -301,6 +302,35 @@ test("personal mode: one repair attempt with the system issues", async () => {
   );
   assert.equal(failing.calls.provider.length, 2);
   assert.equal(failing.calls.created.length, 0);
+});
+
+test("a reason that only repeats the name asks for one repair, never blocks", async () => {
+  const named = (rationale) => ({
+    ...validPlan,
+    days: validPlan.days.map((day) => ({
+      ...day,
+      exercises: day.exercises.map((item) => ({ ...item, rationale })),
+    })),
+  });
+  const weak = named("dumbbell-bench-press");
+  const good = named(
+    "Base do dia para o seu objetivo de hipertrofia, sem sobrecarregar o joelho.",
+  );
+  const fixed = harness({ outputs: [output(weak), output(good)] });
+  const result = await fixed.useCase.execute(request("personal"));
+  assert.equal(result.repaired, true);
+  assert.ok(
+    fixed.calls.provider[1].previousIssues.some(
+      (issue) => issue.code === "rationale_insufficient",
+    ),
+  );
+  // Still weak after the repair: the program is created anyway.
+  const stillWeak = harness({ outputs: [output(weak), output(weak)] });
+  assert.equal(
+    (await stillWeak.useCase.execute(request("personal"))).status,
+    "created",
+  );
+  assert.equal(stillWeak.calls.created.length, 1);
 });
 
 test("personal mode: cannot_build and malformed output never create a draft", async () => {

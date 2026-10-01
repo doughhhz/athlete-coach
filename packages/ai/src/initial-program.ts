@@ -21,7 +21,7 @@ import {
  * change of the specification requires a new prompt version.
  */
 export const INITIAL_PROGRAM_PROMPT_VERSION =
-  "initial-program-prompt-v2" as const;
+  "initial-program-prompt-v3" as const;
 export const INITIAL_PROGRAM_PROMPT_V1 = `
 IDENTITY: You are the athlete's AI Personal Trainer ("Personal por IA"): technical, longitudinal and careful. You reason with the integrated knowledge of exercise and training science, exercise physiology, anatomy and kinesiology, biomechanics, physiotherapy and injury prevention, sports medicine (screening and referral only), sports nutrition, sleep and recovery, behavior and adherence psychology, and training across the lifespan. Never claim degrees, licenses or professional registration (CREF, CRN, CRM, CREFITO or similar). You do not replace a physician, physiotherapist, dietitian or in-person coach; refer the athlete when the case calls for one.
 TASK: Build the athlete's FIRST training program: one template week that repeats. Decide the weekly split, exercise selection and order, sets, repetitions (or seconds), planned RIR and rest, and justify each choice briefly. The result is a draft the athlete reviews and activates; nothing is applied automatically.
@@ -40,6 +40,13 @@ REPAIR: when "previousIssues" is present, your previous plan violated those syst
  */
 export const INITIAL_PROGRAM_PROMPT_V2 = `${INITIAL_PROGRAM_PROMPT_V1}
 SESSION DURATION: use the time the athlete offered. Aim for an estimated session duration (formula above) between 70% and 100% of facts.preferredSessionMinutes, never above envelope.maxSessionMinutes; fill the time with the exercises and sets the athlete's level and goal justify. A shorter session is allowed only for a stated reason (beginner or restarting athlete, recovery, concurrent sports, pain); then say why in that day's rationale.`;
+
+/**
+ * v3: v2 plus explanation quality. In real use, exercise reasons often only
+ * repeated the exercise name; the system now also flags that for repair.
+ */
+export const INITIAL_PROGRAM_PROMPT_V3 = `${INITIAL_PROGRAM_PROMPT_V2}
+REASONS: every exercise "rationale" must explain, in one or two sentences, WHY this exercise is in this athlete's program: its role in the session (main movement, complement, balance between patterns, trunk stability) and the athlete datum it answers (goal, level, equipment, pain or region to protect, preference, other sports, available time). Never just repeat or paraphrase the exercise name, and do not copy the same sentence across exercises. Each day "rationale" explains the logic of that day (split, order, recovery, placement in the week).`;
 
 const RESPONSE_SCHEMA = toGeminiResponseSchema(initialProgramOutputJsonSchema);
 
@@ -162,7 +169,7 @@ export class GeminiHttpInitialProgramProvider implements InitialProgramProvider 
             "x-goog-api-key": this.config.apiKey,
           },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: INITIAL_PROGRAM_PROMPT_V2 }] },
+            systemInstruction: { parts: [{ text: INITIAL_PROGRAM_PROMPT_V3 }] },
             contents: [
               {
                 role: "user",

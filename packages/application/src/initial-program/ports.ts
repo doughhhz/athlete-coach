@@ -1,6 +1,7 @@
 import type {
   InitialProgramEnvelope,
   InitialProgramIssue,
+  InitialProgramQualityIssue,
   ProgramCatalogExercise,
   ProgramIntake,
 } from "@athlete-coach/domain";
@@ -45,7 +46,9 @@ export type InitialProgramRequest = Readonly<{
   }>;
   envelope: InitialProgramEnvelope;
   /** Set on the single repair attempt after a failed validation. */
-  previousIssues?: readonly InitialProgramIssue[];
+  previousIssues?: readonly (
+    InitialProgramIssue | InitialProgramQualityIssue
+  )[];
 }>;
 export type InitialProgramProviderResult = Readonly<{
   output: InitialProgramOutput;
