@@ -151,3 +151,5 @@ Nenhum prompt ou contrato mudou (`coach-system-v5`, `coach-proposal-prompt-v5`, 
 ## Implementation Phase 21 — Programa inicial pelo Personal (ADR-0119)
 
 `initial-program-prompt-v1` deriva de `docs/11_PERSONAL_SPEC.md` (`personal-spec-v1`): conhecimento integrado sem afirmar credenciais, todos os dados ponderados, limites do sistema, segurança, `cannot_build`, saída em português e instrução de reparo. O modelo recebe fatos calculados, notas do atleta (dados não confiáveis), o envelope e o catálogo permitido; nunca recebe o nome. A saída `initial-program-v1` passa por schema, validação determinística (com uma tentativa de reparo) e revisão humana como rascunho. Os prompts do Coach (`coach-system-v6`, `coach-proposal-prompt-v7`) não mudaram nesta fase; alinhá-los à folha completa fica para uma versão futura.
+
+`initial-program-prompt-v2` = v1 + meta de duração da sessão (70–100% do tempo oferecido; menos, só com motivo explicado). A v1 deixava as sessões muito abaixo do tempo disponível na avaliação.

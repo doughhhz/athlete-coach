@@ -6,6 +6,7 @@ import {
   GeminiHttpInitialProgramProvider,
   groundExerciseIds,
   INITIAL_PROGRAM_PROMPT_V1,
+  INITIAL_PROGRAM_PROMPT_V2,
   INITIAL_PROGRAM_PROMPT_VERSION,
   initialProgramUserContent,
 } from "../src/index.ts";
@@ -122,7 +123,7 @@ const reply = (status, text) =>
   );
 
 test("prompt v1 carries the Personal specification invariants", () => {
-  assert.equal(INITIAL_PROGRAM_PROMPT_VERSION, "initial-program-prompt-v1");
+  assert.equal(INITIAL_PROGRAM_PROMPT_VERSION, "initial-program-prompt-v2");
   for (const invariant of [
     "Never claim degrees, licenses or professional registration",
     "exercise physiology",
@@ -147,6 +148,17 @@ test("prompt v1 carries the Personal specification invariants", () => {
       new RegExp(invariant, "i"),
       invariant,
     );
+});
+
+test("prompt v2 adds the session duration target to v1", () => {
+  assert.ok(INITIAL_PROGRAM_PROMPT_V2.startsWith(INITIAL_PROGRAM_PROMPT_V1));
+  for (const invariant of [
+    "between 70% and 100% of facts.preferredSessionMinutes",
+    "never above envelope.maxSessionMinutes",
+    "A shorter session is allowed only for a stated reason",
+    "say why in that day's rationale",
+  ])
+    assert.match(INITIAL_PROGRAM_PROMPT_V2, new RegExp(invariant), invariant);
 });
 
 test("user content: facts, notes and compact catalog, never the athlete name", () => {
@@ -209,7 +221,7 @@ test("Gemini adapter: system prompt, anchored schema and parsed output", async (
     result.output.program.days[0].exercises[0].exerciseId,
     exerciseIds[0],
   );
-  assert.equal(body.systemInstruction.parts[0].text, INITIAL_PROGRAM_PROMPT_V1);
+  assert.equal(body.systemInstruction.parts[0].text, INITIAL_PROGRAM_PROMPT_V2);
   assert.equal(body.generationConfig.responseMimeType, "application/json");
   assert.match(
     JSON.stringify(body.generationConfig.responseJsonSchema),

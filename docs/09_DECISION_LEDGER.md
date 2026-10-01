@@ -1149,3 +1149,6 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - O Safety Gate é lexical (ADR da Phase 9).
   - Não há pós-checagem lexical do texto gerado: as justificativas aparecem como rascunho para revisão humana.
   - A qualidade do programa depende do modelo e é medida por `scripts/eval-initial-program.mjs` e pelo fluxo E2E `09-initial-program`.
+- Evidência e ajuste pós-implementação:
+  - Avaliação manual (`scripts/eval-initial-program.mjs`, `gemini-3.5-flash-lite`, 4 perfis × 2 rodadas) com `initial-program-prompt-v1`: **8/8 programas válidos**, sem reparo nem recusa, 4–15 s. Problema encontrado: sessões bem abaixo do tempo oferecido (ex.: ~43 de 90 min, ~38 de 60 min).
+  - **`initial-program-prompt-v2`** (aprovado pelo usuário) = v1 + meta de duração: mirar entre 70% e 100% da duração preferida, sem passar do máximo; sessão mais curta só com motivo declarado (iniciante, recomeçando, recuperação, outros esportes, dor), explicado na justificativa do dia. O envelope não mudou: o sistema continua bloqueando só o excesso.
