@@ -37,7 +37,12 @@ appId: app.athletecoach.e2e
 - tapOn:
     id: "builder-set-load-kg"
 - inputText: "40"
-- tapOn: 'Carga \(kg\)'
+# Closes the keyboard (as in 03-training): the header text is not touchable,
+# while the set editor sits inside touchable cards that keep it open.
+- scrollUntilVisible:
+    element: "Monte a inten.*"
+    direction: UP
+- tapOn: "Monte a inten.*"
 - scrollUntilVisible:
     element:
       id: "builder-save"
@@ -46,8 +51,30 @@ appId: app.athletecoach.e2e
     id: "builder-save"
 - extendedWaitUntil:
     visible:
-      id: "program-activate"
+      id: "program-activate|builder-error"
     timeout: 30000
+    optional: true
+# Diagnostics: each branch fails with a message naming the situation.
+- runFlow:
+    when:
+      visible:
+        id: "builder-error"
+    commands:
+      - copyTextFrom:
+          id: "builder-error"
+      - assertVisible: "${'BUILDER SAVE FAILED - ' + maestro.copiedText}"
+- runFlow:
+    when:
+      visible:
+        id: "builder-save"
+    commands:
+      - assertVisible: "DIAG STILL ON BUILDER WITHOUT ERROR"
+- runFlow:
+    when:
+      notVisible:
+        id: "program-activate"
+    commands:
+      - assertVisible: "DIAG LEFT BUILDER BUT NO ACTIVATE BUTTON"
 - assertVisible: ".*40 kg.*"
 - scrollUntilVisible:
     element:

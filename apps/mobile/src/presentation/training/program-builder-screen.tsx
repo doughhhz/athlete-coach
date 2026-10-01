@@ -624,7 +624,11 @@ export function ProgramBuilderScreen() {
         </View>
       ))}
       {error ? (
-        <Text accessibilityRole="alert" style={{ color: theme.colors.danger }}>
+        <Text
+          accessibilityRole="alert"
+          style={{ color: theme.colors.danger }}
+          testID="builder-error"
+        >
           {error}
         </Text>
       ) : null}

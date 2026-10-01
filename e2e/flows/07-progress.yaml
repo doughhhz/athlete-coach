@@ -36,12 +36,17 @@ tags:
     element: "Hist.rico de treinos"
     direction: DOWN
     timeout: 20000
+# History cards end with "<date> . Concluido"; program cards (whose status
+# badge may also read "Concluido") end with "dia(s)", so they never match.
+# Centered so the tap never lands under the tab bar (the card list grows
+# with every run).
 - scrollUntilVisible:
-    element: ".*Conclu.do.*"
+    element: ".* . Conclu.do"
     direction: DOWN
     timeout: 20000
+    centerElement: true
 - tapOn:
-    text: ".*Conclu.do.*"
+    text: ".* . Conclu.do"
     index: 0
 - extendedWaitUntil:
     visible: "Resumo factual"
