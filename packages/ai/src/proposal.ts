@@ -2,13 +2,22 @@ import {
   CoachProviderError,
   schemaIssuePaths,
   coachProposalSchema,
+  coachProposalModelOutputJsonSchema,
   type CoachProposalProvider,
 } from "@athlete-coach/application";
 import type { CoachProposal } from "@athlete-coach/domain";
 import {
-  fetchWithTransientRetry,
+  dossierEvidence,
+  evidenceSchemaLadder,
+  fetchWithSchemaLadder,
+  modelChain,
+  withModelFallback,
+  toGeminiResponseSchema,
   type GeminiCoachConfiguration,
 } from "./providers.ts";
+const COACH_PROPOSAL_RESPONSE_SCHEMA = toGeminiResponseSchema(
+  coachProposalModelOutputJsonSchema,
+);
 /** Prompt version (distinct from the coach-proposal-v1 output schema). */
 export const COACH_PROPOSAL_PROMPT_VERSION =
   "coach-proposal-prompt-v6" as const;
@@ -79,17 +88,26 @@ export class GeminiHttpCoachProposalProvider implements CoachProposalProvider {
     this.config = config;
     this.fetcher = fetcher;
   }
-  async generate(
+  generate(
+    input: Parameters<CoachProposalProvider["generate"]>[0],
+    requestId: string,
+  ): Promise<CoachProposal | null> {
+    return withModelFallback(modelChain(this.config), (model) =>
+      this.generateWith(model, input, requestId),
+    );
+  }
+  private async generateWith(
+    model: string,
     input: Parameters<CoachProposalProvider["generate"]>[0],
     requestId: string,
   ): Promise<CoachProposal | null> {
     const controller = new AbortController(),
       timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     try {
-      const response = await fetchWithTransientRetry(
+      const response = await fetchWithSchemaLadder(
         this.fetcher,
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.config.model)}:generateContent`,
-        {
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        (responseJsonSchema) => ({
           method: "POST",
           signal: controller.signal,
           headers: {
@@ -116,9 +134,15 @@ export class GeminiHttpCoachProposalProvider implements CoachProposalProvider {
               temperature: this.config.temperature,
               maxOutputTokens: this.config.maxOutputTokens,
               responseMimeType: "application/json",
+              // Structured output: {"proposal": coach-proposal-v3 | null}.
+              responseJsonSchema,
             },
           }),
-        },
+        }),
+        evidenceSchemaLadder(
+          COACH_PROPOSAL_RESPONSE_SCHEMA,
+          dossierEvidence(input.dossier),
+        ),
         this.config.retryDelaysMs,
       );
       if (!response.ok)

@@ -6,9 +6,11 @@ import {
   type CoachModelProvider,
   type CoachProviderResult,
 } from "@athlete-coach/application";
-import type {
-  CoachAnalysis,
-  CoachAnalysisRequest,
+import {
+  collectDossierEvidenceIds,
+  type AthleteTrainingDossier,
+  type CoachAnalysis,
+  type CoachAnalysisRequest,
 } from "@athlete-coach/domain";
 import {
   COACH_POLICY_VERSION,
@@ -24,7 +26,66 @@ export type GeminiCoachConfiguration = Readonly<{
   maxOutputTokens: number;
   /** Pauses before retrying a transient provider error (default 1 s, 3 s). */
   retryDelaysMs?: readonly number[] | undefined;
+  /**
+   * Models tried in order when the previous one is unavailable (quota 429,
+   * not found 404, overload 5xx after the transient retries). ADR-0115.
+   */
+  fallbackModels?: readonly string[] | undefined;
 }>;
+/** Availability failures that move to the next model; never content/schema ones. */
+const MODEL_FALLBACK_STATUSES = new Set([404, 429, 500, 502, 503, 504]);
+/** Primary model first, then the configured fallbacks, without duplicates. */
+export function modelChain(config: GeminiCoachConfiguration): string[] {
+  return [
+    ...new Set(
+      [config.model, ...(config.fallbackModels ?? [])]
+        .map((model) => model.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+/**
+ * Runs `attempt` with each model until one succeeds. Only availability
+ * failures (HTTP 404/429/5xx) fall through to the next model: invalid output,
+ * grounding/safety rejections and timeouts are never retried on another model,
+ * so quality problems stay visible and the request stays within the Edge
+ * time limit. The final error lists the chain tried (ADR-0115).
+ */
+export async function withModelFallback<T>(
+  models: readonly string[],
+  attempt: (model: string) => Promise<T>,
+): Promise<T> {
+  const attempted: string[] = [];
+  for (const [index, model] of models.entries()) {
+    try {
+      return await attempt(model);
+    } catch (error) {
+      const status =
+        error instanceof CoachProviderError &&
+        error.diagnostics?.stage === "http"
+          ? error.diagnostics.status
+          : undefined;
+      attempted.push(
+        `${model}:${status ?? (error instanceof CoachProviderError ? error.code : "error")}`,
+      );
+      const fallThrough =
+        index < models.length - 1 &&
+        status !== undefined &&
+        MODEL_FALLBACK_STATUSES.has(status);
+      if (fallThrough) continue;
+      if (error instanceof CoachProviderError && attempted.length > 1)
+        throw new CoachProviderError(error.code, error.message, {
+          cause: error,
+          diagnostics: {
+            ...(error.diagnostics ?? { stage: "http" }),
+            attemptedModels: attempted,
+          },
+        });
+      throw error;
+    }
+  }
+  throw new CoachProviderError("unavailable", "No Gemini model configured.");
+}
 /**
  * Keywords removed before sending a schema to Gemini. Length/count bounds
  * make Gemini reject the analysis schema with HTTP 400 (verified by
@@ -38,6 +99,11 @@ const GEMINI_UNSUPPORTED_KEYWORDS = new Set([
   "maxLength",
   "minItems",
   "maxItems",
+  // Numeric bounds (proposal schema, ADR-0114): same "too many states" risk.
+  "minimum",
+  "maximum",
+  "exclusiveMinimum",
+  "exclusiveMaximum",
 ]);
 /**
  * Adapts a JSON Schema to the subset Gemini structured output accepts and
@@ -50,6 +116,8 @@ export function toGeminiResponseSchema(schema: unknown): unknown {
   for (const [key, value] of Object.entries(schema)) {
     if (GEMINI_UNSUPPORTED_KEYWORDS.has(key)) continue;
     if (key === "const") result["enum"] = [value];
+    // Discriminated unions: Gemini documents anyOf, not oneOf (ADR-0114).
+    else if (key === "oneOf") result["anyOf"] = toGeminiResponseSchema(value);
     else if (key === "properties" && value && typeof value === "object")
       result[key] = Object.fromEntries(
         Object.entries(value).map(([name, child]) => [
@@ -64,6 +132,121 @@ export function toGeminiResponseSchema(schema: unknown): unknown {
 const COACH_ANALYSIS_RESPONSE_SCHEMA = toGeminiResponseSchema(
   coachAnalysisModelOutputJsonSchema,
 );
+/**
+ * Anchors every evidence reference of a response schema to the dossier sent
+ * with the request (ADR-0116): each evidence object ({kind, id, version})
+ * becomes an `anyOf` with one branch per evidence kind present in the
+ * dossier, whose `id` is an `enum` of that kind's ids. The model can no
+ * longer cite an id that is not in the dossier (or pair it with the wrong
+ * kind). The deterministic grounding check stays in place as the authority.
+ */
+export function groundEvidenceSchema(
+  schema: unknown,
+  allowedEvidence: ReadonlySet<string>,
+  /** Only ground evidence under these property names (e.g. "evidenceUsed"). */
+  onlyUnder?: readonly string[],
+): unknown {
+  const idsByKind = new Map<string, Set<string>>();
+  for (const reference of allowedEvidence) {
+    const separator = reference.indexOf(":");
+    if (separator < 1) continue;
+    const kind = reference.slice(0, separator);
+    const ids = idsByKind.get(kind) ?? new Set<string>();
+    ids.add(reference.slice(separator + 1));
+    idsByKind.set(kind, ids);
+  }
+  if (!idsByKind.size) return schema;
+  const isEvidence = (node: Record<string, unknown>) =>
+    node["type"] === "object" &&
+    !!node["properties"] &&
+    typeof node["properties"] === "object" &&
+    Object.keys(node["properties"] as object)
+      .sort()
+      .join(",") === "id,kind,version";
+  const walk = (node: unknown, active = !onlyUnder): unknown => {
+    if (Array.isArray(node)) return node.map((item) => walk(item, active));
+    if (!node || typeof node !== "object") return node;
+    const record = node as Record<string, unknown>;
+    if (active && isEvidence(record)) {
+      const properties = record["properties"] as Record<string, unknown>;
+      return {
+        anyOf: [...idsByKind].map(([kind, ids]) => ({
+          ...record,
+          properties: {
+            ...properties,
+            kind: { type: "string", enum: [kind] },
+            id: { type: "string", enum: [...ids].sort() },
+          },
+        })),
+      };
+    }
+    return Object.fromEntries(
+      Object.entries(record).map(([key, value]) => [
+        key,
+        walk(value, active || (onlyUnder?.includes(key) ?? false)),
+      ]),
+    );
+  };
+  return walk(schema);
+}
+/**
+ * Response schemas to try, strictest first (ADR-0117): evidence anchored
+ * everywhere, then only in the top-level evidence lists, then not anchored.
+ * Gemini rejects schemas that become too complex (HTTP 400) as the dossier
+ * grows; the next rung is then used. Duplicates are skipped. The
+ * deterministic grounding check applies to every rung.
+ */
+export function evidenceSchemaLadder(
+  schema: unknown,
+  allowedEvidence: ReadonlySet<string>,
+): unknown[] {
+  const rungs = [
+    groundEvidenceSchema(schema, allowedEvidence),
+    groundEvidenceSchema(schema, allowedEvidence, [
+      "evidenceUsed",
+      "evidenceReferences",
+    ]),
+    schema,
+  ];
+  const seen = new Set<string>();
+  return rungs.filter((rung) => {
+    const key = JSON.stringify(rung);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+/**
+ * Posts with each response schema of the ladder until Gemini accepts the
+ * request shape: only HTTP 400 (schema rejected) moves to the next rung;
+ * every other status is returned as is (transient 5xx already retried).
+ */
+export async function fetchWithSchemaLadder(
+  fetcher: typeof fetch,
+  url: string,
+  init: (responseJsonSchema: unknown) => RequestInit,
+  ladder: readonly unknown[],
+  delaysMs?: readonly number[],
+): Promise<Response> {
+  for (const [index, schema] of ladder.entries()) {
+    const response = await fetchWithTransientRetry(
+      fetcher,
+      url,
+      init(schema),
+      delaysMs,
+    );
+    if (response.status !== 400 || index === ladder.length - 1) return response;
+  }
+  throw new CoachProviderError("unavailable", "Empty response schema ladder.");
+}
+/** Evidence allowed by a dossier, or none when it cannot be read (tests/fixtures). */
+export function dossierEvidence(dossier: unknown): ReadonlySet<string> {
+  try {
+    return collectDossierEvidenceIds(dossier as AthleteTrainingDossier);
+  } catch {
+    return new Set();
+  }
+}
 /** HTTP statuses Google uses for temporary overload/outage (not quota: 429). */
 const TRANSIENT_STATUSES = new Set([500, 502, 503, 504]);
 /**
@@ -124,17 +307,26 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
     this.config = config;
     this.fetcher = fetcher;
   }
-  async analyze(
+  analyze(
+    request: CoachAnalysisRequest,
+    requestId: string,
+  ): Promise<CoachProviderResult> {
+    return withModelFallback(modelChain(this.config), (model) =>
+      this.analyzeWith(model, request, requestId),
+    );
+  }
+  private async analyzeWith(
+    model: string,
     request: CoachAnalysisRequest,
     requestId: string,
   ): Promise<CoachProviderResult> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     try {
-      const response = await fetchWithTransientRetry(
+      const response = await fetchWithSchemaLadder(
         this.fetcher,
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.config.model)}:generateContent`,
-        {
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        (responseJsonSchema) => ({
           method: "POST",
           signal: controller.signal,
           headers: {
@@ -156,10 +348,14 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
               maxOutputTokens: this.config.maxOutputTokens,
               responseMimeType: "application/json",
               // Structured output: the model must follow the canonical contract.
-              responseJsonSchema: COACH_ANALYSIS_RESPONSE_SCHEMA,
+              responseJsonSchema,
             },
           }),
-        },
+        }),
+        evidenceSchemaLadder(
+          COACH_ANALYSIS_RESPONSE_SCHEMA,
+          dossierEvidence(request.dossier),
+        ),
         this.config.retryDelaysMs,
       );
       if (!response.ok)
@@ -206,7 +402,7 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
           promptVersion: COACH_PROMPT_VERSION,
           policyVersion: COACH_POLICY_VERSION,
           provider: "gemini",
-          model: this.config.model,
+          model,
           inputTokens: usage?.promptTokenCount ?? null,
           outputTokens: usage?.candidatesTokenCount ?? null,
         },
@@ -226,7 +422,7 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
       return {
         analysis: validation.data,
         provider: "gemini",
-        model: this.config.model,
+        model,
         inputTokens: usage?.promptTokenCount ?? null,
         outputTokens: usage?.candidatesTokenCount ?? null,
       };

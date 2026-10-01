@@ -1017,3 +1017,62 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Regra nova: padrão e secret hospedado `GEMINI_MODEL=gemini-3.6-flash`. A grounding check continua rejeitando evidência inventada, e isso é critério de escolha de modelo.
 - Limitação: no plano gratuito cada modelo tem cota diária própria (429 quando esgotada). O uso intenso pode indisponibilizar o Coach até a renovação da cota.
 - Afetados: padrões em `coach-analyze` e `coach-propose`, `supabase/functions/.env.example` e o secret hospedado (alterado pelo usuário).
+
+### ADR-0114 — Structured output for Coach proposals and full outcome logs
+
+- Data: 2026-10-12
+- Status: accepted
+- Fecha a pendência registrada na ADR-0110.
+- Evidência (E2E em nuvem, `08-coach-proposal`): o `coach-propose` falhava com `stage: schema` e `issuePaths: ["schemaVersion:invalid_union"]`, porque o modelo devolveu uma versão de contrato inválida. Além disso, `coach-propose` e `coach-decide` não registravam desfechos que não fossem falha do provider (proposta nula, bloqueada, inválida, análise velha, conflito de materialização).
+- Decisão:
+  - O provider de propostas envia `responseJsonSchema` do envelope `{"proposal": coach-proposal-v3 | null}`, gerado com `z.toJSONSchema` (`coachProposalModelOutputJsonSchema`). Pede só a v3, a versão do prompt; v1 e v2 continuam aceitas para o histórico.
+  - O adaptador Gemini passa a converter `oneOf` em `anyOf` e a remover limites numéricos (`minimum`/`maximum`/`exclusive*`), pelo mesmo motivo de "estados demais" da ADR-0111. O Zod continua aplicando todos os limites.
+  - `coach-propose` e `coach-decide` registram todo desfecho só com metadados: código, contagens, status da decisão, classe de revisão, motivos de governança, e código e mensagem do Postgres limitados. Nunca registram texto de pergunta, análise ou proposta.
+- Afetados: `packages/application` (schema), `packages/ai` (provider de proposta, adaptador), Edge Functions `coach-propose` e `coach-decide`. Prompt (`coach-proposal-prompt-v6`), contrato e governança não mudaram.
+
+### ADR-0115 — Gemini model rotation on availability failures
+
+- Data: 2026-10-12
+- Status: accepted
+- Contexto: cada modelo do Gemini tem cota diária e disponibilidade próprias. No E2E, o Coach falhou por `429` (cota diária) e `503` (sobrecarga) do modelo principal, mesmo com as novas tentativas da ADR-0109. Pedido do usuário: o sistema deve alternar entre modelos quando um se esgota.
+- Decisão:
+  - Os providers de análise e proposta tentam a cadeia `GEMINI_MODEL` → `GEMINI_FALLBACK_MODELS`, com padrão `gemini-3.8-flash,gemini-3.7-flash`. São nomes fixos, sem aliases móveis (ADR-0106). Foram escolhidos porque, na avaliação da ADR-0113, só falharam por sobrecarga, nunca por evidência inventada.
+  - Passam para o próximo modelo **somente** as falhas de disponibilidade: HTTP 404, 429 e 5xx, depois das novas tentativas.
+  - **Não** passam: resposta fora do contrato, evidência ausente no dossier, Safety Gate, HTTP 400 e timeout. Assim problemas de qualidade continuam visíveis, e a requisição fica dentro do limite de 150 s das Edge Functions.
+  - A análise registra o modelo que efetivamente respondeu (`metadata.model`). Quando tudo falha, o diagnóstico lista a cadeia tentada (`attemptedModels`, como `modelo:status`).
+- Afetados: `packages/ai` (`withModelFallback`, `modelChain`), `packages/application` (diagnóstico) e Edge Functions do Coach (`GEMINI_FALLBACK_MODELS`). Prompts, contratos, validação, Safety Gate e governança não mudaram.
+
+### ADR-0116 — Evidence-anchored response schemas; primary model `gemini-3.5-flash-lite`
+
+- Data: 2026-10-12
+- Status: accepted
+- Substitui na escolha do modelo a ADR-0113 (`gemini-3.6-flash`), marcada como **superseded** só nesse ponto. Ajusta a lista padrão de reservas da ADR-0115.
+- Contexto:
+  - No E2E em nuvem, os Flash maiores (`3.6`, `3.8` e `3.7`) responderam 503 ao mesmo tempo. A cadeia da ADR-0115 tentou os três: `attemptedModels: ["gemini-3.6-flash:503","gemini-3.8-flash:503","gemini-3.7-flash:503"]`.
+  - O `gemini-3.5-flash-lite` tem a maior cota do plano gratuito (informada pelo usuário: 15 RPM, 250K TPM, 500 RPD), mas na ADR-0113 citou evidência ausente do dossier em 4 de 10 respostas.
+- Decisão:
+  1. **Ancoragem de evidência** (`groundEvidenceSchema`): para cada requisição, o schema enviado ao Gemini troca cada referência de evidência (`{kind,id,version}`) por um `anyOf` com um ramo por tipo presente no dossier e `id` em `enum` com os ids daquele tipo. Vale para análise e proposta. O modelo não consegue citar um id fora do dossier nem trocar o tipo. A checagem determinística de grounding continua como autoridade.
+  2. Modelo principal padrão `gemini-3.5-flash-lite`, com reservas `gemini-3.6-flash,gemini-3.8-flash` (`GEMINI_FALLBACK_MODELS`).
+- Evidência: avaliação manual (ADR-0112), dossier sintético, caminho de produção com ancoragem: `gemini-3.5-flash-lite` **6/6**, nenhuma evidência inventada, nenhum 5xx, mediana 5,9 s. Antes da ancoragem: 5/10, com 4 evidências inventadas.
+- Tamanho do schema com dossier sintético: análise de 4,5 KB para 7,6 KB; proposta de 9,8 KB para 14,8 KB. Risco: em dossiers muito grandes os `enum`s crescem com o número de ids vezes o número de pontos de evidência. Se o Gemini recusar (HTTP 400), o diagnóstico da ADR-0107 mostra.
+- Afetados: `packages/ai` (`groundEvidenceSchema`, `dossierEvidence`), os padrões de `coach-analyze`/`coach-propose` e `supabase/functions/.env.example`. Prompts, contratos, validação, Safety Gate e governança não mudaram. No projeto hospedado principal, o secret `GEMINI_MODEL` precisa ser atualizado pelo usuário, porque ele sobrescreve o padrão.
+
+### ADR-0117 — Response schema ladder for evidence anchoring
+
+- Data: 2026-10-12
+- Status: accepted
+- Complementa a ADR-0116.
+- Evidência:
+  - Com o dossier real da conta E2E, o `coach-propose` recebeu `HTTP 400` do Gemini com o schema de proposta totalmente ancorado.
+  - Teste por eliminação com o dossier sintético (11 evidências) e o `gemini-3.5-flash-lite`:
+
+    | Variante                    | Tamanho | Resultado              |
+    | --------------------------- | ------- | ---------------------- |
+    | Sem ancoragem               | 9,8 KB  | 200                    |
+    | Ancoragem completa          | 14,8 KB | 200                    |
+    | Ancoragem só na lista geral | 10,5 KB | 200                    |
+    | `$defs`/`$ref`              | 7,8 KB  | 400, `$ref` não aceito |
+
+  - Conclusão: a complexidade cresce com o número de ids do dossier.
+- Decisão: cada chamada tenta, em ordem, (1) ancoragem completa, (2) ancoragem só nas listas gerais (`evidenceUsed`/`evidenceReferences`) e (3) schema sem ancoragem. Só HTTP 400 passa ao próximo degrau; os demais status seguem as ADR-0109 e 0115. Degraus idênticos são omitidos. A checagem determinística de grounding vale em todos os degraus, então evidência inventada continua sendo rejeitada. Não usar `$ref`/`$defs`.
+- Afetados: `packages/ai` (`evidenceSchemaLadder`, `fetchWithSchemaLadder` e os dois providers). Prompts, contratos e validação não mudaram.

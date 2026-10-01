@@ -174,6 +174,17 @@ export const coachProposalSchema = z.discriminatedUnion("schemaVersion", [
   coachProposalV2Schema,
   coachProposalV3Schema,
 ]);
+/**
+ * JSON Schema (provider-neutral) of what the proposal MODEL must return: the
+ * envelope {"proposal": coach-proposal-v3 | null}. Only v3 is requested (the
+ * prompt asks for v3; v1/v2 stay parseable for stored history). Generated
+ * from the same Zod schema that validates the output (ADR-0114).
+ */
+export const coachProposalModelOutputJsonSchema: Readonly<
+  Record<string, unknown>
+> = z.toJSONSchema(
+  z.object({ proposal: coachProposalV3Schema.nullable() }),
+) as Record<string, unknown>;
 export const rejectCoachProposalSchema = z.object({
   reason: z.enum(coachRejectionReasons),
   notes: z.string().trim().min(1).max(500).nullable().optional(),

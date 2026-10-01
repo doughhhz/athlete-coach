@@ -42,7 +42,7 @@ Deno.serve(async (request) => {
     const draftReviews = new ListCoachDraftReviewHistory(new BuildCoachDraftReviews(new SupabaseCoachDecisionRepository(client, auth.user.id), programs));
     // One dossier per request: provenance and the proactive proposal use the same evidence as the analysis.
     const dossier = memoizeDossier(new BuildAthleteTrainingDossier(profile, programs, new SupabaseWorkoutSessionRepository(client), performance, undefined, interventionContext, new GetExerciseReplacementCandidates(catalog), draftReviews));
-    const providerConfig = { apiKey: apiKey ?? "", model: Deno.env.get("GEMINI_MODEL") ?? "gemini-3.6-flash", temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "60000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "8192") };
+    const providerConfig = { apiKey: apiKey ?? "", model: Deno.env.get("GEMINI_MODEL") ?? "gemini-3.5-flash-lite", fallbackModels: (Deno.env.get("GEMINI_FALLBACK_MODELS") ?? "gemini-3.6-flash,gemini-3.8-flash").split(","), temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "60000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "8192") };
     const analyze = new AnalyzeAthleteWithCoach(dossier, apiKey ? new GeminiHttpCoachModelProvider(providerConfig) : { analyze: unavailableProvider }, new DeterministicCoachSafetyPolicy(), () => requestId);
     // The service client is used only for backend-owned writes: the authoritative
     // analysis record and the governed ledger entry (never materialize/activate).

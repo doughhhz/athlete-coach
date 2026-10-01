@@ -410,3 +410,215 @@ test("analysis requests Gemini structured output derived from the contract", asy
   assert.equal("requestId" in schema.properties, false);
   assert.equal("metadata" in schema.properties, false);
 });
+
+// ADR-0115: model rotation on availability failures only.
+test("falls back to the next model on quota/overload, never on invalid output", async () => {
+  const { modelChain, withModelFallback } = await import("../src/index.ts");
+  assert.deepEqual(
+    modelChain({ model: "a", fallbackModels: [" b ", "a", "", "c"] }),
+    ["a", "b", "c"],
+  );
+  const httpError = async (status) => {
+    const { CoachProviderError } = await import("@athlete-coach/application");
+    return new CoachProviderError("unavailable", "x", {
+      diagnostics: { stage: "http", status },
+    });
+  };
+  // 429 then 503 then success: the third model answers.
+  const tried = [];
+  const plan = { a: await httpError(429), b: await httpError(503) };
+  assert.equal(
+    await withModelFallback(["a", "b", "c"], async (model) => {
+      tried.push(model);
+      if (plan[model]) throw plan[model];
+      return model;
+    }),
+    "c",
+  );
+  assert.deepEqual(tried, ["a", "b", "c"]);
+  // 400 (bad request) does not rotate.
+  const once = [];
+  await assert.rejects(
+    withModelFallback(["a", "b"], async (model) => {
+      once.push(model);
+      throw await httpError(400);
+    }),
+  );
+  assert.deepEqual(once, ["a"]);
+  // Invalid output (schema) does not rotate: quality problems stay visible.
+  const { CoachProviderError } = await import("@athlete-coach/application");
+  const schemaTried = [];
+  await assert.rejects(
+    withModelFallback(["a", "b"], async (model) => {
+      schemaTried.push(model);
+      throw new CoachProviderError("invalid_response", "x", {
+        diagnostics: { stage: "schema", issuePaths: ["summary:invalid_type"] },
+      });
+    }),
+    (error) => error.code === "invalid_response",
+  );
+  assert.deepEqual(schemaTried, ["a"]);
+  // All unavailable: the final error lists the chain (metadata only).
+  await assert.rejects(
+    withModelFallback(["a", "b"], async () => {
+      throw await httpError(429);
+    }),
+    (error) =>
+      error.code === "unavailable" &&
+      JSON.stringify(error.diagnostics.attemptedModels) ===
+        JSON.stringify(["a:429", "b:429"]),
+  );
+});
+
+test("analysis provider records the model that actually answered", async () => {
+  const urls = [];
+  const provider = new GeminiHttpCoachModelProvider(
+    {
+      apiKey: "k",
+      model: "primary",
+      fallbackModels: ["backup"],
+      temperature: 0,
+      timeoutMs: 1000,
+      maxOutputTokens: 10,
+      retryDelaysMs: [],
+    },
+    async (url) => {
+      urls.push(url);
+      return url.includes("/primary:")
+        ? new Response("{}", { status: 429 })
+        : new Response(
+            JSON.stringify({
+              candidates: [
+                {
+                  content: { parts: [{ text: '{"summary":1}' }] },
+                  finishReason: "STOP",
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+    },
+  );
+  const error = await provider
+    .analyze(
+      {
+        schemaVersion: "coach-request-v1",
+        dossier: { schemaVersion: "athlete-training-dossier-v7" },
+        userRequest: "q",
+        analysisMode: "question",
+        conversationContext: [],
+      },
+      "r",
+    )
+    .catch((failure) => failure);
+  assert.equal(urls.length, 2);
+  assert.match(urls[0], /models\/primary:generateContent/);
+  assert.match(urls[1], /models\/backup:generateContent/);
+  // The backup's (fixture) output fails the contract: no further rotation.
+  assert.equal(error.diagnostics.stage, "schema");
+  assert.deepEqual(error.diagnostics.attemptedModels, [
+    "primary:429",
+    "backup:invalid_response",
+  ]);
+});
+
+// ADR-0116: evidence references are anchored to the dossier in the schema.
+test("evidence in the response schema is restricted to the dossier's ids per kind", async () => {
+  const { groundEvidenceSchema, toGeminiResponseSchema } =
+    await import("../src/index.ts");
+  const { coachAnalysisModelOutputJsonSchema } =
+    await import("@athlete-coach/application");
+  const base = toGeminiResponseSchema(coachAnalysisModelOutputJsonSchema);
+  const allowed = new Set([
+    "workout_session:s1",
+    "workout_session:s2",
+    "workout_set:x9",
+  ]);
+  const grounded = groundEvidenceSchema(base, allowed);
+  const evidence = grounded.properties.evidenceUsed.items;
+  assert.equal(evidence.anyOf.length, 2, "one branch per kind present");
+  const byKind = Object.fromEntries(
+    evidence.anyOf.map((branch) => [
+      branch.properties.kind.enum[0],
+      branch.properties.id.enum,
+    ]),
+  );
+  assert.deepEqual(byKind, {
+    workout_session: ["s1", "s2"],
+    workout_set: ["x9"],
+  });
+  // Every evidence location is anchored: observations, hypotheses,
+  // recommendations, uncertainties.relatedEvidence and evidenceUsed.
+  const text = JSON.stringify(grounded);
+  assert.equal(text.includes('"enum":["s1","s2"]'), true);
+  assert.equal((text.match(/"enum":\["workout_session"\]/g) || []).length, 5);
+  for (const path of [
+    grounded.properties.observations.items.properties.evidence.items,
+    grounded.properties.hypotheses.items.properties.evidence.items,
+    grounded.properties.recommendations.items.properties.evidence.items,
+    grounded.properties.uncertainties.items.properties.relatedEvidence.items,
+  ])
+    assert.equal(path.anyOf.length, 2);
+  // No dossier evidence: schema unchanged (the grounding check still applies).
+  assert.deepEqual(groundEvidenceSchema(base, new Set()), base);
+});
+
+// ADR-0117: response schema ladder on HTTP 400 (schema too complex).
+test("schema ladder steps down only when Gemini rejects the schema (400)", async () => {
+  const {
+    evidenceSchemaLadder,
+    fetchWithSchemaLadder,
+    toGeminiResponseSchema,
+  } = await import("../src/index.ts");
+  const { coachAnalysisModelOutputJsonSchema } =
+    await import("@athlete-coach/application");
+  const base = toGeminiResponseSchema(coachAnalysisModelOutputJsonSchema);
+  const allowed = new Set(["workout_session:s1", "workout_set:x9"]);
+  const ladder = evidenceSchemaLadder(base, allowed);
+  assert.equal(ladder.length, 3, "full, top-level only, plain");
+  // Rung 2 anchors evidenceUsed but not the per-item evidence.
+  assert.ok(ladder[1].properties.evidenceUsed.items.anyOf);
+  assert.equal(
+    ladder[1].properties.observations.items.properties.evidence.items.anyOf,
+    undefined,
+  );
+  assert.deepEqual(ladder[2], base);
+  assert.equal(
+    evidenceSchemaLadder(base, new Set()).length,
+    1,
+    "no evidence: one rung",
+  );
+  const sent = [];
+  const fetcher = (statuses) => async (_url, init) => {
+    sent.push(JSON.parse(init.body).schema);
+    return new Response("{}", { status: statuses[sent.length - 1] ?? 200 });
+  };
+  const init = (schema) => ({
+    method: "POST",
+    body: JSON.stringify({ schema }),
+  });
+  sent.length = 0;
+  let response = await fetchWithSchemaLadder(
+    fetcher([400, 200]),
+    "u",
+    init,
+    ladder,
+    [],
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(sent, [ladder[0], ladder[1]]);
+  sent.length = 0;
+  response = await fetchWithSchemaLadder(
+    fetcher([400, 400, 400]),
+    "u",
+    init,
+    ladder,
+    [],
+  );
+  assert.equal(response.status, 400, "last rung's 400 is returned");
+  assert.equal(sent.length, 3);
+  sent.length = 0;
+  response = await fetchWithSchemaLadder(fetcher([429]), "u", init, ladder, []);
+  assert.equal(response.status, 429, "non-400 does not step down");
+  assert.equal(sent.length, 1);
+});

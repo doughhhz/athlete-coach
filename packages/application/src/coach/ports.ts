@@ -15,6 +15,8 @@ export type CoachProviderDiagnostics = Readonly<{
   status?: number | undefined;
   finishReason?: string | undefined;
   issuePaths?: readonly string[] | undefined;
+  /** Model fallback chain tried, as "model:status" (ADR-0115). */
+  attemptedModels?: readonly string[] | undefined;
 }>;
 export class CoachProviderError extends Error {
   readonly code: CoachProviderErrorCode;

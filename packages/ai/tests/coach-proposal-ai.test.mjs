@@ -319,3 +319,63 @@ test("proposal prompt v6: review history is supervision, never authority", () =>
     assert.match(COACH_PROPOSAL_PROMPT_V6, new RegExp(invariant, "i"));
   assert.match(COACH_PROPOSAL_PROMPT_V6, /coach-proposal-v3/);
 });
+
+// ADR-0114: the proposal request carries a structured-output schema for the
+// {"proposal": coach-proposal-v3 | null} envelope, adapted for Gemini.
+test("proposal requests Gemini structured output for the v3 envelope", async () => {
+  let body;
+  const provider = new GeminiHttpCoachProposalProvider(
+    {
+      apiKey: "placeholder",
+      model: "model",
+      temperature: 0,
+      timeoutMs: 1000,
+      maxOutputTokens: 100,
+      retryDelaysMs: [],
+    },
+    async (_url, init) => {
+      body = JSON.parse(init.body);
+      return new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ text: '{"proposal":null}' }] } }],
+        }),
+        { status: 200 },
+      );
+    },
+  );
+  assert.equal(
+    await provider.generate(
+      { analysis: {}, dossier: {}, sourceProgram: {} },
+      "request",
+    ),
+    null,
+    "an explicit null proposal is still accepted",
+  );
+  const schema = body.generationConfig.responseJsonSchema;
+  assert.equal(body.generationConfig.responseMimeType, "application/json");
+  assert.deepEqual(schema.required, ["proposal"]);
+  const variants = schema.properties.proposal.anyOf;
+  assert.ok(variants.some((variant) => variant.type === "null"));
+  const proposal = variants.find((variant) => variant.type === "object");
+  assert.deepEqual(proposal.properties.schemaVersion.enum, [
+    "coach-proposal-v3",
+  ]);
+  const text = JSON.stringify(schema);
+  for (const keyword of [
+    "oneOf",
+    "const",
+    "pattern",
+    "minimum",
+    "maximum",
+    "minLength",
+    "maxLength",
+    "minItems",
+    "maxItems",
+    "$schema",
+  ])
+    assert.equal(text.includes(`"${keyword}"`), false, keyword);
+  assert.ok(
+    text.includes('"replace_exercise"'),
+    "v3 action vocabulary present",
+  );
+});
