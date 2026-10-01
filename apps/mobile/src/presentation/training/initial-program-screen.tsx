@@ -50,13 +50,24 @@ const emptyDraft: Draft = {
   informEquipment: false,
   availableEquipment: [],
 };
-type Failure = Readonly<{ message: string; offerBasic: boolean }>;
+type Failure = Readonly<{
+  message: string;
+  code: string;
+  offerBasic: boolean;
+}>;
 /** Server error code and reason, read by shape (no infrastructure import). */
-function errorDetails(error: unknown): { code: string; reason: string | null } {
+function errorDetails(error: unknown): {
+  code: string;
+  reason: string | null;
+  /** Message of a local failure (e.g. saving the answers), if any. */
+  localMessage: string | null;
+} {
   const value = error as { code?: unknown; reason?: unknown } | null;
+  const code = typeof value?.code === "string" ? value.code : null;
   return {
-    code: typeof value?.code === "string" ? value.code : "program_failed",
+    code: code ?? "program_failed",
     reason: typeof value?.reason === "string" ? value.reason : null,
+    localMessage: !code && error instanceof Error ? error.message : null,
   };
 }
 
@@ -160,9 +171,10 @@ export function InitialProgramScreen() {
       }
       setRefusal(result.reason);
     } catch (error) {
-      const { code, reason } = errorDetails(error);
+      const { code, reason, localMessage } = errorDetails(error);
       setFailure({
-        message: initialProgramErrorMessage(code, reason),
+        message: localMessage ?? initialProgramErrorMessage(code, reason),
+        code,
         offerBasic: mode === "personal" && canOfferBasicTemplate(code),
       });
     } finally {
@@ -297,7 +309,11 @@ export function InitialProgramScreen() {
         </View>
       ) : null}
 
-      {validation ? <FormMessage>{validation}</FormMessage> : null}
+      {validation ? (
+        <FormMessage testID="initial-program-validation">
+          {validation}
+        </FormMessage>
+      ) : null}
       {refusal ? (
         <View testID="initial-program-refusal" style={s.notice}>
           <Text style={{ color: theme.colors.text, fontWeight: "700" }}>
@@ -308,7 +324,15 @@ export function InitialProgramScreen() {
       ) : null}
       {failure ? (
         <View testID="initial-program-error" style={s.notice}>
-          <FormMessage>{failure.message}</FormMessage>
+          <FormMessage testID="initial-program-error-message">
+            {failure.message}
+          </FormMessage>
+          <Text
+            testID="initial-program-error-code"
+            style={{ color: theme.colors.textMuted, fontSize: 12 }}
+          >
+            Código: {failure.code}
+          </Text>
           {failure.offerBasic ? (
             <>
               <Text style={{ color: theme.colors.textMuted }}>

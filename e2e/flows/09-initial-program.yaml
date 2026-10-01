@@ -33,29 +33,69 @@ tags:
     id: "intake-other-sports"
 - eraseText
 - inputText: "Corrida leve aos domingos"
-# Closes the keyboard: non-interactive text (keyboardShouldPersistTaps="handled").
+# Closes the keyboard: tap the intro text at the top, above the keyboard
+# (non-interactive text, keyboardShouldPersistTaps="handled"). A text below
+# may sit behind the keyboard and the tap would hit the keyboard instead.
 - scrollUntilVisible:
-    element: "Equipamentos dispon.veis"
+    element: "O Personal vai montar.*"
+    direction: UP
+- tapOn: "O Personal vai montar.*"
+- scrollUntilVisible:
+    element:
+      id: "intake-equipment-skip"
     direction: DOWN
-- tapOn: "Equipamentos dispon.veis"
 - tapOn:
     id: "intake-equipment-skip"
+# Centered: a partially visible button at the bottom edge ignores the tap.
 - scrollUntilVisible:
     element:
       id: "initial-program-generate"
     direction: DOWN
+    centerElement: true
 - tapOn:
     id: "initial-program-generate"
 - extendedWaitUntil:
     visible:
-      id: "program-activate|initial-program-error|initial-program-refusal"
+      # The description sits at the top; "Ativar" is below the reasons.
+      id: "program-description|initial-program-error|initial-program-refusal"
     timeout: 180000
+    optional: true
+# Diagnostics: name the situation when no outcome appeared.
+- runFlow:
+    when:
+      visible:
+        id: "initial-program-generating"
+    commands:
+      - assertVisible: "DIAG STILL GENERATING"
+- runFlow:
+    when:
+      visible:
+        id: "initial-program-validation"
+    commands:
+      - copyTextFrom:
+          id: "initial-program-validation"
+      - assertVisible: "${'DIAG VALIDATION - ' + maestro.copiedText}"
+- runFlow:
+    when:
+      visible:
+        id: "initial-program-error-code"
+    commands:
+      - copyTextFrom:
+          id: "initial-program-error-message"
+      - evalScript: ${output.errorMessage = maestro.copiedText}
+      - copyTextFrom:
+          id: "initial-program-error-code"
+      - assertVisible: "${'DIAG ' + maestro.copiedText + ' - ' + output.errorMessage}"
+- runFlow:
+    when:
+      visible:
+        id: "initial-program-generate"
+    commands:
+      - assertVisible: "DIAG STILL ON THE FORM WITHOUT MESSAGE"
 - assertNotVisible:
     id: "initial-program-error"
 - assertNotVisible:
     id: "initial-program-refusal"
-- assertVisible:
-    id: "program-description"
 - assertVisible: "Status: Rascunho .*"
 - takeScreenshot: 09-initial-program-draft
 # Each exercise carries the Personal's reason; load is chosen by the athlete.

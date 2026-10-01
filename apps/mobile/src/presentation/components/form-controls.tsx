@@ -136,11 +136,17 @@ export function ChoiceButton({
 export function FormMessage({
   children,
   tone = "error",
-}: PropsWithChildren<{ tone?: "error" | "info" }>) {
+  testID,
+}: PropsWithChildren<{
+  tone?: "error" | "info";
+  /** Stable E2E selector (Maestro); never read by application logic. */
+  testID?: string;
+}>) {
   const theme = useAppTheme();
   return (
     <Text
       accessibilityLiveRegion="polite"
+      testID={testID}
       style={[
         styles.message,
         { color: tone === "error" ? theme.colors.danger : theme.colors.accent },
