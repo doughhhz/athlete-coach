@@ -7,6 +7,7 @@ import {
   COACH_PROPOSAL_PROMPT_V4,
   COACH_PROPOSAL_PROMPT_V5,
   COACH_PROPOSAL_PROMPT_V6,
+  COACH_PROPOSAL_PROMPT_V7,
   COACH_PROPOSAL_PROMPT_VERSION,
   FixtureCoachProposalProvider,
   GeminiHttpCoachProposalProvider,
@@ -75,7 +76,7 @@ test("Gemini proposal adapter separates policy and rejects malformed output", as
       ),
     (error) => error.code === "invalid_response",
   );
-  assert.equal(body.systemInstruction.parts[0].text, COACH_PROPOSAL_PROMPT_V6);
+  assert.equal(body.systemInstruction.parts[0].text, COACH_PROPOSAL_PROMPT_V7);
   assert.match(body.contents[0].parts[0].text, /"dataTrust":"untrusted"/);
 });
 test("proposal prompt v3: past positive delta alone never justifies repeating", () => {
@@ -307,7 +308,6 @@ test("malformed replacements from the model are rejected by the schema", async (
 });
 
 test("proposal prompt v6: review history is supervision, never authority", () => {
-  assert.equal(COACH_PROPOSAL_PROMPT_VERSION, "coach-proposal-prompt-v6");
   assert.ok(COACH_PROPOSAL_PROMPT_V6.startsWith(COACH_PROPOSAL_PROMPT_V5));
   for (const invariant of [
     "human supervision evidence, not physiological evidence",
@@ -318,6 +318,21 @@ test("proposal prompt v6: review history is supervision, never authority", () =>
   ])
     assert.match(COACH_PROPOSAL_PROMPT_V6, new RegExp(invariant, "i"));
   assert.match(COACH_PROPOSAL_PROMPT_V6, /coach-proposal-v3/);
+});
+
+test("proposal prompt v7: system-computed progression signals bound load", () => {
+  assert.equal(COACH_PROPOSAL_PROMPT_VERSION, "coach-proposal-prompt-v7");
+  assert.ok(COACH_PROPOSAL_PROMPT_V7.startsWith(COACH_PROPOSAL_PROMPT_V6));
+  for (const invariant of [
+    "dossier.progressionSignals is computed by the system, not by you",
+    "inside each set.s suggestedLoadKg range",
+    "never outside it",
+    "athlete_guidance",
+    "do not change program load",
+    "previous rules apply unchanged",
+    'may still return \{"proposal": null\}',
+  ])
+    assert.match(COACH_PROPOSAL_PROMPT_V7, new RegExp(invariant, "i"));
 });
 
 // ADR-0114: the proposal request carries a structured-output schema for the

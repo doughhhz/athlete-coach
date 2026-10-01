@@ -2,16 +2,19 @@
 # proposal (second Gemini call), review it and approve a draft revision
 # ("Criar revisao em rascunho"), then open the materialized draft. Activation
 # stays a human decision and is NOT done here.
-# The flow first records 3 workouts clearly easier than planned (12 reps at
-# RIR 4 vs 8-10 at RIR 2), so the data justifies an adjustment. Still
-# model-dependent: excluded from the default suite; run with
-# -IncludeTags coach-proposal. Uses 2 Gemini calls.
+# The flow first creates and activates a program with a PRESCRIBED load of
+# 40 kg, then records 3 workouts clearly easier than planned (12 reps x 40 kg
+# at RIR 4 vs 8-10 at RIR 2). The system then computes an "above plan"
+# progression signal with an allowed range of 41-42 kg (ADR-0118), which the
+# proposal must respect. Still model-dependent: excluded from the default
+# suite; run with -IncludeTags coach-proposal. Uses 2 Gemini calls.
 appId: app.athletecoach.e2e
 name: 08-coach-proposal
 tags:
   - coach-proposal
 ---
 - runFlow: ../subflows/sign-in-to-tabs.yaml
+- runFlow: ../subflows/create-prescribed-load-program.yaml
 - repeat:
     times: 3
     commands:
@@ -25,7 +28,7 @@ tags:
     timeout: 20000
 - tapOn:
     id: "coach-question"
-- inputText: "Meus ultimos treinos ficaram faceis: fiz 12 repeticoes com 40 kg e RIR 4, e o plano era 8 a 10 repeticoes com RIR 2. Sugira um ajuste concreto no meu programa ativo."
+- inputText: "Meus ultimos treinos ficaram faceis: fiz 12 repeticoes com os 40 kg prescritos e RIR 4, e o plano era 8 a 10 repeticoes com RIR 2. Sugira um ajuste concreto no meu programa ativo."
 - tapOn: "Cria..o autom.tica de rascunho"
 - scrollUntilVisible:
     element:
@@ -57,6 +60,11 @@ tags:
     timeout: 150000
 - takeScreenshot: 08-proposal
 - tapOn: "Revisar proposta"
+# The system range for 40 kg is 41-42 kg; validation rejects anything else.
+- scrollUntilVisible:
+    element: ".*4(1|1.5|2) kg.*"
+    direction: DOWN
+    timeout: 30000
 # Review screen: confirm elevated review when required, then materialize.
 - scrollUntilVisible:
     element: "Criar revis.o em rascunho"

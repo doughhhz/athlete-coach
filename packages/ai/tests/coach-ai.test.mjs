@@ -183,7 +183,7 @@ test("coach-system-v6 adds the draft review policy on top of v5 verbatim", () =>
 test("provider failures expose safe diagnostics (status, finish reason, issue paths)", async () => {
   const request = {
     schemaVersion: "coach-request-v1",
-    dossier: { schemaVersion: "athlete-training-dossier-v7" },
+    dossier: { schemaVersion: "athlete-training-dossier-v8" },
     userRequest: "Pergunta privada do atleta",
     analysisMode: "question",
     conversationContext: [],
@@ -339,7 +339,7 @@ test("transient 5xx is retried; persistent or non-transient errors are not hidde
     .analyze(
       {
         schemaVersion: "coach-request-v1",
-        dossier: { schemaVersion: "athlete-training-dossier-v7" },
+        dossier: { schemaVersion: "athlete-training-dossier-v8" },
         userRequest: "q",
         analysisMode: "question",
         conversationContext: [],
@@ -379,7 +379,7 @@ test("analysis requests Gemini structured output derived from the contract", asy
     .analyze(
       {
         schemaVersion: "coach-request-v1",
-        dossier: { schemaVersion: "athlete-training-dossier-v7" },
+        dossier: { schemaVersion: "athlete-training-dossier-v8" },
         userRequest: "q",
         analysisMode: "question",
         conversationContext: [],
@@ -503,7 +503,7 @@ test("analysis provider records the model that actually answered", async () => {
     .analyze(
       {
         schemaVersion: "coach-request-v1",
-        dossier: { schemaVersion: "athlete-training-dossier-v7" },
+        dossier: { schemaVersion: "athlete-training-dossier-v8" },
         userRequest: "q",
         analysisMode: "question",
         conversationContext: [],

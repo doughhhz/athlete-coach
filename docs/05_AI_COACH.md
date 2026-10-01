@@ -143,3 +143,7 @@ Nenhum prompt ou contrato mudou (`coach-system-v5`, `coach-proposal-prompt-v5`, 
 ## Implementation Phase 18 — Dossier v7
 
 `athlete-training-dossier-v7` = v6 com evidência de revisão v2 (`matchingStrategy`, categoria `sequence_changed`). Prompts permanecem `coach-system-v6` e `coach-proposal-prompt-v6`: as regras de raciocínio não mudaram e o modelo nunca recebe identificadores de linhagem.
+
+## Implementation Phase 20 — Sinais de progressão determinísticos (ADR-0118)
+
+`athlete-training-dossier-v8` = v7 + `progressionSignals` (`progression-signals-v1`). O sistema decide se as 3 sessões concluídas mais recentes de uma prescrição ficaram todas acima do planejado (valor ≥ alvo máximo e RIR > RIR máximo) ou todas abaixo (valor < alvo mínimo e RIR < RIR mínimo). Com carga absoluta prescrita, o sistema também calcula a faixa de carga: +2,5% a +5% (0,5 kg, mínimo +1 kg) ou −5% a −10%. Com carga escolhida pelo atleta, o sinal pede só orientação. `coach-proposal-prompt-v7` = v6 + regra de usar a faixa. A validação rejeita carga fora da faixa e mudança de carga do programa em sinal de orientação. O modelo interpreta e pode não propor nada; ele não calcula a faixa. `coach-system-v6`, `coach-analysis-v1` e `coach-proposal-v3` não mudaram.

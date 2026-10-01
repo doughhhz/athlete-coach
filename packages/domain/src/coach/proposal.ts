@@ -6,6 +6,10 @@ import type {
 import type { CoachDecisionAutoDraft } from "../coach-auto-draft/auto-draft.ts";
 import type { EvidenceReference } from "../dossier/dossier.ts";
 import {
+  progressionLoadRuleFor,
+  type ProgressionSignal,
+} from "../progression/progression.ts";
+import {
   relationsBetween,
   sameRelationContext,
   type ExerciseRelationEdge,
@@ -486,6 +490,8 @@ export function validateCoachProposal(
     replacementCandidates?: ExerciseReplacementContext | null;
     /** Stored relation edges used to re-derive the real relation context. */
     exerciseRelations?: readonly ExerciseRelationEdge[];
+    /** Deterministic progression signals of the dossier (ADR-0118). */
+    progressionSignals?: readonly ProgressionSignal[];
   }>,
 ): ProposalValidationResult {
   const issues: ProposalValidationIssue[] = [];
@@ -680,6 +686,26 @@ export function validateCoachProposal(
       message:
         "Carga absoluta de uma prescrição trocada é definida apenas pela transição de carga da troca.",
     });
+  // Deterministic progression signals bound absolute-load changes (ADR-0118).
+  for (const action of proposal.actions) {
+    if (action.kind !== "adjust_absolute_load_target") continue;
+    const rule = progressionLoadRuleFor(
+      context.progressionSignals ?? [],
+      action.prescriptionSetId,
+    );
+    if (!rule.covered) continue;
+    if (!rule.range)
+      issues.push({
+        code: "invalid_action",
+        message:
+          "A carga desta série é escolhida pelo atleta: o sinal de progressão pede orientação, não mudança de carga no programa.",
+      });
+    else if (action.loadKg < rule.range.min || action.loadKg > rule.range.max)
+      issues.push({
+        code: "invalid_action",
+        message: `A carga proposta (${action.loadKg} kg) está fora da faixa calculada pelo sistema (${rule.range.min}–${rule.range.max} kg).`,
+      });
+  }
   for (const prescription of touchedPrescriptions.values()) {
     const result = materializeProposalPrescription(
       prescription,

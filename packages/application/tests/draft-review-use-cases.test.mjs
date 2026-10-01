@@ -198,7 +198,7 @@ test("dossier v6 embeds the bounded review history only when composed", async ()
     null,
   ];
   const without = await new BuildAthleteTrainingDossier(...base).execute();
-  assert.equal(without.schemaVersion, "athlete-training-dossier-v7");
+  assert.equal(without.schemaVersion, "athlete-training-dossier-v8");
   assert.equal(without.draftReviewHistory, null);
   const { reviews } = setup([decision("aa", "materialized", "unchanged")]);
   const withReviews = await new BuildAthleteTrainingDossier(

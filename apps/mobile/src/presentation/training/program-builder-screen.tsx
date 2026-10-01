@@ -592,6 +592,7 @@ export function ProgramBuilderScreen() {
                       }[kind]
                     }
                     active={set.loadKind === kind}
+                    testID={`builder-set-load-kind-${kind}`}
                     onPress={() =>
                       updateSet(pi, si, {
                         loadKind: kind,
@@ -605,6 +606,7 @@ export function ProgramBuilderScreen() {
                 <NumberField
                   label="Carga (kg)"
                   value={set.loadKg}
+                  testID="builder-set-load-kg"
                   onChange={(v) => updateSet(pi, si, { loadKg: v })}
                 />
               ) : null}
@@ -811,10 +813,13 @@ function NumberField({
   label,
   value,
   onChange,
+  testID,
 }: {
   label: string;
   value: number | null;
   onChange(v: number | null): void;
+  /** Stable E2E selector (Maestro); never read by application logic. */
+  testID?: string;
 }) {
   const shown = value === null || Number.isNaN(value) ? "" : String(value);
   const [text, setText] = useState(shown);
@@ -830,6 +835,7 @@ function NumberField({
       <Field
         label={label}
         value={text}
+        {...(testID ? { testID } : {})}
         onChangeText={(next) => {
           const parsed = parseNumber(next);
           setText(next);
@@ -844,15 +850,19 @@ function Select({
   label,
   active,
   onPress,
+  testID,
 }: {
   label: string;
   active: boolean;
   onPress(): void;
+  /** Stable E2E selector (Maestro); never read by application logic. */
+  testID?: string;
 }) {
   const theme = useAppTheme();
   return (
     <Pressable
       onPress={onPress}
+      testID={testID}
       style={[
         s.select,
         {

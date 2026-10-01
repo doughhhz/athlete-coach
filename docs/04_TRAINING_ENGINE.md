@@ -189,3 +189,7 @@ Nenhum cliente consegue criar um rascunho vazio por inserção direta.
 ## Correção pós-fronteira de criação — Validação do agregado sem atalhos
 
 Antes, um cliente conseguia, por RLS, criar um bloco sem semanas ou apagar a única série de um exercício no próprio rascunho, contornando as invariantes de estrutura completa. Agora toda mutação de estrutura passa pela validação canônica do agregado. As operações de edição do builder (Implementation Phase 19) continuam locais e são enviadas como uma árvore inteira em uma única RPC.
+
+## Implementation Phase 20 — Sinais de progressão (ADR-0118)
+
+Função pura `deriveProgressionSignals(programaAtivo, sessões)`. A janela são as 3 sessões concluídas mais recentes com séries concluídas da prescrição; séries puladas e sessões abandonadas são ignoradas. Para ser "acima", a carga usada deve ser ≥ a prescrita; para ser "abaixo", ≤ a prescrita. Faixas em kg, múltiplos de 0,5 kg: `suggestedLoadIncrease` (+2,5% a +5%, mínimo +1 kg) e `suggestedLoadDecrease` (−5% a −10%; quando a banda é menor que 0,5 kg, usa o múltiplo imediatamente abaixo). O sinal não altera o programa: só limita o que uma proposta pode pedir, e a aplicação continua exigindo aprovação humana.

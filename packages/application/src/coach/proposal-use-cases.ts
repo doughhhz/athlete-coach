@@ -153,6 +153,8 @@ export class GenerateCoachProposal {
       // Candidates come from the backend-built dossier (stored relation graph),
       // never from the model output (ADR-0069).
       replacementCandidates: dossier.exerciseReplacementCandidates,
+      // System-computed load range bounds absolute-load changes (ADR-0118).
+      progressionSignals: dossier.progressionSignals,
     });
     const assessment = assessCoachProposalGovernance({
       proposal,

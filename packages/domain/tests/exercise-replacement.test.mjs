@@ -853,7 +853,7 @@ test("dossier v5 carries bounded candidates, compact pairs and no cross deltas",
       catalog,
     ),
   });
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v7");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v8");
   assert.equal(dossier.exerciseReplacementCandidates.items.length, 1);
   assert.equal(
     dossier.exerciseReplacementCandidates.items[0].candidates.length,

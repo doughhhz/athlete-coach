@@ -120,6 +120,15 @@ export function collectDossierEvidenceIds(
         version: null,
       })),
     ]) ?? []),
+    // Older dossiers (< v8) have no progression signals.
+    ...(dossier.progressionSignals ?? []).flatMap((signal) => [
+      { kind: "exercise" as const, id: signal.exerciseId, version: null },
+      ...signal.sessionIds.map((id) => ({
+        kind: "workout_session" as const,
+        id,
+        version: null,
+      })),
+    ]),
   ];
   return new Set(refs.map((reference) => `${reference.kind}:${reference.id}`));
 }

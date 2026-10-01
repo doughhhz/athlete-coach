@@ -904,7 +904,7 @@ test("dossier v3 embeds bounded history and exposes its evidence for grounding",
     generatedAt: "2026-09-20T00:00:00.000Z",
     interventionHistory: history,
   });
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v7");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v8");
   assert.equal(dossier.interventionHistory.included, 1);
   const ids = collectDossierEvidenceIds(dossier);
   assert.ok(ids.has("coach_decision:decision-1"));

@@ -1076,3 +1076,30 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - Conclusão: a complexidade cresce com o número de ids do dossier.
 - Decisão: cada chamada tenta, em ordem, (1) ancoragem completa, (2) ancoragem só nas listas gerais (`evidenceUsed`/`evidenceReferences`) e (3) schema sem ancoragem. Só HTTP 400 passa ao próximo degrau; os demais status seguem as ADR-0109 e 0115. Degraus idênticos são omitidos. A checagem determinística de grounding vale em todos os degraus, então evidência inventada continua sendo rejeitada. Não usar `$ref`/`$defs`.
 - Afetados: `packages/ai` (`evidenceSchemaLadder`, `fetchWithSchemaLadder` e os dois providers). Prompts, contratos e validação não mudaram.
+
+### ADR-0118 — Deterministic progression signals bound absolute-load proposals
+
+- Data: 2026-10-01
+- Status: accepted
+- Complementa as ADR-0089/0094 (dossier e prompt de proposta). Nada é marcado como superseded: dossier v7 e `coach-proposal-prompt-v6` permanecem históricos.
+- Contexto:
+  - A avaliação manual de propostas (`scripts/eval-coach-proposals.mjs`) usa um atleta sintético que fez 12 repetições × 40 kg com RIR 4 em todas as séries, contra um plano de 8–10 com RIR 2. Mesmo assim, o `gemini-3.5-flash-lite` devolveu `{"proposal": null}` em todas as rodadas, com e sem schema, enquanto a análise recomendava `training_adjustment`.
+  - O dossier não trazia nenhum sinal calculado de progressão. A decisão "subir carga" e o tamanho do ajuste ficavam com o modelo, o que contraria "IA interpreta. O sistema calcula."
+- Decisão (parâmetros aprovados pelo usuário):
+  1. **Sinal** (`progression-signals-v1`, `packages/domain/src/progression`): para cada prescrição do programa ativo, consideram-se as **3 sessões concluídas mais recentes** que registraram séries concluídas dessa prescrição (pelo id de origem gravado; uma nova revisão começa uma janela nova).
+     - **Acima do planejado:** todas as séries concluídas com valor **≥ alvo máximo** e RIR **> RIR máximo planejado**.
+     - **Abaixo do planejado:** todas com valor **< alvo mínimo** e RIR **< RIR mínimo planejado**.
+     - **Sem sinal:** dados mistos, menos de 3 sessões, RIR não registrado ou RIR não planejado.
+  2. **Faixa calculada pelo sistema**, somente para carga absoluta prescrita:
+     - aumento de **+2,5% a +5%**, em múltiplos de **0,5 kg**, com mínimo de **+1 kg** (40 kg → 41–42 kg);
+     - redução de **−5% a −10%** (40 kg → 36–38 kg).
+     - Com carga escolhida pelo atleta (ou não prescrita), a recomendação é `athlete_guidance`: orientar o atleta, sem mudança de carga no programa.
+  3. **Dossier `athlete-training-dossier-v8`** = v7 + `progressionSignals`. O dossier traz a evidência `derived_calculation:progression_signals`, e as sessões e o exercício de cada sinal entram no conjunto de evidências válidas.
+  4. **Validação determinística:** `adjust_absolute_load_target` em uma série coberta por sinal precisa ficar **dentro** da faixa. Em série de `athlete_guidance`, a ação é rejeitada. Sem sinal para a série, as regras anteriores valem sem mudança.
+  5. **`coach-proposal-prompt-v7`** = v6 + regra: com sinal `program_load_change`, propor o ajuste dentro da faixa citando as sessões do sinal. O modelo continua podendo devolver `{"proposal": null}` por segurança ou por falta de fatos.
+- Hipóteses registradas como decisões de implementação, não fornecidas pelo usuário:
+  - "Acima" exige que a carga usada seja ≥ a prescrita, e "abaixo" exige carga ≤ a prescrita. Usar menos carga não prova que o plano está fácil, e falhar com mais carga não prova que está pesado.
+  - Quando a banda de redução é menor que 0,5 kg, usa-se o múltiplo de 0,5 kg imediatamente abaixo da carga atual. Sem carga positiva possível, não há faixa.
+  - A métrica é genérica (`actualValue` versus o alvo planejado), não só repetições.
+- Inalterados: `coach-analysis-v1`, `coach-system-v6`, `coach-proposal-v3`, Safety Gate, governança `coach-governance-v1`, aprovação humana e `coach-auto-draft-v1`.
+- Afetados: `packages/domain` (progression, dossier, `collectDossierEvidenceIds`, `validateCoachProposal`), `packages/application` (`GenerateCoachProposal` passa os sinais à validação), `packages/ai` (prompt v7), `scripts/eval-coach-proposals.mjs` e `e2e/flows/08-coach-proposal.yaml`. Sem migration: o dossier é calculado a cada requisição.

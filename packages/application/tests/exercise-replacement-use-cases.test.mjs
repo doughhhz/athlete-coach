@@ -166,7 +166,7 @@ function dossierBuilder(activeProgram) {
 
 test("dossier v5 carries bounded candidates for the active program exercises", async () => {
   const dossier = await dossierBuilder(program(uuid(1), A)).execute();
-  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v7");
+  assert.equal(dossier.schemaVersion, "athlete-training-dossier-v8");
   assert.deepEqual(
     dossier.exerciseReplacementCandidates.items.map(
       (item) => item.sourceExerciseId,

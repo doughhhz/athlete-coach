@@ -190,3 +190,9 @@ Nada mudou em UX, Coach, Auto-Draft, prompts, dossier ou Edge.
 A dívida registrada após a ADR-0103 (escrita direta nas tabelas de estrutura) foi fechada. Toda mutação de estrutura de rascunho acontece pelo salvamento completo ou pelos caminhos controlados de criação, revisão e materialização.
 
 Nada mudou em UX, Coach, Auto-Draft, prompts, dossier ou Edge.
+
+## Implementation Phase 20 — Deterministic Progression Signals — complete
+
+Sinais de progressão calculados pelo sistema no dossier v8, faixa de carga validada de forma determinística e prompt de proposta v7 (ADR-0118). Sem migration. Coach, governança, Safety Gate, aprovação humana e `coach-auto-draft-v1` mantêm as mesmas regras.
+
+Fora de escopo, para fase futura e ainda aguardando decisão: gerar um programa inicial (e metas nutricionais estimadas) logo após o onboarding.

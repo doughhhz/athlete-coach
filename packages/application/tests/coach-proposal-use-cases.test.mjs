@@ -139,12 +139,12 @@ const proposal = {
     dossierSchemaVersion: "athlete-training-dossier-v1",
   },
 };
-function dependencies(output = proposal) {
+function dependencies(output = proposal, dossierValue = dossier) {
   const saved = [];
   return {
     saved,
     useCase: new GenerateCoachProposal(
-      { execute: async () => dossier },
+      { execute: async () => dossierValue },
       { getActive: async () => program },
       { generate: async () => output },
       {
@@ -185,6 +185,56 @@ test("rejects dangling IDs before persistence", async () => {
     CoachProposalValidationError,
   );
   assert.equal(saved.length, 0);
+});
+// ADR-0118: the system-computed range bounds absolute-load changes.
+test("rejects an absolute load outside the progression signal range", async () => {
+  const withSignal = {
+    ...dossier,
+    progressionSignals: [
+      {
+        version: "progression-signals-v1",
+        trainingDayId: ids.day,
+        exercisePrescriptionId: ids.prescription,
+        exerciseId: "x",
+        exerciseName: "E",
+        direction: "above_plan",
+        recommendation: "program_load_change",
+        sessionIds: [],
+        completedSetCount: 3,
+        sets: [
+          {
+            prescriptionSetId: ids.set,
+            loadKind: "absolute",
+            currentLoadKg: 40,
+            suggestedLoadKg: { min: 41, max: 42 },
+          },
+        ],
+      },
+    ],
+  };
+  const load = (loadKg) => ({
+    ...proposal,
+    actions: [
+      {
+        kind: "adjust_absolute_load_target",
+        trainingDayId: ids.day,
+        exercisePrescriptionId: ids.prescription,
+        prescriptionSetId: ids.set,
+        loadKg,
+        rationale: "Sinal de progressão",
+        evidence: [evidence],
+      },
+    ],
+  });
+  const outside = dependencies(load(45), withSignal);
+  await assert.rejects(
+    () => outside.useCase.execute(analysisRecord(analysis, program)),
+    CoachProposalValidationError,
+  );
+  assert.equal(outside.saved.length, 0);
+  const inside = dependencies(load(42), withSignal);
+  await inside.useCase.execute(analysisRecord(analysis, program));
+  assert.equal(inside.saved.length, 1);
 });
 test("blocks proposal generation for safety-sensitive analysis", async () => {
   const { useCase } = dependencies();

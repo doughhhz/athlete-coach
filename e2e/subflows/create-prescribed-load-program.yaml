@@ -1,0 +1,66 @@
+# Creates and activates a one-day program whose only set has a PRESCRIBED
+# absolute load of 40 kg (builder defaults: 8-10 reps at RIR 2). Activation
+# archives the previous active program, so the progression window starts
+# fresh for this run (ADR-0118). Starts and ends on the main tabs.
+appId: app.athletecoach.e2e
+---
+- evalScript: ${output.programName = 'E2E Carga ' + Date.now()}
+- runFlow: open-treino-loaded.yaml
+- tapOn:
+    id: "training-create-program"
+- extendedWaitUntil:
+    visible:
+      id: "builder-program-name"
+    timeout: 20000
+- tapOn:
+    id: "builder-program-name"
+- inputText: ${output.programName}
+# Closes the keyboard: non-interactive text (keyboardShouldPersistTaps="handled").
+- tapOn: "Monte a inten.*"
+- scrollUntilVisible:
+    element:
+      id: "builder-exercise-.*"
+    direction: DOWN
+- tapOn:
+    id: "builder-exercise-.*"
+    index: 0
+- scrollUntilVisible:
+    element:
+      id: "builder-set-load-kind-absolute"
+    direction: DOWN
+- tapOn:
+    id: "builder-set-load-kind-absolute"
+- scrollUntilVisible:
+    element:
+      id: "builder-set-load-kg"
+    direction: DOWN
+- tapOn:
+    id: "builder-set-load-kg"
+- inputText: "40"
+- tapOn: 'Carga \(kg\)'
+- scrollUntilVisible:
+    element:
+      id: "builder-save"
+    direction: DOWN
+- tapOn:
+    id: "builder-save"
+- extendedWaitUntil:
+    visible:
+      id: "program-activate"
+    timeout: 30000
+- assertVisible: ".*40 kg.*"
+- scrollUntilVisible:
+    element:
+      id: "program-activate"
+    direction: DOWN
+- tapOn:
+    id: "program-activate"
+- extendedWaitUntil:
+    visible:
+      id: "program-start-workout"
+    timeout: 30000
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "tab-index"
+    timeout: 45000

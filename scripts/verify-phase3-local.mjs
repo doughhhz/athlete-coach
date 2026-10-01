@@ -446,7 +446,7 @@ assert.equal(performanceHistory.at(-1)?.isNewEstimatedOneRepMax, true);
 assert.equal((await reloaded.personalBests.execute())[0].maxLoggedLoadKg, 35);
 const overviewBeforeReload = await reloaded.performanceOverview.execute();
 const dossierBeforeReload = await reloaded.dossier.execute();
-assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v7");
+assert.equal(dossierBeforeReload.schemaVersion, "athlete-training-dossier-v8");
 assert.equal(dossierBeforeReload.activeProgram?.id, revision.id);
 assert.equal(dossierBeforeReload.windows.at(-1)?.sessionsStarted, 3);
 assert.equal(dossierBeforeReload.exerciseSignals.length, 1);
@@ -996,7 +996,7 @@ const dossierV3 = await new BuildAthleteTrainingDossier(
   outcomeClock,
   memoryUseCases.context,
 ).execute();
-assert.equal(dossierV3.schemaVersion, "athlete-training-dossier-v7");
+assert.equal(dossierV3.schemaVersion, "athlete-training-dossier-v8");
 assert.equal(dossierV3.interventionHistory.totalAvailable, 3);
 assert.equal(dossierV3.responseMemory.groups.included, 1);
 assert.equal(dossierV3.responseMemory.truncation.groupLimit, 10);
@@ -1044,7 +1044,7 @@ const learningAnalysis = await new AnalyzeAthleteWithCoach(
 });
 assert.equal(
   capturedRequest.dossier.schemaVersion,
-  "athlete-training-dossier-v7",
+  "athlete-training-dossier-v8",
 );
 assert.equal(
   capturedRequest.dossier.responseMemory.groups.items[0].key,
@@ -1052,7 +1052,7 @@ assert.equal(
 );
 assert.equal(
   learningAnalysis.metadata.dossierSchemaVersion,
-  "athlete-training-dossier-v7",
+  "athlete-training-dossier-v8",
 );
 assert.equal(
   (
@@ -1355,7 +1355,7 @@ const dossierV4 = await new BuildAthleteTrainingDossier(
   outcomeClock,
   memoryUseCases.context,
 ).execute();
-assert.equal(dossierV4.schemaVersion, "athlete-training-dossier-v7");
+assert.equal(dossierV4.schemaVersion, "athlete-training-dossier-v8");
 assert.ok(
   dossierV4.responseMemory.groups.items.some(
     (group) => group.key === setGroup.key,
@@ -1397,7 +1397,7 @@ await new AnalyzeAthleteWithCoach(
   new DeterministicCoachSafetyPolicy(),
   () => "phase13-request",
 ).execute({ userRequest: "E as séries?", analysisMode: "question" });
-assert.equal(capturedV4.dossier.schemaVersion, "athlete-training-dossier-v7");
+assert.equal(capturedV4.dossier.schemaVersion, "athlete-training-dossier-v8");
 assert.equal(
   (
     await new SupabaseCoachDecisionRepository(
@@ -1482,7 +1482,7 @@ await trainDay(
 );
 let rApi = replacementApi();
 const dossierR = await rApi.dossier.execute();
-assert.equal(dossierR.schemaVersion, "athlete-training-dossier-v7");
+assert.equal(dossierR.schemaVersion, "athlete-training-dossier-v8");
 const candidateSet = dossierR.exerciseReplacementCandidates.items.find(
   (item) => item.sourceExerciseId === EX_X,
 );
@@ -1718,7 +1718,7 @@ assert.doesNotMatch(
 );
 // Dossier v5 reaches the (fake) Coach; nothing is proposed or activated.
 const dossierV5 = await rApi.dossier.execute();
-assert.equal(dossierV5.schemaVersion, "athlete-training-dossier-v7");
+assert.equal(dossierV5.schemaVersion, "athlete-training-dossier-v8");
 assert.deepEqual(
   dossierV5.exerciseReplacementCandidates.items.map(
     (item) => item.sourceExerciseId,
@@ -1749,7 +1749,7 @@ await new AnalyzeAthleteWithCoach(
   new DeterministicCoachSafetyPolicy(),
   () => "phase14-request",
 ).execute({ userRequest: "Posso trocar o supino?", analysisMode: "question" });
-assert.equal(capturedV5.dossier.schemaVersion, "athlete-training-dossier-v7");
+assert.equal(capturedV5.dossier.schemaVersion, "athlete-training-dossier-v8");
 assert.ok(capturedV5.dossier.exerciseReplacementCandidates);
 assert.equal(
   (
@@ -2534,7 +2534,7 @@ assert.deepEqual(
     null,
     new ListCoachDraftReviewHistory(reviews),
   ).execute();
-  assert.equal(dossierV6.schemaVersion, "athlete-training-dossier-v7");
+  assert.equal(dossierV6.schemaVersion, "athlete-training-dossier-v8");
   assert.ok(dossierV6.draftReviewHistory.items.length <= 8);
   let capturedV6 = null;
   await new AnalyzeAthleteWithCoach(
@@ -2556,7 +2556,7 @@ assert.deepEqual(
     userRequest: "Como foram minhas revisões?",
     analysisMode: "question",
   });
-  assert.equal(capturedV6.dossier.schemaVersion, "athlete-training-dossier-v7");
+  assert.equal(capturedV6.dossier.schemaVersion, "athlete-training-dossier-v8");
   assert.ok(
     capturedV6.dossier.draftReviewHistory.items.some(
       (item) => item.decisionId === decisionD.id,
