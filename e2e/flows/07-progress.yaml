@@ -1,0 +1,50 @@
+# Progress & history: workouts recorded by 04-workout (8 reps x 40 kg) show
+# up as derived facts (totals, best marks, per-exercise history) on the
+# Progress tab, and a past workout opens its factual summary from the Treino
+# history. Only deterministic values are asserted (no model involved).
+# Requires at least one 04-workout run for the account.
+appId: app.athletecoach.e2e
+name: 07-progress
+tags:
+  - progress
+---
+- runFlow: ../subflows/sign-in-to-tabs.yaml
+- tapOn:
+    id: "tab-progresso"
+- extendedWaitUntil:
+    visible: "Treinos conclu.dos: [1-9][0-9]*"
+    timeout: 30000
+- assertVisible: "S.ries conclu.das: [1-9][0-9]*"
+- assertVisible: "Reps registradas: [1-9][0-9]*"
+- takeScreenshot: 07-progress-overview
+# Best marks: the load recorded by 04-workout. Pressable cards merge their
+# texts into one accessibility label on iOS, hence the surrounding ".*".
+- scrollUntilVisible:
+    element: ".*Maior carga registrada: 40([.,]0+)? kg.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn: ".*Maior carga registrada: 40([.,]0+)? kg.*"
+- scrollUntilVisible:
+    element: "Hist.rico . .*"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: "Carga . o valor registrado para este mesmo exerc.cio.*"
+- takeScreenshot: 07-progress-exercise-history
+# Treino history: a past workout opens its factual summary.
+- runFlow: ../subflows/open-treino-loaded.yaml
+- scrollUntilVisible:
+    element: "Hist.rico de treinos"
+    direction: DOWN
+    timeout: 20000
+- scrollUntilVisible:
+    element: ".*Conclu.do.*"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    text: ".*Conclu.do.*"
+    index: 0
+- extendedWaitUntil:
+    visible: "Resumo factual"
+    timeout: 30000
+- assertVisible: "Conclu.do .* [1-9][0-9]* conclu.das .*"
+- takeScreenshot: 07-progress-past-summary

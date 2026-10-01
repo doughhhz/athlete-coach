@@ -114,6 +114,7 @@ npx supabase db push --include-seed
 | `04-workout` | Inicia o treino pelo programa ativo (ou continua um que tenha ficado em andamento), registra 1 série (reps, kg, RIR), finaliza e confere o "Resumo factual". |
 | `05-coach` | Pergunta curta na aba Personal → Edge Function → Gemini (secret do servidor) → análise validada renderizada. Nunca compara o texto do modelo; falha se aparecer o erro (`coach-error`). Consome 1 análise da cota do Gemini. |
 | `06-draft-safety` | Builder e rascunho (Implementation Phase 19): sair com alterações abre "Sair sem salvar?" ("Continuar editando" mantém a tela); remover dia pede confirmação com contagens ("Cancelar" mantém, "Remover dia" remove); salva a árvore inteira; reabre o rascunho, edita e "Descartar alterações" não salva; ativa e "Criar revisão editável" abre a revisão 2. |
+| `07-progress` | Os treinos do `04-workout` (8 reps × 40 kg) aparecem como fatos derivados na aba Progresso: totais, "Maior carga registrada: 40 kg" e histórico do exercício. Um treino passado do histórico da aba Treino abre o "Resumo factual". Só valores determinísticos. |
 
 Os seletores usam `testID` estáveis: `auth-*`, `onboarding-*`, `tab-index|treino|nutricao|progresso|personal`, `training-*`, `builder-*`, `program-*` e `workout-*`. A consistência é verificada por `tests/architecture/e2e-harness.test.mjs`.
 
@@ -129,6 +130,7 @@ Os seletores usam `testID` estáveis: `auth-*`, `onboarding-*`, `tab-index|trein
 - **Acentos:** o Maestro no Windows lê os YAML como Latin-1. Texto acentuado nunca casa, e `assertNotVisible` passa em silêncio. Os YAML são só ASCII (regex com `.`: `"For.a"`, `"Backend n.o configurado"`), e `tests/architecture/e2e-harness.test.mjs` bloqueia não-ASCII.
 - **Alerta com botão de mesmo texto da tela** ("Remover dia"): seletores relativos (`below`, `rightOf`) escolheram o botão da tela, que fica inerte com o alerta aberto. O fluxo tenta cada correspondência (`index` 0, 1, 2) enquanto o alerta continua visível. "Cancelar" é único e funciona direto.
 - **Aba Treino carrega depois de aparecer:** tocar "Criar programa" cedo demais erra o botão, porque o layout se desloca. `subflows/open-treino-loaded.yaml` espera o topo da aba (programa ativo) antes. Lembre que "visível" para o Maestro significa dentro da tela, não só existir.
+- **Cards tocáveis juntam os textos:** no iOS, um `Pressable` expõe um único rótulo de acessibilidade com todos os textos internos ("Supino, Maior carga registrada: 40 kg, …"). Use regex com `.*` em volta para casar com parte dele.
 - **`01-auth` falha após "Entrar":** teste as credenciais direto no Auth do projeto E2E. Um `invalid_credentials` significa conta inexistente nesse projeto ou senha diferente.
 - **Timezone:** o simulador usa `America/Los_Angeles`, então o onboarding grava esse fuso para a conta E2E.
 
