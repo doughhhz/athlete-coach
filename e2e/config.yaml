@@ -2,9 +2,11 @@
 # subflows are only reached through runFlow.
 flows:
   - "flows/*"
-# Model-dependent flows run only explicitly (-IncludeTags coach-proposal).
+# Model-dependent flows run only explicitly (-IncludeTags coach-proposal,
+# -IncludeTags initial-program).
 excludeTags:
   - coach-proposal
+  - initial-program
 executionOrder:
   continueOnFailure: false
   flowsOrder:

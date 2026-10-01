@@ -1,0 +1,67 @@
+# Initial program (Implementation Phase 21, ADR-0119): from Treino, answer
+# the intake and ask the Personal for the first program. The draft opens
+# with the Personal's reasons and athlete-selected load. Activation stays a
+# human decision and is NOT done here. Model-dependent: excluded from the
+# default suite; run with -IncludeTags initial-program. 1-2 Gemini calls.
+appId: app.athletecoach.e2e
+name: 09-initial-program
+tags:
+  - initial-program
+---
+- runFlow: ../subflows/sign-in-to-tabs.yaml
+- runFlow: ../subflows/open-treino-loaded.yaml
+- scrollUntilVisible:
+    element:
+      id: "training-initial-program"
+    direction: DOWN
+- tapOn:
+    id: "training-initial-program"
+- extendedWaitUntil:
+    visible:
+      id: "intake-pain-no"
+    timeout: 30000
+# Answers may be prefilled by earlier runs: set every one explicitly.
+- tapOn:
+    id: "intake-pain-no"
+- tapOn:
+    id: "intake-medical-no"
+- scrollUntilVisible:
+    element:
+      id: "intake-other-sports"
+    direction: DOWN
+- tapOn:
+    id: "intake-other-sports"
+- eraseText
+- inputText: "Corrida leve aos domingos"
+# Closes the keyboard: non-interactive text (keyboardShouldPersistTaps="handled").
+- scrollUntilVisible:
+    element: "Equipamentos dispon.veis"
+    direction: DOWN
+- tapOn: "Equipamentos dispon.veis"
+- tapOn:
+    id: "intake-equipment-skip"
+- scrollUntilVisible:
+    element:
+      id: "initial-program-generate"
+    direction: DOWN
+- tapOn:
+    id: "initial-program-generate"
+- extendedWaitUntil:
+    visible:
+      id: "program-activate|initial-program-error|initial-program-refusal"
+    timeout: 180000
+- assertNotVisible:
+    id: "initial-program-error"
+- assertNotVisible:
+    id: "initial-program-refusal"
+- assertVisible:
+    id: "program-description"
+- assertVisible: "Status: Rascunho .*"
+- takeScreenshot: 09-initial-program-draft
+# Each exercise carries the Personal's reason; load is chosen by the athlete.
+- scrollUntilVisible:
+    element: "Por que este exerc.cio.*"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: ".*carga escolhida pelo atleta.*"
+- takeScreenshot: 09-initial-program-reasons

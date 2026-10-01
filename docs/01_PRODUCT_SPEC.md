@@ -147,3 +147,7 @@ Para toda decisão materializada (humana ou automática) o app mostra estados fa
 ## Implementation Phase 18 — Comparações que entendem reordenação
 
 A revisão do rascunho passa a distinguir reordenação ("Ordem"), edição de valores, séries adicionadas/removidas e troca de exercício dentro da mesma prescrição. Nenhuma tela mostra identificadores de linhagem. Linhagem não torna comparáveis cargas ou 1RM de exercícios diferentes (regra da Phase 14 mantida).
+
+## Implementation Phase 21 — O Personal monta o primeiro programa (ADR-0119)
+
+Logo após o onboarding, a tela "Seu programa" faz mais algumas perguntas: dor ou lesão atual, restrição médica, exercícios preferidos e a evitar, outros esportes e, opcionalmente, equipamentos disponíveis. Depois, o Personal monta o primeiro programa usando todas as informações do atleta. O sistema valida o programa contra limites calculados, e ele é criado como **rascunho**, com o porquê de cada dia e exercício; o atleta revisa, edita e ativa. Se o Personal estiver indisponível, há um "modelo básico do sistema", identificado como não personalizado. Com restrição médica ou sinais de alerta, nenhum programa é criado e o app recomenda avaliação profissional. A tela também fica disponível na aba Treino.

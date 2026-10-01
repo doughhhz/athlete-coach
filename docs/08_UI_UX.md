@@ -135,3 +135,7 @@ Saída com alterações não salvas (ADR-0099): voltar, gesto ou botão físico 
 - **Falha:** mostra o erro, não navega, mantém a estrutura local e o aviso de saída com alterações não salvas. Tocar de novo repete a mesma intenção, com o mesmo identificador.
 - **Conflito** (a mesma intenção já criou um programa com outro conteúdo): "Este programa já foi criado em uma tentativa anterior com outro conteúdo. Nada foi alterado." e o botão "Abrir o programa já criado".
 - **Sucesso:** o estado sujo é limpo e a tela navega para o programa, como antes.
+
+## Implementation Phase 21 — "Seu programa"
+
+A tela é oferecida uma vez após o onboarding e fica sempre acessível em Treino ("Pedir um programa ao Personal"). Perguntas curtas com "Sim/Não"; equipamentos são opcionais ("Não informar"/"Informar"). Durante a geração aparece "O Personal está montando seu programa…". Em caso de falha: "Tentar de novo com o Personal" e, quando cabível, "Usar modelo básico do sistema", com aviso de que não é personalizado. O detalhe do programa passa a mostrar descrição, dia da semana, foco e justificativa do dia, e "Por que este exercício".

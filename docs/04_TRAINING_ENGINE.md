@@ -193,3 +193,16 @@ Antes, um cliente conseguia, por RLS, criar um bloco sem semanas ou apagar a ún
 ## Implementation Phase 20 — Sinais de progressão (ADR-0118)
 
 Função pura `deriveProgressionSignals(programaAtivo, sessões)`. A janela são as 3 sessões concluídas mais recentes com séries concluídas da prescrição; séries puladas e sessões abandonadas são ignoradas. Para ser "acima", a carga usada deve ser ≥ a prescrita; para ser "abaixo", ≤ a prescrita. Faixas em kg, múltiplos de 0,5 kg: `suggestedLoadIncrease` (+2,5% a +5%, mínimo +1 kg) e `suggestedLoadDecrease` (−5% a −10%; quando a banda é menor que 0,5 kg, usa o múltiplo imediatamente abaixo). O sinal não altera o programa: só limita o que uma proposta pode pedir, e a aplicação continua exigindo aprovação humana.
+
+## Implementation Phase 21 — Envelope do programa inicial (ADR-0119)
+
+Funções puras em `packages/domain/src/initial-program`:
+
+- `deriveExperienceLevel`;
+- `resolveAvailableEquipment` (informado ou assumido pelo ambiente);
+- `computeInitialProgramEnvelope` (`initial-program-envelope-v1`);
+- `estimateSessionMinutes` (estimativa determinística de duração);
+- `validateInitialProgramPlan` (códigos de problema estáveis);
+- `buildBasicInitialProgram` (`basic-initial-program-v1`), testado para sempre caber no envelope em 1.260 combinações.
+
+Os limites são estruturais (séries por exercício, exercícios e séries por sessão, faixas e duração). Série continua não sendo volume muscular (ADR-0066).

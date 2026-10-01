@@ -196,3 +196,12 @@ Nada mudou em UX, Coach, Auto-Draft, prompts, dossier ou Edge.
 Sinais de progressão calculados pelo sistema no dossier v8, faixa de carga validada de forma determinística e prompt de proposta v7 (ADR-0118). Sem migration. Coach, governança, Safety Gate, aprovação humana e `coach-auto-draft-v1` mantêm as mesmas regras.
 
 Fora de escopo, para fase futura e ainda aguardando decisão: gerar um programa inicial (e metas nutricionais estimadas) logo após o onboarding.
+
+## Implementation Phase 21 — The Personal builds the initial program — complete
+
+Folha `personal-spec-v1`, perguntas pré-programa, envelope determinístico, modelo básico, prompt `initial-program-prompt-v1`, Edge Function `program-generate`, auditoria e tela "Seu programa" (ADR-0119).
+
+Próximas fases candidatas:
+
+- nutrição (metas calculadas pelo sistema e interpretadas pelo Personal; revisão da coleta de sexo com ADR);
+- alinhar os prompts do Coach à folha completa.

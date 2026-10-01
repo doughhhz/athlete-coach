@@ -1126,3 +1126,26 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - O mapeamento ambiente → equipamentos é suposição de produto.
   - O programa inicial é uma semana-modelo repetida, sem periodização.
 - Afetados (previstos): `docs/01`, `03`, `05`, `07`, `08`, `10`, `11`; `packages/domain` (envelope, estimativa de duração, modelo básico); `packages/application` (caso de uso e schema do contrato); `packages/ai` (prompt do programa inicial); `supabase` (campos novos do onboarding, Edge Function); `apps/mobile` (onboarding, tela de geração e revisão); E2E.
+
+- Implementação (Implementation Phase 21), decisões tomadas ao implementar as regras aprovadas:
+  - **Perguntas novas:** ficam na tela "Seu programa", oferecida uma vez logo após concluir o onboarding e sempre disponível na aba Treino ("Pedir um programa ao Personal"). A transação de onboarding existente não mudou, e quem já fez onboarding também usa a tela. Tabela `athlete_program_intakes` (RLS, linhas próprias, dor exige descrição, equipamentos opcionais por slug).
+  - **Envelope `initial-program-envelope-v1`** (valores são hipóteses de produto, versionados no domínio):
+    - Nível: < 6 meses iniciante; 6–24 intermediário; > 24 avançado. Recomeçando ou irregular desce um nível.
+    - Séries por exercício: 1–3 (iniciante), 1–4 (intermediário), 1–5 (avançado).
+    - Exercícios por sessão: até 6 (iniciante) ou 8.
+    - Séries por sessão: até 16 / 22 / 26.
+    - Repetições: 6–30 para iniciante; 3–30 ou 1–30 para os demais. Segundos: 10–120.
+    - RIR mínimo 2 (iniciante) ou 1; RIR máximo 5. Descanso 30–300 s.
+    - Exercícios avançados não são usados com iniciantes. Carga sempre escolhida pelo atleta.
+    - Duração estimada: 5 min de aquecimento + (alvo máximo × 4 s, ou segundos) + descanso médio por série + 60 s por exercício. Pode passar no máximo 10% da duração preferida.
+  - **Equipamentos assumidos sem informação:** academia e misto → todos; casa e outro → peso corporal, halteres, banco e kettlebell. Um exercício exige todos os equipamentos listados.
+  - **Bloqueios:** restrição médica informada, ou texto que o Safety Gate bloqueia (dor/lesão, restrições, preferências, notas do objetivo), impede **os dois modos** (Personal e modelo básico) e recomenda avaliação profissional. Dor sem termos de bloqueio vai ao Personal como contexto.
+  - **Contrato `initial-program-v1`:** programa **ou** `cannot_build` com motivo. Se o plano viola o envelope, há **uma** tentativa de reparo com os problemas apontados pelo sistema; persistindo, não cria nada (`program_invalid`). Os ids de exercício são ancorados no schema de resposta (escada de schema da ADR-0117).
+  - **Modelo básico** (`basic-initial-program-v1`): oferecido só após falha de disponibilidade ou de validação, **nunca** após `cannot_build` ou bloqueio. Rotulado "não é personalizado pelo Personal".
+  - **Materialização:** um bloco "Base" com uma "Semana-modelo". Resumo e suposições vão na descrição do programa, as orientações no bloco, foco e justificativa no dia, e "Por que este exercício" nas instruções da prescrição. A criação usa o caminho atômico e idempotente; uma retentativa com outro conteúdo resolve para o rascunho já criado.
+  - **Auditoria:** `initial_program_generations` registra origem, provider, modelo, prompt, envelope, versão da folha e se houve reparo, sem nenhum texto do modelo. Gravada só pelo service role, e o programa precisa ser do mesmo atleta (FK composta).
+  - **Edge Function `program-generate`:** autenticação no código; corpo estrito (`mode`, `creationRequestId`); 5 req/min; criação com o JWT do atleta; logs só com metadados.
+- Limitações registradas:
+  - O Safety Gate é lexical (ADR da Phase 9).
+  - Não há pós-checagem lexical do texto gerado: as justificativas aparecem como rascunho para revisão humana.
+  - A qualidade do programa depende do modelo e é medida por `scripts/eval-initial-program.mjs` e pelo fluxo E2E `09-initial-program`.

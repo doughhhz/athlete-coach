@@ -268,3 +268,16 @@ Por que o SECURITY DEFINER é seguro nessa função (tudo já presente no corpo)
 - só `authenticated` e `service_role` podem executá-la.
 
 UPDATE e DELETE em `training_programs` não mudaram (fora do escopo).
+
+## Implementation Phase 21 — Respostas pré-programa e auditoria da geração
+
+- `athlete_program_intakes` (1 linha por atleta, RLS própria):
+  - dor/lesão atual (booleano + descrição obrigatória quando sim);
+  - restrição médica (booleano);
+  - exercícios preferidos e a evitar, outros esportes (texto ≤ 500);
+  - `available_equipment` (slugs; `null` = não informado).
+- `initial_program_generations` (somente leitura para o atleta; escrita pelo service role):
+  - origem `personal` ou `basic`;
+  - provider/modelo/prompt (obrigatórios para `personal`, nulos para `basic`);
+  - versões do envelope e da folha, `repaired`;
+  - FK composta `(program_id, athlete_id)` e no máximo uma linha por programa.

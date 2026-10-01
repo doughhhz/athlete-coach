@@ -108,3 +108,7 @@ O histórico de revisão nunca alimenta `coach-auto-draft-v1`, governança, ativ
 ## Implementation Phase 18 — Sem ampliação de autoridade
 
 Linhagem é infraestrutura de identidade. `coach-auto-draft-v1` permanece exatamente RIR ↑, descanso ↑ e redução de carga absoluta existente; ativação continua humana; nenhum reward ou score. Cliente não pode forjar linhagem de outro atleta, programa ou nível.
+
+## Implementation Phase 21 — Programa inicial
+
+Restrição médica informada, ou texto bloqueado pelo Safety Gate nas respostas e notas do atleta, impede tanto o programa do Personal quanto o modelo básico. O app recomenda avaliação profissional e não cria nada. O Personal pode recusar (`cannot_build`) diante de sinais de alerta, e nesse caso o modelo básico não é oferecido. O Personal não afirma credenciais profissionais. O programa é sempre rascunho; a ativação continua humana.
