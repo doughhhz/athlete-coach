@@ -27,3 +27,6 @@ export * from "./coach/auto-draft-use-cases.ts";
 export * from "./coach/draft-review-use-cases.ts";
 export * from "./training/program-structure-editor.ts";
 export * from "./training/draft-edit-session.ts";
+export * from "./initial-program/ports.ts";
+export * from "./initial-program/schemas.ts";
+export * from "./initial-program/use-cases.ts";
