@@ -95,7 +95,7 @@ npx supabase db push --dry-run
 npx supabase db push --include-seed
 ```
 
-- **Seed:** o `--include-seed` carrega o catálogo de exercícios (só dados de referência).
+- **Seed:** o `--include-seed` carrega o catálogo de exercícios (só dados de referência). É **obrigatório para `03-training`**; já foi aplicado ao projeto E2E.
 - **Voltar ao projeto principal depois:** `npx supabase link --project-ref <ref principal>`.
 - **Conta de teste:** crie pelo próprio app (tela "Criar conta") ou pelo painel (Authentication → Add user, com auto-confirm). Para testes, você pode desativar "Confirm email" no projeto E2E.
 - **Edge Functions:** os fluxos 00–02 não usam Edge Functions nem Gemini. Para E2E do Coach no futuro, rode `npx supabase functions deploy --project-ref <E2E_PROJECT_REF>` e cadastre `GEMINI_API_KEY` como secret **do servidor** nesse projeto, nunca no app. Veja as ADR-0105 a 0113 sobre modelo, timeout e autenticação.
@@ -107,8 +107,10 @@ npx supabase db push --include-seed
 | `00-smoke` | O build abre, está configurado (sem "Backend não configurado"), mostra "Entrar" e responde a toques (troca Entrar ↔ Criar conta). Sem rede de login. |
 | `01-auth` | Login da conta E2E no Supabase E2E; chega às abas (conta já com onboarding) ou ao onboarding (primeira vez). |
 | `02-onboarding` | Conclui o onboarding com dados fictícios, se estiver pendente (idempotente), e verifica as 5 abas. |
+| `03-training` | Cria um programa no builder (2 dias via "+ Dia nesta semana", 1 exercício cada), salva pela criação atômica, ativa por ação explícita e confere o programa ativo na aba Treino. Usa um nome único por execução; a ativação arquiva o programa ativo anterior. Exige o seed do catálogo. |
+| `04-workout` | Inicia o treino pelo programa ativo (ou continua um que tenha ficado em andamento), registra 1 série (reps, kg, RIR), finaliza e confere o "Resumo factual". |
 
-Os seletores usam `testID` estáveis: `auth-*`, `onboarding-*`, `tab-index|treino|nutricao|progresso|personal`. A consistência é verificada por `tests/architecture/e2e-harness.test.mjs`.
+Os seletores usam `testID` estáveis: `auth-*`, `onboarding-*`, `tab-index|treino|nutricao|progresso|personal`, `training-*`, `builder-*`, `program-*` e `workout-*`. A consistência é verificada por `tests/architecture/e2e-harness.test.mjs`.
 
 ## 9. Resultados
 
