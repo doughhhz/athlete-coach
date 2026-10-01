@@ -126,6 +126,53 @@ export type Database = {
           },
         ]
       }
+      athlete_program_intakes: {
+        Row: {
+          athlete_id: string
+          available_equipment: string[] | null
+          avoided_exercises_notes: string | null
+          created_at: string
+          current_pain_or_injury: boolean
+          medical_exercise_restriction: boolean
+          other_sports_notes: string | null
+          pain_or_injury_notes: string | null
+          preferred_exercises_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          available_equipment?: string[] | null
+          avoided_exercises_notes?: string | null
+          created_at?: string
+          current_pain_or_injury: boolean
+          medical_exercise_restriction: boolean
+          other_sports_notes?: string | null
+          pain_or_injury_notes?: string | null
+          preferred_exercises_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          available_equipment?: string[] | null
+          avoided_exercises_notes?: string | null
+          created_at?: string
+          current_pain_or_injury?: boolean
+          medical_exercise_restriction?: boolean
+          other_sports_notes?: string | null
+          pain_or_injury_notes?: string | null
+          preferred_exercises_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_program_intakes_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: true
+            referencedRelation: "athletes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       athlete_training_availability: {
         Row: {
           athlete_id: string
@@ -853,6 +900,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      initial_program_generations: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          envelope_version: string
+          id: string
+          model: string | null
+          origin: string
+          program_id: string
+          prompt_version: string | null
+          provider: string | null
+          repaired: boolean
+          spec_version: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          envelope_version: string
+          id?: string
+          model?: string | null
+          origin: string
+          program_id: string
+          prompt_version?: string | null
+          provider?: string | null
+          repaired?: boolean
+          spec_version: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          envelope_version?: string
+          id?: string
+          model?: string | null
+          origin?: string
+          program_id?: string
+          prompt_version?: string | null
+          provider?: string | null
+          repaired?: boolean
+          spec_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "initial_program_generations_program_owner_fkey"
+            columns: ["program_id", "athlete_id"]
+            isOneToOne: false
+            referencedRelation: "training_programs"
+            referencedColumns: ["id", "athlete_id"]
+          },
+        ]
       }
       muscle_groups: {
         Row: {

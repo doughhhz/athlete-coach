@@ -437,3 +437,9 @@ import_map = "./functions/deno.json"
 # gateway check only understands legacy HS256 JWTs and rejects the ES256
 # tokens of projects using asymmetric signing keys (ADR-0105).
 verify_jwt = false
+
+[functions.program-generate]
+import_map = "./functions/deno.json"
+# The function validates the caller itself (auth.getUser(); 401 otherwise),
+# like the Coach functions (ADR-0105). Implementation Phase 21 (ADR-0119).
+verify_jwt = false

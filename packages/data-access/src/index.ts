@@ -10,3 +10,4 @@ export * from "./supabase/exercise-catalog-repositories.ts";
 export * from "./supabase/training-program-repository.ts";
 export * from "./supabase/workout-session-repository.ts";
 export * from "./supabase/performance-read-repository.ts";
+export * from "./supabase/initial-program-repositories.ts";
