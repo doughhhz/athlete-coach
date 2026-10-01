@@ -1106,3 +1106,23 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - Avaliação manual (`scripts/eval-coach-proposals.mjs`), mesmo atleta sintético, `gemini-3.5-flash-lite` com schema: **3/3 propostas**. Cada uma tem 3 ações `adjust_absolute_load_target` dentro da faixa 41–42 kg, revisão `elevated_review`, ~5 s. Nenhuma bloqueada, inválida ou com erro de provider. Antes desta fase: 0/6 (sempre `{"proposal": null}`).
   - E2E em nuvem: `08-coach-proposal` passou com um programa de carga prescrita de 40 kg (proposta exibida na faixa, revisão em rascunho criada).
 - Afetados: `packages/domain` (progression, dossier, `collectDossierEvidenceIds`, `validateCoachProposal`), `packages/application` (`GenerateCoachProposal` passa os sinais à validação), `packages/ai` (prompt v7), `scripts/eval-coach-proposals.mjs` e `e2e/flows/08-coach-proposal.yaml`. Sem migration: o dossier é calculado a cada requisição.
+
+### ADR-0119 — The Personal builds the initial program inside a system-validated envelope
+
+- Data: 2026-10-01
+- Status: accepted (folha `personal-spec-v1` aprovada pelo usuário em 2026-10-01)
+- Contexto:
+  - O usuário definiu como diferencial do produto um Personal que usa **todas** as informações do atleta para montar um programa personalizado, com uma folha de especificação extensa (formação, experiência e conhecimento das ciências do corpo humano).
+  - Uma primeira proposta desta fase (gerador puramente determinístico, sem IA) foi **descartada antes de ser aprovada** pelo usuário. Ela não chegou a ser uma regra vigente; suas regras viram apenas o "modelo básico do sistema" de reserva (decisão 5).
+- Decisões aprovadas pelo usuário:
+  1. Ao concluir o onboarding, o atleta pode pedir ao Personal o programa inicial. O Personal decide divisão, exercícios, ordem, séries, repetições, RIR e descanso, com justificativas. O resultado é um **rascunho**: revisão e ativação continuam humanas.
+  2. O sistema calcula os fatos (idade, disponibilidade etc.) e um **envelope determinístico** (`initial-program-envelope-v1`). Ele valida catálogo e equipamentos, dias disponíveis, duração estimada, limites estruturais por experiência, faixas de reps/RIR/descanso e carga escolhida pelo atleta. O Safety Gate vale antes e depois da chamada.
+  3. Folha canônica `docs/11_PERSONAL_SPEC.md` (`personal-spec-v1`), da qual derivam os prompts. O Personal **não afirma credenciais profissionais**: decisão de honestidade, coerente com `07_SAFETY.md`.
+  4. O onboarding passa a coletar: lesões ou dores atuais (estruturado, para o Safety Gate), exercícios preferidos e a evitar, e outros esportes praticados. **Equipamentos disponíveis são opcionais**. Sem eles, o sistema assume pelo ambiente e o Personal declara a suposição.
+  5. Se o provider falhar, o atleta pode tentar de novo ou usar um **"modelo básico do sistema"** determinístico, rotulado como tal.
+  6. Nutrição fica para a fase seguinte (sistema calcula as metas, Personal interpreta). A coleta de sexo, hoje não feita por decisão registrada, será revista nessa fase com ADR própria.
+- Restrição preservada: série não é volume muscular (ADR-0066). O envelope usa limites estruturais, sem séries por músculo nem MEV/MAV/MRV.
+- Hipóteses:
+  - O mapeamento ambiente → equipamentos é suposição de produto.
+  - O programa inicial é uma semana-modelo repetida, sem periodização.
+- Afetados (previstos): `docs/01`, `03`, `05`, `07`, `08`, `10`, `11`; `packages/domain` (envelope, estimativa de duração, modelo básico); `packages/application` (caso de uso e schema do contrato); `packages/ai` (prompt do programa inicial); `supabase` (campos novos do onboarding, Edge Function); `apps/mobile` (onboarding, tela de geração e revisão); E2E.
