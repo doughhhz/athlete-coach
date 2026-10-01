@@ -17,6 +17,7 @@ const statusLabels = {
   completed: "Concluído normalmente",
   archived: "Arquivado (retirado)",
 } as const;
+const weekdayNames = ["", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 function range(a: number, b: number) {
   return a === b ? `${a}` : `${a}–${b}`;
 }
@@ -112,6 +113,11 @@ export function ProgramDetailsScreen() {
       <Text style={{ color: theme.colors.textMuted }}>
         Status: {statusLabels[p.status]} · revisão {p.revision}
       </Text>
+      {p.description ? (
+        <Text testID="program-description" style={{ color: theme.colors.text }}>
+          {p.description}
+        </Text>
+      ) : null}
       <Text style={[s.planned, { color: theme.colors.accent }]}>
         ALVOS PLANEJADOS
       </Text>
@@ -120,12 +126,20 @@ export function ProgramDetailsScreen() {
           <Text style={[s.block, { color: theme.colors.text }]}>
             {b.sequence}. {b.name}
           </Text>
+          {b.description ? (
+            <Text style={{ color: theme.colors.textMuted }}>
+              {b.description}
+            </Text>
+          ) : null}
           {b.weeks.map((w) => (
             <View key={w.id} style={s.level}>
               <Text style={[s.week, { color: theme.colors.text }]}>
                 Semana {w.sequence}
                 {w.name ? ` — ${w.name}` : ""}
               </Text>
+              {w.notes ? (
+                <Text style={{ color: theme.colors.textMuted }}>{w.notes}</Text>
+              ) : null}
               {w.days.map((d) => (
                 <View
                   key={d.id}
@@ -138,13 +152,31 @@ export function ProgramDetailsScreen() {
                   ]}
                 >
                   <Text style={[s.day, { color: theme.colors.text }]}>
+                    {d.preferredWeekday
+                      ? `${weekdayNames[d.preferredWeekday]} · `
+                      : ""}
                     {d.name}
                   </Text>
+                  {d.notes ? (
+                    <Text style={{ color: theme.colors.textMuted }}>
+                      {d.notes}
+                    </Text>
+                  ) : null}
                   {d.prescriptions.map((ep) => (
                     <View key={ep.id}>
                       <Text style={[s.exercise, { color: theme.colors.text }]}>
                         {ep.sequence}. {ep.exerciseName}
                       </Text>
+                      {ep.instructions ? (
+                        <Text
+                          style={{
+                            color: theme.colors.textMuted,
+                            fontStyle: "italic",
+                          }}
+                        >
+                          {ep.instructions}
+                        </Text>
+                      ) : null}
                       {ep.sets.map((set) => (
                         <Text
                           key={set.id}

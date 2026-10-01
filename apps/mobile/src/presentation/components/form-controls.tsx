@@ -70,15 +70,19 @@ export function PrimaryButton({
 export function SecondaryButton({
   label,
   onPress,
+  testID,
 }: {
   label: string;
   onPress(): void;
+  /** Stable E2E selector (Maestro); never read by application logic. */
+  testID?: string;
 }) {
   const theme = useAppTheme();
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
+      testID={testID}
       style={[styles.secondary, { borderColor: theme.colors.border }]}
     >
       <Text style={[styles.secondaryText, { color: theme.colors.text }]}>
@@ -92,10 +96,13 @@ export function ChoiceButton({
   label,
   onPress,
   selected,
+  testID,
 }: {
   label: string;
   onPress(): void;
   selected: boolean;
+  /** Stable E2E selector (Maestro); never read by application logic. */
+  testID?: string;
 }) {
   const theme = useAppTheme();
   return (
@@ -103,6 +110,7 @@ export function ChoiceButton({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
+      testID={testID}
       style={[
         styles.choice,
         {

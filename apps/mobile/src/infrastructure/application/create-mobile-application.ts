@@ -52,6 +52,8 @@ import {
   BuildCoachDraftReviews,
   GetCoachDraftReviewEvidence,
   ListCoachDraftReviewHistory,
+  LoadProgramIntake,
+  SaveProgramIntake,
 } from "@athlete-coach/application";
 import {
   SupabaseAthleteGoalRepository,
@@ -67,9 +69,11 @@ import {
   SupabaseWorkoutSessionRepository,
   SupabasePerformanceReadRepository,
   SupabaseCoachPreferenceRepository,
+  SupabaseProgramIntakeRepository,
   type AthleteCoachSupabaseClient,
 } from "@athlete-coach/data-access";
 import { SupabaseCoachGateway } from "@/infrastructure/coach/supabase-coach-gateway";
+import { SupabaseInitialProgramGateway } from "@/infrastructure/initial-program/supabase-initial-program-gateway";
 
 export function createMobileApplication(client: AthleteCoachSupabaseClient) {
   const authRepository = new SupabaseAuthRepository(client);
@@ -86,6 +90,8 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
   const performance = new SupabasePerformanceReadRepository(client);
   const coach = new SupabaseCoachGateway(client);
   const coachPreferences = new SupabaseCoachPreferenceRepository(client);
+  const programIntakes = new SupabaseProgramIntakeRepository(client);
+  const initialProgram = new SupabaseInitialProgramGateway(client);
 
   const loadProfile = new LoadCurrentAthleteProfile(
     athleteRepository,
@@ -193,6 +199,13 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
       id: string,
       input?: Parameters<SupabaseCoachGateway["materialize"]>[1],
     ) => coach.materialize(id, input),
+    // Initial program (ADR-0119): own answers (RLS) and the backend generator.
+    loadProgramIntake: new LoadProgramIntake(programIntakes),
+    saveProgramIntake: new SaveProgramIntake(programIntakes),
+    generateInitialProgram: (
+      mode: "personal" | "basic",
+      creationRequestId: string,
+    ) => initialProgram.generate(mode, creationRequestId),
     rejectCoachProposal: (
       id: string,
       reason: Parameters<SupabaseCoachGateway["reject"]>[1],

@@ -53,6 +53,8 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
   const [snapshot, setSnapshot] = useState<AthleteSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Offer the Personal's first program once, right after onboarding.
+  const [initialProgramOffer, setInitialProgramOffer] = useState(false);
   const operation = useRef(0);
 
   async function loadAuthenticatedState(app: MobileApplication): Promise<void> {
@@ -145,6 +147,7 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
       run(async () => {
         if (!application) return;
         await application.completeOnboarding.execute(input);
+        setInitialProgramOffer(true);
         await refresh();
       }),
     recordWeight: async (input: BodyWeightInput) =>
@@ -288,6 +291,20 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
         throw new Error("O Personal está temporariamente indisponível.");
       return application.analyzeWithCoach(input);
     },
+    getProgramIntake: async () =>
+      application?.loadProgramIntake.execute() ?? null,
+    saveProgramIntake: async (input) => {
+      if (!application)
+        throw new Error("Não foi possível salvar suas respostas.");
+      return application.saveProgramIntake.execute(input);
+    },
+    generateInitialProgram: async (mode, creationRequestId) => {
+      if (!application)
+        throw new Error("O Personal está temporariamente indisponível.");
+      return application.generateInitialProgram(mode, creationRequestId);
+    },
+    initialProgramOffer,
+    dismissInitialProgramOffer: () => setInitialProgramOffer(false),
     generateCoachProposal: async (analysisRequestId) => {
       if (!application)
         throw new Error("O Personal está temporariamente indisponível.");

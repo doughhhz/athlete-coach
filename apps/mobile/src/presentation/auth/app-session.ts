@@ -9,6 +9,8 @@ import type {
   ProgramStructureInput,
   RecordWorkoutSetInput,
   AnalyzeWithGovernanceResult as CoachAnalysisResult,
+  GenerateInitialProgramResult,
+  ProgramIntakeInput,
 } from "@athlete-coach/application";
 import type {
   AthleteSnapshot,
@@ -36,6 +38,7 @@ import type {
   ComparableInterventionGroup,
   IndividualResponseEvidence,
   InterventionOutcomeEvaluation,
+  ProgramIntake,
 } from "@athlete-coach/domain";
 import { createContext, useContext } from "react";
 
@@ -113,6 +116,17 @@ export type AppSessionValue = Readonly<{
       analysisRequestId: string;
     }>,
   ): Promise<CoachAnalysisResult>;
+  /** Own answers collected right before the first program (ADR-0119). */
+  getProgramIntake(): Promise<ProgramIntake | null>;
+  saveProgramIntake(input: ProgramIntakeInput): Promise<ProgramIntake>;
+  /** Sends only the mode and the stable creation intent; returns a draft id. */
+  generateInitialProgram(
+    mode: "personal" | "basic",
+    creationRequestId: string,
+  ): Promise<GenerateInitialProgramResult>;
+  /** True right after onboarding until the program screen was offered. */
+  initialProgramOffer: boolean;
+  dismissInitialProgramOffer(): void;
   /** Sends only the server-owned analysis identity, never the analysis. */
   generateCoachProposal(
     analysisRequestId: string,

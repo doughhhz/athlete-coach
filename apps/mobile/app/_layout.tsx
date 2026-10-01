@@ -76,6 +76,10 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ title: "Perfil" }} />
         <Stack.Screen
+          name="initial-program"
+          options={{ title: "Seu programa" }}
+        />
+        <Stack.Screen
           name="exercises/[slug]"
           options={{ title: "Exercício" }}
         />

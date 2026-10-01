@@ -179,9 +179,18 @@ export function TrainingProgramsScreen() {
           </Pressable>
         </>
       ) : null}
+      {/* The Personal builds a program from everything the athlete informed. */}
+      <Link href={"/initial-program" as Href} asChild>
+        <Pressable testID="training-initial-program">
+          <Text style={[s.link, { color: theme.colors.accent }]}>
+            Pedir um programa ao Personal
+          </Text>
+        </Pressable>
+      </Link>
       {!loading && !error && !items.length ? (
         <Text style={{ color: theme.colors.textMuted }}>
-          Nenhum programa criado. Comece por um rascunho manual.
+          Nenhum programa criado. Peça um ao Personal ou comece por um rascunho
+          manual.
         </Text>
       ) : null}
       {!loading &&

@@ -1,10 +1,18 @@
-import { Tabs } from "expo-router";
+import { type Href, Tabs, useRouter } from "expo-router";
+import { useEffect } from "react";
 
+import { useAppSession } from "@/presentation/auth/app-session";
 import { tabDefinitions } from "@/presentation/navigation/tabs";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 
 export default function TabsLayout() {
   const theme = useAppTheme();
+  const { initialProgramOffer } = useAppSession();
+  const router = useRouter();
+  // Right after onboarding, the Personal offers the first program once.
+  useEffect(() => {
+    if (initialProgramOffer) router.push("/initial-program" as Href);
+  }, [initialProgramOffer, router]);
 
   return (
     <Tabs
