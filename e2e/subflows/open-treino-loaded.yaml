@@ -1,0 +1,17 @@
+# Opens the Treino tab and waits until its async content has rendered (the
+# active program name, or the no-active-program message, at the top of the
+# tab), so the layout no longer shifts under a tap.
+appId: app.athletecoach.e2e
+---
+- tapOn:
+    id: "tab-treino"
+- extendedWaitUntil:
+    visible:
+      id: "training-active-program-name"
+    timeout: 30000
+    optional: true
+- extendedWaitUntil:
+    visible: "Programa ativo"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 5000

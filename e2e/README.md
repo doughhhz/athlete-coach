@@ -113,6 +113,7 @@ npx supabase db push --include-seed
 | `03-training` | Cria um programa no builder (2 dias via "+ Dia nesta semana", 1 exercício cada), salva pela criação atômica, ativa por ação explícita e confere o programa ativo na aba Treino. Usa um nome único por execução; a ativação arquiva o programa ativo anterior. Exige o seed do catálogo. |
 | `04-workout` | Inicia o treino pelo programa ativo (ou continua um que tenha ficado em andamento), registra 1 série (reps, kg, RIR), finaliza e confere o "Resumo factual". |
 | `05-coach` | Pergunta curta na aba Personal → Edge Function → Gemini (secret do servidor) → análise validada renderizada. Nunca compara o texto do modelo; falha se aparecer o erro (`coach-error`). Consome 1 análise da cota do Gemini. |
+| `06-draft-safety` | Builder e rascunho (Implementation Phase 19): sair com alterações abre "Sair sem salvar?" ("Continuar editando" mantém a tela); remover dia pede confirmação com contagens ("Cancelar" mantém, "Remover dia" remove); salva a árvore inteira; reabre o rascunho, edita e "Descartar alterações" não salva; ativa e "Criar revisão editável" abre a revisão 2. |
 
 Os seletores usam `testID` estáveis: `auth-*`, `onboarding-*`, `tab-index|treino|nutricao|progresso|personal`, `training-*`, `builder-*`, `program-*` e `workout-*`. A consistência é verificada por `tests/architecture/e2e-harness.test.mjs`.
 
@@ -126,6 +127,8 @@ Os seletores usam `testID` estáveis: `auth-*`, `onboarding-*`, `tab-index|trein
 - **Conta Maestro sem trial/plano:** `403 Your trial has not started yet`, e o CLI pergunta o nome da empresa. Ative o trial em app.maestro.dev (7 dias; depois exige plano).
 - **`hideKeyboard` falha no iOS** ("Couldn't hide the keyboard") com inputs React Native. Os fluxos não usam esse comando: tocam num texto não interativo (por exemplo "ETAPA N DE 8"; as telas usam `keyboardShouldPersistTaps="handled"`) e usam `scrollUntilVisible` antes de tocar em botões.
 - **Acentos:** o Maestro no Windows lê os YAML como Latin-1. Texto acentuado nunca casa, e `assertNotVisible` passa em silêncio. Os YAML são só ASCII (regex com `.`: `"For.a"`, `"Backend n.o configurado"`), e `tests/architecture/e2e-harness.test.mjs` bloqueia não-ASCII.
+- **Alerta com botão de mesmo texto da tela** ("Remover dia"): seletores relativos (`below`, `rightOf`) escolheram o botão da tela, que fica inerte com o alerta aberto. O fluxo tenta cada correspondência (`index` 0, 1, 2) enquanto o alerta continua visível. "Cancelar" é único e funciona direto.
+- **Aba Treino carrega depois de aparecer:** tocar "Criar programa" cedo demais erra o botão, porque o layout se desloca. `subflows/open-treino-loaded.yaml` espera o topo da aba (programa ativo) antes. Lembre que "visível" para o Maestro significa dentro da tela, não só existir.
 - **`01-auth` falha após "Entrar":** teste as credenciais direto no Auth do projeto E2E. Um `invalid_credentials` significa conta inexistente nesse projeto ou senha diferente.
 - **Timezone:** o simulador usa `America/Los_Angeles`, então o onboarding grava esse fuso para a conta E2E.
 

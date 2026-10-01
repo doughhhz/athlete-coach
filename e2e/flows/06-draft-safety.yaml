@@ -1,0 +1,151 @@
+# Draft safety (Implementation Phase 19 + atomic creation + revision):
+#  1. leaving the builder with unsaved edits asks first ("Continuar editando"
+#     keeps the screen);
+#  2. removing a day requires an explicit confirmation with factual counts
+#     ("Cancelar" keeps it, "Remover dia" removes it);
+#  3. the full tree is saved; reopening the draft, editing and choosing
+#     "Descartar alteracoes" leaves the saved draft unchanged;
+#  4. after explicit activation, "Criar revisao editavel" opens revision 2.
+# Unique program name per run; no Coach/Gemini.
+appId: app.athletecoach.e2e
+name: 06-draft-safety
+tags:
+  - draft
+---
+- runFlow: ../subflows/sign-in-to-tabs.yaml
+- evalScript: ${output.programName = 'E2E Rascunho ' + Date.now()}
+- runFlow: ../subflows/open-treino-loaded.yaml
+- tapOn:
+    id: "training-create-program"
+- extendedWaitUntil:
+    visible:
+      id: "builder-program-name"
+    timeout: 20000
+- tapOn:
+    id: "builder-program-name"
+- inputText: ${output.programName}
+- tapOn: "Monte a inten.*"
+- scrollUntilVisible:
+    element:
+      id: "builder-exercise-.*"
+    direction: DOWN
+- tapOn:
+    id: "builder-exercise-.*"
+    index: 0
+- scrollUntilVisible:
+    element:
+      id: "builder-add-day"
+    direction: UP
+- tapOn:
+    id: "builder-add-day"
+- assertVisible: "Este dia ainda n.o tem exerc.cios."
+
+# 1. Unsaved edits: leaving asks; "Continuar editando" keeps the builder.
+- tapOn: "Voltar|Back"
+- extendedWaitUntil:
+    visible: "Sair sem salvar.*"
+    timeout: 10000
+- tapOn: "Continuar editando"
+- assertVisible: "Este dia ainda n.o tem exerc.cios."
+
+# 2. Explicit removal of the empty day, with factual counts.
+- scrollUntilVisible:
+    element: "Remover dia"
+    direction: UP
+- tapOn: "Remover dia"
+- extendedWaitUntil:
+    visible: "Cont.m 0 exerc.cios e 0 s.ries.*"
+    timeout: 10000
+- tapOn: "Cancelar"
+- assertVisible: "Este dia ainda n.o tem exerc.cios."
+- tapOn: "Remover dia"
+- extendedWaitUntil:
+    visible: "Cont.m 0 exerc.cios e 0 s.ries.*"
+    timeout: 10000
+# Two elements read "Remover dia": the screen button (inert while the alert is
+# open) and the alert's destructive button. Relational selectors picked the
+# screen one, so try each match while the alert is still open.
+- tapOn:
+    text: "Remover dia"
+    index: 0
+- runFlow:
+    when:
+      visible: "Cont.m 0 exerc.cios e 0 s.ries.*"
+    commands:
+      - tapOn:
+          text: "Remover dia"
+          index: 1
+          optional: true
+- runFlow:
+    when:
+      visible: "Cont.m 0 exerc.cios e 0 s.ries.*"
+    commands:
+      - tapOn:
+          text: "Remover dia"
+          index: 2
+          optional: true
+- assertNotVisible: "Cont.m 0 exerc.cios e 0 s.ries.*"
+- assertNotVisible: "Este dia ainda n.o tem exerc.cios."
+
+# 3. Save (whole tree), reopen, edit and discard: the draft stays as saved.
+- scrollUntilVisible:
+    element:
+      id: "builder-save"
+    direction: DOWN
+- tapOn:
+    id: "builder-save"
+- extendedWaitUntil:
+    visible:
+      id: "program-activate"
+    timeout: 30000
+- assertVisible: ${output.programName}
+- assertVisible: "Status: Rascunho .*"
+# No second exercise line ("2. ..."); single quotes keep the backslash literal.
+- assertNotVisible: '2\. .*'
+- scrollUntilVisible:
+    element: "Editar rascunho"
+    direction: DOWN
+- tapOn: "Editar rascunho"
+- extendedWaitUntil:
+    visible: "Nome do programa .mantido nesta revis.o."
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "builder-exercise-.*"
+    direction: DOWN
+- tapOn:
+    id: "builder-exercise-.*"
+    index: 1
+- tapOn: "Voltar|Back"
+- extendedWaitUntil:
+    visible: "Sair sem salvar.*"
+    timeout: 10000
+- tapOn: "Descartar altera..es"
+- extendedWaitUntil:
+    visible:
+      id: "program-activate"
+    timeout: 20000
+- assertNotVisible: '2\. .*'
+- takeScreenshot: 06-draft-after-discard
+
+# 4. Explicit activation, then an editable revision (revision 2, draft).
+- scrollUntilVisible:
+    element:
+      id: "program-activate"
+    direction: DOWN
+- tapOn:
+    id: "program-activate"
+- extendedWaitUntil:
+    visible:
+      id: "program-start-workout"
+    timeout: 30000
+- scrollUntilVisible:
+    element: "Criar revis.o edit.vel"
+    direction: DOWN
+- tapOn: "Criar revis.o edit.vel"
+- extendedWaitUntil:
+    visible: "Status: Rascunho . revis.o 2"
+    timeout: 30000
+- assertVisible:
+    id: "program-activate"
+- takeScreenshot: 06-draft-revision
