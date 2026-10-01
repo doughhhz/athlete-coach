@@ -72,7 +72,10 @@ $env:E2E_PASSWORD = Read-Host "E2E senha"
 ```powershell
 ./scripts/run-maestro-cloud.ps1 -AppPath artifacts/e2e/build.tar.gz
 ./scripts/run-maestro-cloud.ps1 -AppPath artifacts/e2e/build.tar.gz -SmokeOnly
+./scripts/run-maestro-cloud.ps1 -AppPath artifacts/e2e/build.tar.gz -IncludeTags coach
 ```
+
+- **Execução parcial:** `-SmokeOnly` e `-IncludeTags` usam `e2e/config.tagged.yaml`, sem ordem, porque o Maestro exige incluir todos os fluxos listados antes de um fluxo incluído. Cada fluxo faz o próprio login. 03, 04 e 05 supõem a conta já com onboarding.
 
 - O script extrai o `.app` do `.tar.gz` e chama `maestro cloud` com `--app-file`, `--flows e2e`, `--config e2e/config.yaml`, `--api-key` (da variável de ambiente, nunca impresso), `--project-id`, `--device-model iPhone-11`, `--device-os iOS-18-2`, `--format JUNIT` e `--output artifacts/e2e/…xml`.
 - As credenciais E2E vão por `-e`, e a API key fica só na variável de ambiente.
@@ -98,7 +101,7 @@ npx supabase db push --include-seed
 - **Seed:** o `--include-seed` carrega o catálogo de exercícios (só dados de referência). É **obrigatório para `03-training`**; já foi aplicado ao projeto E2E.
 - **Voltar ao projeto principal depois:** `npx supabase link --project-ref <ref principal>`.
 - **Conta de teste:** crie pelo próprio app (tela "Criar conta") ou pelo painel (Authentication → Add user, com auto-confirm). Para testes, você pode desativar "Confirm email" no projeto E2E.
-- **Edge Functions:** os fluxos 00–02 não usam Edge Functions nem Gemini. Para E2E do Coach no futuro, rode `npx supabase functions deploy --project-ref <E2E_PROJECT_REF>` e cadastre `GEMINI_API_KEY` como secret **do servidor** nesse projeto, nunca no app. Veja as ADR-0105 a 0113 sobre modelo, timeout e autenticação.
+- **Edge Functions:** os fluxos 00–04 não usam Edge Functions nem Gemini. O `05-coach` exige `npx supabase functions deploy --project-ref <E2E_PROJECT_REF>` (já feito) e o secret `GEMINI_API_KEY` no projeto E2E (já cadastrado). Se for a mesma chave do projeto principal, a cota diária do Gemini é compartilhada. A chave fica só como secret **do servidor**, nunca no app. Veja as ADR-0105 a 0113 sobre modelo, timeout e autenticação.
 
 ## 8. Fluxos
 
@@ -109,6 +112,7 @@ npx supabase db push --include-seed
 | `02-onboarding` | Conclui o onboarding com dados fictícios, se estiver pendente (idempotente), e verifica as 5 abas. |
 | `03-training` | Cria um programa no builder (2 dias via "+ Dia nesta semana", 1 exercício cada), salva pela criação atômica, ativa por ação explícita e confere o programa ativo na aba Treino. Usa um nome único por execução; a ativação arquiva o programa ativo anterior. Exige o seed do catálogo. |
 | `04-workout` | Inicia o treino pelo programa ativo (ou continua um que tenha ficado em andamento), registra 1 série (reps, kg, RIR), finaliza e confere o "Resumo factual". |
+| `05-coach` | Pergunta curta na aba Personal → Edge Function → Gemini (secret do servidor) → análise validada renderizada. Nunca compara o texto do modelo; falha se aparecer o erro (`coach-error`). Consome 1 análise da cota do Gemini. |
 
 Os seletores usam `testID` estáveis: `auth-*`, `onboarding-*`, `tab-index|treino|nutricao|progresso|personal`, `training-*`, `builder-*`, `program-*` e `workout-*`. A consistência é verificada por `tests/architecture/e2e-harness.test.mjs`.
 

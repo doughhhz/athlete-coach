@@ -11,15 +11,18 @@ tags:
 - runFlow: ../subflows/sign-in-to-tabs.yaml
 - tapOn:
     id: "tab-personal"
-- extendedWaitUntil:
-    visible:
+# The question box sits below the mode/consent cards: scroll to it.
+- scrollUntilVisible:
+    element:
       id: "coach-question"
+    direction: DOWN
     timeout: 20000
 - tapOn:
     id: "coach-question"
 - inputText: "Como esta minha evolucao no treino? Responda de forma breve."
-# Closes the keyboard: non-interactive intro text (keyboardShouldPersistTaps="handled").
-- tapOn: "Analisa seu dossier.*"
+# Closes the keyboard: non-interactive card title right above the box
+# (keyboardShouldPersistTaps="handled").
+- tapOn: "Cria..o autom.tica de rascunho"
 - scrollUntilVisible:
     element:
       id: "coach-send"

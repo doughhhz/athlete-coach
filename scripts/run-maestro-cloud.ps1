@@ -23,7 +23,9 @@ param(
   [string]$DeviceModel = "iPhone-11",
   [string]$DeviceOs = "iOS-18-2",
   [string]$ReportDir = "artifacts/e2e",
-  [switch]$SmokeOnly
+  [switch]$SmokeOnly,
+  # Run only flows with these tags (e.g. "coach"); credentials are still needed.
+  [string[]]$IncludeTags
 )
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
@@ -63,7 +65,7 @@ $arguments = @(
   "cloud",
   "--app-file", $resolvedApp,
   "--flows", $Workspace,
-  "--config", (Join-Path $Workspace "config.yaml"),
+  "--config", (Join-Path $Workspace $(if ($SmokeOnly -or $IncludeTags) { "config.tagged.yaml" } else { "config.yaml" })),
   "--project-id", $env:MAESTRO_PROJECT_ID,
   "--device-model", $DeviceModel,
   "--device-os", $DeviceOs,
@@ -73,7 +75,9 @@ $arguments = @(
 )
 if ($env:MAESTRO_CLOUD_API_KEY) { $arguments += @("--api-key", $env:MAESTRO_CLOUD_API_KEY) }
 if ($SmokeOnly) { $arguments += @("--include-tags", "smoke") }
-else { $arguments += @("-e", "E2E_EMAIL=$($env:E2E_EMAIL)", "-e", "E2E_PASSWORD=$($env:E2E_PASSWORD)") }
+elseif ($IncludeTags) { $arguments += @("--include-tags", ($IncludeTags -join ",")) }
+# Every run except the smoke-only one signs in with the E2E account.
+if (-not $SmokeOnly) { $arguments += @("-e", "E2E_EMAIL=$($env:E2E_EMAIL)", "-e", "E2E_PASSWORD=$($env:E2E_PASSWORD)") }
 
 # Flags verified against Maestro CLI 2.11.0 (`maestro cloud --help`). The API
 # key and E2E credentials are passed to the CLI but never echoed by this script.

@@ -1,0 +1,6 @@
+# Config for tag-filtered runs (-SmokeOnly / -IncludeTags): no executionOrder,
+# because Maestro requires every flow listed before an included one to be
+# included as well. Each flow signs in on its own, so subsets are independent
+# (03/04/05 still assume the E2E account is onboarded).
+flows:
+  - "flows/*"
