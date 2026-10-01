@@ -1,0 +1,39 @@
+# Coach: a question in the Personal tab reaches the Edge Function, Gemini
+# (server-side secret) and comes back as a validated analysis rendered on
+# screen. Never asserts model wording, only the rendered structure. Depends on
+# the E2E Supabase having the Coach Edge Functions and GEMINI_API_KEY; Gemini
+# quota/overload can make it fail (the failure shows "coach-error").
+appId: app.athletecoach.e2e
+name: 05-coach
+tags:
+  - coach
+---
+- runFlow: ../subflows/sign-in-to-tabs.yaml
+- tapOn:
+    id: "tab-personal"
+- extendedWaitUntil:
+    visible:
+      id: "coach-question"
+    timeout: 20000
+- tapOn:
+    id: "coach-question"
+- inputText: "Como esta minha evolucao no treino? Responda de forma breve."
+# Closes the keyboard: non-interactive intro text (keyboardShouldPersistTaps="handled").
+- tapOn: "Analisa seu dossier.*"
+- scrollUntilVisible:
+    element:
+      id: "coach-send"
+    direction: DOWN
+- tapOn:
+    id: "coach-send"
+# Gemini + validation can take up to ~60 s per attempt on the server.
+- extendedWaitUntil:
+    visible:
+      id: "coach-analysis|coach-error"
+    timeout: 150000
+- assertNotVisible:
+    id: "coach-error"
+- assertVisible:
+    id: "coach-analysis"
+- assertVisible: "Resumo"
+- takeScreenshot: 05-coach-analysis

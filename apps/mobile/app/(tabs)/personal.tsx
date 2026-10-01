@@ -187,7 +187,7 @@ function Lines({ values }: { values: readonly string[] }) {
 function Analysis({ value }: { value: CoachAnalysis }) {
   const theme = useAppTheme();
   return (
-    <View style={styles.analysis}>
+    <View style={styles.analysis} testID="coach-analysis">
       <Section title="Resumo">
         <Text style={{ color: theme.colors.text }}>{value.summary}</Text>
       </Section>
@@ -416,6 +416,7 @@ export default function CoachScreen() {
       />
       <TextInput
         accessibilityLabel="Pergunte ao seu Personal"
+        testID="coach-question"
         multiline
         maxLength={2000}
         onChangeText={setQuestion}
@@ -435,6 +436,7 @@ export default function CoachScreen() {
         accessibilityRole="button"
         disabled={!question.trim() || loading}
         onPress={() => void send()}
+        testID="coach-send"
         style={[
           styles.button,
           { backgroundColor: theme.colors.accent },
@@ -448,7 +450,9 @@ export default function CoachScreen() {
       {loading && <ActivityIndicator color={theme.colors.accent} />}
       {error && (
         <Section title="Não foi possível concluir">
-          <Text style={{ color: theme.colors.danger }}>{error}</Text>
+          <Text style={{ color: theme.colors.danger }} testID="coach-error">
+            {error}
+          </Text>
           <Pressable accessibilityRole="button" onPress={() => void send()}>
             <Text style={[styles.retry, { color: theme.colors.accent }]}>
               Tentar novamente
