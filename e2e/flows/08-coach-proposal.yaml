@@ -1,0 +1,82 @@
+# Coach proposal (governed path): ask for a concrete adjustment, generate the
+# proposal (second Gemini call), review it and approve a draft revision
+# ("Criar revisao em rascunho"), then open the materialized draft. Activation
+# stays a human decision and is NOT done here.
+# The flow first records 3 workouts clearly easier than planned (12 reps at
+# RIR 4 vs 8-10 at RIR 2), so the data justifies an adjustment. Still
+# model-dependent: excluded from the default suite; run with
+# -IncludeTags coach-proposal. Uses 2 Gemini calls.
+appId: app.athletecoach.e2e
+name: 08-coach-proposal
+tags:
+  - coach-proposal
+---
+- runFlow: ../subflows/sign-in-to-tabs.yaml
+- repeat:
+    times: 3
+    commands:
+      - runFlow: ../subflows/record-easy-workout.yaml
+- tapOn:
+    id: "tab-personal"
+- scrollUntilVisible:
+    element:
+      id: "coach-question"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "coach-question"
+- inputText: "Meus ultimos treinos ficaram faceis: fiz 12 repeticoes com 40 kg e RIR 4, e o plano era 8 a 10 repeticoes com RIR 2. Sugira um ajuste concreto no meu programa ativo."
+- tapOn: "Cria..o autom.tica de rascunho"
+- scrollUntilVisible:
+    element:
+      id: "coach-send"
+    direction: DOWN
+- tapOn:
+    id: "coach-send"
+- extendedWaitUntil:
+    visible:
+      id: "coach-analysis|coach-error"
+    timeout: 150000
+- assertNotVisible:
+    id: "coach-error"
+# Only shown when the analysis recommends a training adjustment.
+- scrollUntilVisible:
+    element: "Ver proposta de ajuste"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Ver proposta de ajuste"
+- extendedWaitUntil:
+    visible: "Revisar proposta|O Personal n.o encontrou um ajuste concreto.*"
+    timeout: 150000
+# A null proposal is a valid Coach answer, but this gate needs a proposal.
+- assertNotVisible:
+    id: "coach-no-proposal"
+- scrollUntilVisible:
+    element: "Revisar proposta"
+    direction: DOWN
+    timeout: 150000
+- takeScreenshot: 08-proposal
+- tapOn: "Revisar proposta"
+# Review screen: confirm elevated review when required, then materialize.
+- scrollUntilVisible:
+    element: "Criar revis.o em rascunho"
+    direction: DOWN
+    timeout: 30000
+- runFlow:
+    when:
+      visible: ".*Revisei as altera..es propostas.*"
+    commands:
+      - tapOn: ".*Revisei as altera..es propostas.*"
+- tapOn: "Criar revis.o em rascunho"
+- scrollUntilVisible:
+    element: "Revisar rascunho"
+    direction: DOWN
+    timeout: 60000
+- assertVisible: ".*programa ativo n.o foi alterado.*"
+- tapOn: "Revisar rascunho"
+- extendedWaitUntil:
+    visible: "Status: Rascunho . revis.o [0-9]+"
+    timeout: 30000
+- assertVisible:
+    id: "program-activate"
+- takeScreenshot: 08-proposal-draft

@@ -25,6 +25,7 @@ import {
   PROACTIVE_CONSENT_TEXT,
   PROACTIVE_COST_NOTICE,
   autonomyModeCopy,
+  NO_PROPOSAL_MESSAGE,
   proactiveStatusMessages,
   proposalOriginLabels,
   reviewClassLabels,
@@ -260,6 +261,8 @@ export default function CoachScreen() {
     [error, setError] = useState<string | null>(null),
     [proposalLoading, setProposalLoading] = useState(false),
     [decision, setDecision] = useState<CoachDecision | null>(null),
+    // The proposal request finished without a concrete change (not an error).
+    [noProposal, setNoProposal] = useState(false),
     [decisions, setDecisions] = useState<readonly CoachDecision[]>([]),
     [outcomes, setOutcomes] = useState<
       readonly InterventionOutcomeEvaluation[]
@@ -324,6 +327,7 @@ export default function CoachScreen() {
       });
       const result = response.analysis;
       setAnalysis(result);
+      setNoProposal(false);
       setAnalysisRequestId(response.analysisRequestId);
       if (response.autonomyMode) setAutonomyMode(response.autonomyMode);
       setProactiveStatus(response.proactiveProposal.status);
@@ -364,6 +368,7 @@ export default function CoachScreen() {
       // for the same analysis is reused (no new AI call).
       const value = await generateCoachProposal(analysisRequestId);
       setDecision(value);
+      setNoProposal(value === null);
       if (value)
         setDecisions((items) => [
           value,
@@ -486,6 +491,16 @@ export default function CoachScreen() {
             </Text>
           </Pressable>
         )}
+      {analysis && noProposal && !decision && (
+        <Section title="Proposta de ajuste">
+          <Text
+            style={{ color: theme.colors.textMuted }}
+            testID="coach-no-proposal"
+          >
+            {NO_PROPOSAL_MESSAGE}
+          </Text>
+        </Section>
+      )}
       {analysis && autoDraft && <AutoDraftCard result={autoDraft} />}
       {decision && (
         <Section title="Proposta de ajuste">

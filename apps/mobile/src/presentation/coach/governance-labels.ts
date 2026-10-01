@@ -42,6 +42,9 @@ export const reviewClassLabels: Record<PersistedReviewClass, string> = {
 export const ELEVATED_REVIEW_NOTICE =
   "Esta proposta altera uma parte mais estrutural/intensa da prescrição. Revise os detalhes antes de criar a revisão.";
 export const ELEVATED_REVIEW_CONFIRMATION = "Revisei as alterações propostas";
+/** Shown when the Coach found no concrete change to propose (decision null). */
+export const NO_PROPOSAL_MESSAGE =
+  "O Personal não encontrou um ajuste concreto para propor com os dados atuais. Seu programa não foi alterado.";
 
 export const proactiveStatusMessages = {
   not_enabled: null,

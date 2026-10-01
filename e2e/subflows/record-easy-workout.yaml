@@ -1,0 +1,72 @@
+# Records one workout clearly easier than planned (12 reps x 40 kg at RIR 4
+# against 8-10 reps at RIR 2), giving the Coach a real, data-backed reason to
+# propose an adjustment. Starts and ends on the main tabs (session kept).
+appId: app.athletecoach.e2e
+---
+- runFlow: open-treino-loaded.yaml
+- runFlow:
+    when:
+      notVisible: "Continuar treino"
+    commands:
+      - tapOn: "Ver alvos planejados"
+      - scrollUntilVisible:
+          element:
+            id: "program-start-workout"
+          direction: DOWN
+      - tapOn:
+          id: "program-start-workout"
+          index: 0
+- runFlow:
+    when:
+      visible: "Continuar treino"
+    commands:
+      - tapOn: "Continuar treino"
+- extendedWaitUntil:
+    visible:
+      id: "workout-set-value"
+    timeout: 30000
+- tapOn:
+    id: "workout-set-value"
+    index: 0
+- eraseText
+- inputText: "12"
+- tapOn:
+    text: "REALIZADO"
+    index: 0
+- tapOn:
+    id: "workout-set-load"
+    index: 0
+- eraseText
+- inputText: "40"
+- tapOn:
+    text: "REALIZADO"
+    index: 0
+- tapOn:
+    id: "workout-set-rir"
+    index: 0
+- eraseText
+- inputText: "4"
+- tapOn:
+    text: "REALIZADO"
+    index: 0
+- tapOn:
+    id: "workout-set-complete"
+    index: 0
+- extendedWaitUntil:
+    visible: "Corrigir s.rie"
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: "workout-finish"
+    direction: DOWN
+- tapOn:
+    id: "workout-finish"
+- extendedWaitUntil:
+    visible: "Resumo factual"
+    timeout: 30000
+# Back to the tabs with the same session.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "tab-index"
+    timeout: 45000
