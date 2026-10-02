@@ -1,14 +1,15 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { router } from "expo-router";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { type Href, router } from "expo-router";
 import {
-  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type {
   CoachAnalysis,
   CoachAutonomyMode,
@@ -19,6 +20,18 @@ import type {
   InterventionOutcomeEvaluation,
 } from "@athlete-coach/domain";
 import { useAppSession } from "@/presentation/auth/app-session";
+import {
+  ChatComposer,
+  ChecklistCard,
+  CoachMessage,
+  PersonalHeader,
+  QuickSuggestionGrid,
+  TypingIndicator,
+  UserMessage,
+  type Suggestion,
+} from "@/presentation/coach/chat-components";
+import { Entrance } from "@/presentation/components/motion";
+import { ScreenBackground } from "@/presentation/components/screen-background";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import { outcomeStatusLabels } from "@/presentation/outcomes/outcome-labels";
 import {
@@ -156,12 +169,17 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       style={[
         styles.card,
         {
-          backgroundColor: theme.colors.surface,
+          backgroundColor: theme.colors.surfaceCard,
           borderColor: theme.colors.border,
         },
       ]}
     >
-      <Text style={[styles.heading, { color: theme.colors.text }]}>
+      <Text
+        style={[
+          styles.heading,
+          { color: theme.colors.text, fontFamily: theme.fonts.bold },
+        ]}
+      >
         {title}
       </Text>
       {children}
@@ -185,48 +203,101 @@ function Lines({ values }: { values: readonly string[] }) {
     </Text>
   );
 }
-function Analysis({ value }: { value: CoachAnalysis }) {
+/** One Personal answer as chat cards (facts stay with their evidence). */
+function Analysis({
+  value,
+  latest,
+}: {
+  value: CoachAnalysis;
+  latest: boolean;
+}) {
   const theme = useAppTheme();
   return (
-    <View style={styles.analysis} testID="coach-analysis">
-      <Section title="Resumo">
-        <Text style={{ color: theme.colors.text }}>{value.summary}</Text>
-      </Section>
+    <CoachMessage {...(latest ? { testID: "coach-analysis" } : {})}>
+      <Text style={[theme.typography.caption, { color: theme.colors.primary }]}>
+        Resumo
+      </Text>
+      <Text
+        style={[theme.typography.bodyLG, { color: theme.colors.textPrimary }]}
+      >
+        {value.summary}
+      </Text>
       {value.safetyFlags.length > 0 && (
-        <Section title="Atenção">
-          <Lines values={value.safetyFlags.map((item) => item.message)} />
-        </Section>
+        <ChecklistCard
+          title="Atenção"
+          icon="warning"
+          tone="warning"
+          items={value.safetyFlags.map((item) => item.message)}
+          empty=""
+        />
       )}
-      <Section title="Observações">
-        <Lines
-          values={value.observations.map(
-            (item) =>
-              `${item.statement}${item.evidence.length ? ` — baseado em ${item.evidence.length} referência(s) factual(is)` : ""}`,
-          )}
+      <ChecklistCard
+        title="Observações"
+        items={value.observations.map(
+          (item) =>
+            `${item.statement}${item.evidence.length ? ` — baseado em ${item.evidence.length} referência(s) factual(is)` : ""}`,
+        )}
+        empty={NOTHING_TO_HIGHLIGHT}
+      />
+      {value.hypotheses.length > 0 && (
+        <ChecklistCard
+          title="O que pode estar acontecendo"
+          icon="bulb-outline"
+          items={value.hypotheses.map((item) => item.statement)}
+          empty={NOTHING_TO_HIGHLIGHT}
         />
-      </Section>
-      <Section title="O que pode estar acontecendo">
-        <Lines values={value.hypotheses.map((item) => item.statement)} />
-      </Section>
-      <Section title="Sugestões">
-        <Lines
-          values={value.recommendations.map(
-            (item) =>
-              `${item.statement} — proposta para sua revisão${item.evidence.length ? `, baseada em ${item.evidence.length} referência(s) factual(is)` : ""}`,
-          )}
-        />
-      </Section>
-      <Section title="O que ainda falta saber">
-        <Lines
-          values={[
+      )}
+      <ChecklistCard
+        title="Sugestões"
+        icon="arrow-forward-circle"
+        items={value.recommendations.map(
+          (item) =>
+            `${item.statement} — proposta para sua revisão${item.evidence.length ? `, baseada em ${item.evidence.length} referência(s) factual(is)` : ""}`,
+        )}
+        empty={NOTHING_TO_HIGHLIGHT}
+      />
+      {value.questions.length + value.uncertainties.length > 0 && (
+        <ChecklistCard
+          title="O que ainda falta saber"
+          icon="help-circle-outline"
+          items={[
             ...value.questions,
             ...value.uncertainties.map((item) => item.statement),
           ]}
+          empty={NOTHING_TO_HIGHLIGHT}
         />
-      </Section>
-    </View>
+      )}
+    </CoachMessage>
   );
 }
+const NOTHING_TO_HIGHLIGHT = "Nada a destacar com os dados disponíveis.";
+type ThreadEntry =
+  | Readonly<{ id: string; role: "user"; text: string }>
+  | Readonly<{ id: string; role: "coach"; analysis: CoachAnalysis }>;
+const SUGGESTIONS: readonly Suggestion[] = [
+  {
+    label: "Ajustar meu treino",
+    icon: "barbell-outline",
+    prompt:
+      "Analise meus últimos treinos e sugira um ajuste concreto no meu programa ativo.",
+  },
+  {
+    label: "Dúvida de execução",
+    icon: "play-circle-outline",
+    prompt: "Tenho uma dúvida sobre a execução de um exercício: ",
+  },
+  {
+    label: "Analisar meu progresso",
+    icon: "stats-chart-outline",
+    prompt: "Analise meu progresso nas últimas semanas.",
+  },
+  {
+    label: "Dúvida geral de nutrição",
+    icon: "nutrition-outline",
+    prompt: "Tenho uma dúvida geral de nutrição: ",
+  },
+];
+
 export default function CoachScreen() {
   const theme = useAppTheme(),
     {
@@ -266,7 +337,13 @@ export default function CoachScreen() {
     [decisions, setDecisions] = useState<readonly CoachDecision[]>([]),
     [outcomes, setOutcomes] = useState<
       readonly InterventionOutcomeEvaluation[]
-    >([]);
+    >([]),
+    // Shown as a chat; kept in memory only (no chat persistence).
+    [thread, setThread] = useState<readonly ThreadEntry[]>([]),
+    [settingsOpen, setSettingsOpen] = useState(false);
+  const { snapshot } = useAppSession();
+  const insets = useSafeAreaInsets();
+  const scroll = useRef<ScrollView>(null);
   useEffect(() => {
     void listCoachDecisions()
       .then(setDecisions)
@@ -341,6 +418,11 @@ export default function CoachScreen() {
           ...items.filter((item) => item.id !== prepared.id),
         ]);
       setPending(null);
+      setThread((items) => [
+        ...items,
+        { id: `${requestId}-q`, role: "user", text },
+        { id: requestId, role: "coach", analysis: result },
+      ]);
       setHistory((items) =>
         [
           ...items,
@@ -400,206 +482,289 @@ export default function CoachScreen() {
       );
     }
   }
+  const latestCoachId = [...thread]
+    .reverse()
+    .find((entry) => entry.role === "coach")?.id;
   return (
-    <ScrollView
-      contentContainerStyle={[
-        styles.container,
-        { backgroundColor: theme.colors.background },
-      ]}
-      keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
     >
-      <Text style={[styles.title, { color: theme.colors.text }]}>Personal</Text>
-      <Text style={[styles.intro, { color: theme.colors.textMuted }]}>
-        Analisa seu dossier de treino e responde com interpretações, incertezas
-        e sugestões. Seus fatos e seu programa não são alterados.
-      </Text>
-      <AutonomyModeSection mode={autonomyMode} onChange={changeMode} />
-      <DraftAuthoritySection
-        mode={draftAuthority}
-        autonomyMode={autonomyMode}
-        onChange={changeDraftAuthority}
-      />
-      <TextInput
-        accessibilityLabel="Pergunte ao seu Personal"
-        testID="coach-question"
-        multiline
-        maxLength={2000}
-        onChangeText={setQuestion}
+      <ScreenBackground />
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <PersonalHeader
+          settingsOpen={settingsOpen}
+          onOpenSettings={() => setSettingsOpen((open) => !open)}
+        />
+      </View>
+      <ScrollView
+        ref={scroll}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        onContentSizeChange={() =>
+          !settingsOpen && scroll.current?.scrollToEnd({ animated: true })
+        }
+      >
+        {settingsOpen ? (
+          <Entrance style={styles.analysis}>
+            <Text style={[styles.intro, { color: theme.colors.textMuted }]}>
+              O Personal analisa seu dossier de treino e responde com
+              interpretações, incertezas e sugestões. Seus fatos e seu programa
+              não são alterados.
+            </Text>
+            <AutonomyModeSection mode={autonomyMode} onChange={changeMode} />
+            <DraftAuthoritySection
+              mode={draftAuthority}
+              autonomyMode={autonomyMode}
+              onChange={changeDraftAuthority}
+            />
+            <Section title="Histórico de decisões">
+              {decisions.length === 0 ? (
+                <Lines values={[]} />
+              ) : (
+                decisions.map((item) => {
+                  const outcome = outcomes.find(
+                    (value) => value.decisionId === item.id,
+                  );
+                  return (
+                    <View key={item.id} style={styles.historyItem}>
+                      <Text style={[styles.item, { color: theme.colors.text }]}>
+                        • {item.proposal.summary} — {item.status}
+                      </Text>
+                      <DecisionBadges decision={item} />
+                      {reviewStatuses.get(item.id) ? (
+                        <Text
+                          style={[
+                            styles.muted,
+                            { color: theme.colors.textMuted },
+                          ]}
+                        >
+                          →{" "}
+                          {
+                            draftReviewStatusLabels[
+                              reviewStatuses.get(item.id)!
+                            ]
+                          }
+                        </Text>
+                      ) : null}
+                      {outcome ? (
+                        <Text
+                          style={[
+                            styles.muted,
+                            { color: theme.colors.textMuted },
+                          ]}
+                        >
+                          {outcomeStatusLabels[outcome.status]}
+                        </Text>
+                      ) : null}
+                      {outcome &&
+                      (outcome.status === "evaluable" ||
+                        outcome.status === "limited_data") ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() =>
+                            router.push({
+                              pathname: "/coach-decisions/[id]",
+                              params: { id: item.id },
+                            } as never)
+                          }
+                        >
+                          <Text
+                            style={{
+                              color: theme.colors.accent,
+                              fontWeight: "700",
+                            }}
+                          >
+                            Ver resposta observada
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  );
+                })
+              )}
+            </Section>
+          </Entrance>
+        ) : (
+          <>
+            <CoachMessage>
+              <Text
+                style={[
+                  theme.typography.bodyLG,
+                  { color: theme.colors.textPrimary },
+                ]}
+              >
+                Olá
+                {snapshot?.profile?.preferredName
+                  ? `, ${snapshot.profile.preferredName}`
+                  : ""}
+                ! Como posso te ajudar hoje?
+              </Text>
+              <Text
+                style={[
+                  theme.typography.bodySM,
+                  { color: theme.colors.textMuted },
+                ]}
+              >
+                Eu analiso seus treinos registrados e respondo com
+                interpretações e sugestões. Nada muda no seu programa sem a sua
+                revisão.
+              </Text>
+            </CoachMessage>
+            {thread.length === 0 ? (
+              <QuickSuggestionGrid items={SUGGESTIONS} onPick={setQuestion} />
+            ) : null}
+            {thread.map((entry) =>
+              entry.role === "user" ? (
+                <UserMessage key={entry.id} text={entry.text} />
+              ) : (
+                <Analysis
+                  key={entry.id}
+                  value={entry.analysis}
+                  latest={entry.id === latestCoachId}
+                />
+              ),
+            )}
+            {loading && <TypingIndicator label="Analisando…" />}
+            {error && (
+              <Section title="Não foi possível concluir">
+                <Text
+                  style={{ color: theme.colors.danger }}
+                  testID="coach-error"
+                >
+                  {error}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void send()}
+                >
+                  <Text style={[styles.retry, { color: theme.colors.accent }]}>
+                    Tentar novamente
+                  </Text>
+                </Pressable>
+              </Section>
+            )}
+            {analysis &&
+              proactiveStatus &&
+              proactiveStatusMessages[proactiveStatus] && (
+                <Section title="Proposta preparada pelo Personal">
+                  <Text style={{ color: theme.colors.text }}>
+                    {proactiveStatusMessages[proactiveStatus]}
+                  </Text>
+                </Section>
+              )}
+            {analysis?.recommendations.some(
+              (item) => item.category === "training_adjustment",
+            ) &&
+              !analysis.safetyFlags.some((item) => item.blocksTrainingAdvice) &&
+              !decision && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={proposalLoading}
+                  onPress={() => void propose()}
+                  style={[
+                    styles.button,
+                    { backgroundColor: theme.colors.accent },
+                  ]}
+                >
+                  <Text style={styles.buttonText}>
+                    {proposalLoading
+                      ? "Gerando proposta…"
+                      : "Ver proposta de ajuste"}
+                  </Text>
+                </Pressable>
+              )}
+            {analysis && noProposal && !decision && (
+              <Section title="Proposta de ajuste">
+                <Text
+                  style={{ color: theme.colors.textMuted }}
+                  testID="coach-no-proposal"
+                >
+                  {NO_PROPOSAL_MESSAGE}
+                </Text>
+              </Section>
+            )}
+            {analysis && autoDraft && <AutoDraftCard result={autoDraft} />}
+            {decision && (
+              <Section title="Proposta de ajuste">
+                <DecisionBadges decision={decision} />
+                <Text style={{ color: theme.colors.text }}>
+                  {decision.proposal.summary}
+                </Text>
+                <Text style={[styles.muted, { color: theme.colors.textMuted }]}>
+                  Programa de origem: revisão{" "}
+                  {decision.proposal.sourceProgramRevision}. A proposta não
+                  altera seu programa até sua decisão.
+                </Text>
+                {decision.status === "proposed" && (
+                  <View style={styles.actions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => void reject()}
+                    >
+                      <Text style={{ color: theme.colors.danger }}>
+                        Rejeitar proposta
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() =>
+                        router.push({
+                          pathname: "/coach-proposals/[id]",
+                          params: { id: decision.id },
+                        } as never)
+                      }
+                    >
+                      <Text
+                        style={{
+                          color: theme.colors.accent,
+                          fontWeight: "700",
+                        }}
+                      >
+                        Revisar proposta
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+                <Text style={[styles.muted, { color: theme.colors.textMuted }]}>
+                  Status: {decision.status}
+                </Text>
+              </Section>
+            )}
+          </>
+        )}
+      </ScrollView>
+      <ChatComposer
+        value={question}
+        onChange={setQuestion}
+        onSend={() => void send()}
+        disabled={loading}
         placeholder="Pergunte ao seu Personal"
-        placeholderTextColor={theme.colors.textMuted}
-        style={[
-          styles.input,
+        shortcuts={[
           {
-            color: theme.colors.text,
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
+            label: "Treino de hoje",
+            icon: "barbell-outline",
+            onPress: () => router.push("/treino" as Href),
+          },
+          {
+            label: "Meu progresso",
+            icon: "stats-chart-outline",
+            onPress: () => router.push("/progresso" as Href),
           },
         ]}
-        value={question}
       />
-      <Pressable
-        accessibilityRole="button"
-        disabled={!question.trim() || loading}
-        onPress={() => void send()}
-        testID="coach-send"
-        style={[
-          styles.button,
-          { backgroundColor: theme.colors.accent },
-          (!question.trim() || loading) && styles.disabled,
-        ]}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? "Analisando…" : "Enviar"}
-        </Text>
-      </Pressable>
-      {loading && <ActivityIndicator color={theme.colors.accent} />}
-      {error && (
-        <Section title="Não foi possível concluir">
-          <Text style={{ color: theme.colors.danger }} testID="coach-error">
-            {error}
-          </Text>
-          <Pressable accessibilityRole="button" onPress={() => void send()}>
-            <Text style={[styles.retry, { color: theme.colors.accent }]}>
-              Tentar novamente
-            </Text>
-          </Pressable>
-        </Section>
-      )}
-      {analysis && <Analysis value={analysis} />}
-      {analysis &&
-        proactiveStatus &&
-        proactiveStatusMessages[proactiveStatus] && (
-          <Section title="Proposta preparada pelo Personal">
-            <Text style={{ color: theme.colors.text }}>
-              {proactiveStatusMessages[proactiveStatus]}
-            </Text>
-          </Section>
-        )}
-      {analysis?.recommendations.some(
-        (item) => item.category === "training_adjustment",
-      ) &&
-        !analysis.safetyFlags.some((item) => item.blocksTrainingAdvice) &&
-        !decision && (
-          <Pressable
-            accessibilityRole="button"
-            disabled={proposalLoading}
-            onPress={() => void propose()}
-            style={[styles.button, { backgroundColor: theme.colors.accent }]}
-          >
-            <Text style={styles.buttonText}>
-              {proposalLoading ? "Gerando proposta…" : "Ver proposta de ajuste"}
-            </Text>
-          </Pressable>
-        )}
-      {analysis && noProposal && !decision && (
-        <Section title="Proposta de ajuste">
-          <Text
-            style={{ color: theme.colors.textMuted }}
-            testID="coach-no-proposal"
-          >
-            {NO_PROPOSAL_MESSAGE}
-          </Text>
-        </Section>
-      )}
-      {analysis && autoDraft && <AutoDraftCard result={autoDraft} />}
-      {decision && (
-        <Section title="Proposta de ajuste">
-          <DecisionBadges decision={decision} />
-          <Text style={{ color: theme.colors.text }}>
-            {decision.proposal.summary}
-          </Text>
-          <Text style={[styles.muted, { color: theme.colors.textMuted }]}>
-            Programa de origem: revisão{" "}
-            {decision.proposal.sourceProgramRevision}. A proposta não altera seu
-            programa até sua decisão.
-          </Text>
-          {decision.status === "proposed" && (
-            <View style={styles.actions}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void reject()}
-              >
-                <Text style={{ color: theme.colors.danger }}>
-                  Rejeitar proposta
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() =>
-                  router.push({
-                    pathname: "/coach-proposals/[id]",
-                    params: { id: decision.id },
-                  } as never)
-                }
-              >
-                <Text style={{ color: theme.colors.accent, fontWeight: "700" }}>
-                  Revisar proposta
-                </Text>
-              </Pressable>
-            </View>
-          )}
-          <Text style={[styles.muted, { color: theme.colors.textMuted }]}>
-            Status: {decision.status}
-          </Text>
-        </Section>
-      )}
-      <Section title="Histórico de decisões">
-        {decisions.length === 0 ? (
-          <Lines values={[]} />
-        ) : (
-          decisions.map((item) => {
-            const outcome = outcomes.find(
-              (value) => value.decisionId === item.id,
-            );
-            return (
-              <View key={item.id} style={styles.historyItem}>
-                <Text style={[styles.item, { color: theme.colors.text }]}>
-                  • {item.proposal.summary} — {item.status}
-                </Text>
-                <DecisionBadges decision={item} />
-                {reviewStatuses.get(item.id) ? (
-                  <Text
-                    style={[styles.muted, { color: theme.colors.textMuted }]}
-                  >
-                    → {draftReviewStatusLabels[reviewStatuses.get(item.id)!]}
-                  </Text>
-                ) : null}
-                {outcome ? (
-                  <Text
-                    style={[styles.muted, { color: theme.colors.textMuted }]}
-                  >
-                    {outcomeStatusLabels[outcome.status]}
-                  </Text>
-                ) : null}
-                {outcome &&
-                (outcome.status === "evaluable" ||
-                  outcome.status === "limited_data") ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() =>
-                      router.push({
-                        pathname: "/coach-decisions/[id]",
-                        params: { id: item.id },
-                      } as never)
-                    }
-                  >
-                    <Text
-                      style={{ color: theme.colors.accent, fontWeight: "700" }}
-                    >
-                      Ver resposta observada
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            );
-          })
-        )}
-      </Section>
-    </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, padding: 20, gap: 16 },
+  container: {
+    flexGrow: 1,
+    gap: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  header: { paddingBottom: 8, paddingHorizontal: 18 },
   title: { fontSize: 30, fontWeight: "700" },
   intro: { fontSize: 16, lineHeight: 23 },
   input: {
@@ -611,15 +776,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    minHeight: 48,
-    borderRadius: 12,
+    minHeight: 52,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
   disabled: { opacity: 0.45 },
   buttonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 16 },
   analysis: { gap: 12 },
-  card: { borderWidth: 1, borderRadius: 14, padding: 16, gap: 8 },
+  card: { borderWidth: 1, borderRadius: 20, padding: 16, gap: 8 },
   heading: { fontSize: 18, fontWeight: "700" },
   item: { lineHeight: 22 },
   muted: { lineHeight: 22 },

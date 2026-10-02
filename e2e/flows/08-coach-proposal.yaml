@@ -29,7 +29,7 @@ tags:
 - tapOn:
     id: "coach-question"
 - inputText: "Meus ultimos treinos ficaram faceis: fiz 12 repeticoes com os 40 kg prescritos e RIR 4, e o plano era 8 a 10 repeticoes com RIR 2. Sugira um ajuste concreto no meu programa ativo."
-- tapOn: "Cria..o autom.tica de rascunho"
+# The composer sits above the keyboard (ADR-0123): send directly.
 - scrollUntilVisible:
     element:
       id: "coach-send"

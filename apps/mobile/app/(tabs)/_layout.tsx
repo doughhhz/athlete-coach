@@ -48,8 +48,8 @@ export default function TabsLayout() {
                 color={color}
               />
             ),
-            // Home and Treino draw their own headers (ADR-0120/0121).
-            headerShown: tab.route !== "treino" && tab.route !== "index",
+            // Home, Treino and Personal draw their own headers (ADR-0120..0123).
+            headerShown: !["treino", "index", "personal"].includes(tab.route),
             tabBarAccessibilityLabel: tab.accessibilityLabel,
             // Stable E2E selector (Maestro): tab-index, tab-treino, ...
             tabBarButtonTestID: `tab-${tab.route}`,

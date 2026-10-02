@@ -1232,3 +1232,27 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
     - botões e cartões afundam levemente ao toque (mola);
     - páginas com `fade_from_bottom` e abas com `fade`;
     - o cartão do exercício reanima a cada troca de exercício.
+
+### ADR-0123 — Personal tab as a chat (same governance)
+
+- Data: 2026-10-02
+- Status: accepted
+- Substitui o layout anterior da aba Personal (formulário seguido de seções empilhadas), marcado como **superseded**. Lógica, contratos, governança, Safety Gate, propostas, modo do Personal e rascunho automático **não mudaram**.
+- Contexto: especificação visual "Chat com o Personal" fornecida pelo usuário (ADR-0120).
+- Decisões:
+  1. **Chat:**
+     - cabeçalho compacto ("Seu Personal IA · Disponível");
+     - mensagens do atleta à direita, em azul; respostas do Personal à esquerda, com resumo e cartões para Atenção, Observações, O que pode estar acontecendo, Sugestões e O que ainda falta saber;
+     - indicador "Analisando…" enquanto a análise roda;
+     - campo de mensagem fixo acima do teclado (`KeyboardAvoidingView`).
+  2. **Conversa só em memória**, como já era (`01_PRODUCT_SPEC`): nada é persistido e o contexto enviado continua limitado às últimas mensagens.
+  3. **Atalhos:**
+     - sugestões rápidas ("Ajustar meu treino", "Dúvida de execução", "Analisar meu progresso", "Dúvida geral de nutrição") só preenchem a pergunta, nada é enviado sozinho; aparecem enquanto a conversa está vazia;
+     - atalhos do campo de mensagem: "Treino de hoje" e "Meu progresso".
+  4. **Configurações e histórico** (modo do Personal, criação automática de rascunho, histórico de decisões) ficam num painel aberto pelo botão do cabeçalho.
+  5. **Fatos, não enfeites:**
+     - sem câmera, galeria, arquivos, áudio, vídeo ou "Minha dieta", porque o produto ainda não tem esses recursos;
+     - "Online agora" → "Disponível";
+     - nenhum nome fixo: a saudação usa o nome do perfil;
+     - nenhuma resposta da IA é simulada nem transmitida aos poucos (_streaming_); o indicador só mostra que a análise está em andamento.
+- Afetados: `apps/mobile` (aba Personal, `coach/chat-components.tsx`, cabeçalho nativo oculto na aba) e os fluxos E2E 05 e 08, que não precisam mais fechar o teclado antes de enviar. Os anchors (`coach-question`, `coach-send`, `coach-analysis`, `coach-error`, `coach-no-proposal`, "Ver proposta de ajuste", "Revisar proposta") foram mantidos. **Os fluxos ainda precisam rodar num novo build E2E.**

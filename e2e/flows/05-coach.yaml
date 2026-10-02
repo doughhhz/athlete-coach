@@ -22,7 +22,7 @@ tags:
 - inputText: "Como esta minha evolucao no treino? Responda de forma breve."
 # Closes the keyboard: non-interactive card title right above the box
 # (keyboardShouldPersistTaps="handled").
-- tapOn: "Cria..o autom.tica de rascunho"
+# The composer sits above the keyboard (ADR-0123): send directly.
 - scrollUntilVisible:
     element:
       id: "coach-send"
