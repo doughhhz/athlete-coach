@@ -108,3 +108,18 @@ export function deriveAge(birthDate: string, asOfDate: Date): number {
   if (!birthdayHasPassed) age -= 1;
   return age;
 }
+
+/**
+ * Target weight minus the latest recorded weight, in kg rounded to 0.1;
+ * half away from zero; null without both values. Positive = still to gain, negative = to lose.
+ */
+export function weightGoalDifferenceKg(
+  latestWeightKg: number | null,
+  targetWeightKg: number | null,
+): number | null {
+  if (latestWeightKg === null || targetWeightKg === null) return null;
+  // Half away from zero (gaining and losing round symmetrically).
+  const difference = targetWeightKg - latestWeightKg;
+  const rounded = Math.round(Math.abs(difference) * 10 + 1e-9) / 10;
+  return rounded === 0 ? 0 : Math.sign(difference) * rounded;
+}

@@ -4,72 +4,57 @@ import { LinearGradient } from "expo-linear-gradient";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { BrandHeader } from "@/presentation/components/brand-header";
 import { GradientButton } from "@/presentation/components/gradient-button";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import { summarizeSets } from "../prescription-format";
 
 const WEEKDAY_SHORT = ["", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"];
 
-/** Brand mark + "Athlete Coach" and the Personal's availability. */
+/** Shared brand header plus the Personal's availability. */
 export function TreinoHeader({ onOpenPersonal }: { onOpenPersonal(): void }) {
   const theme = useAppTheme();
   const { colors, fonts } = theme;
   return (
-    <View style={s.header}>
-      <View style={s.row}>
-        <LinearGradient
-          colors={[colors.primaryGradientStart, colors.primaryGradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.logo}
+    <BrandHeader
+      subtitle="Treinos"
+      right={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Abrir o Personal"
+          onPress={onOpenPersonal}
+          style={s.row}
         >
-          <Text style={[s.logoText, { fontFamily: fonts.bold }]}>A</Text>
-        </LinearGradient>
-        <View>
-          <Text style={[s.brand, { fontFamily: fonts.bold }]}>
-            <Text style={{ color: colors.textPrimary }}>Athlete </Text>
-            <Text style={{ color: colors.brandAccent }}>Coach</Text>
-          </Text>
-          <Text style={[theme.typography.bodyMD, { color: colors.textMuted }]}>
-            Treinos
-          </Text>
-        </View>
-      </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Abrir o Personal"
-        onPress={onOpenPersonal}
-        style={s.row}
-      >
-        <View style={[s.avatar, { borderColor: colors.border }]}>
-          <Ionicons name="sparkles" size={20} color={colors.primary} />
-          <View
-            style={[
-              s.online,
-              {
-                backgroundColor: colors.success,
-                borderColor: colors.background,
-              },
-            ]}
-          />
-        </View>
-        <View>
-          <Text
-            style={[theme.typography.bodySM, { color: colors.textSecondary }]}
-          >
-            Seu Personal IA
-          </Text>
-          <Text
-            style={[
-              theme.typography.bodySM,
-              { color: colors.success, fontFamily: fonts.semibold },
-            ]}
-          >
-            Disponível
-          </Text>
-        </View>
-      </Pressable>
-    </View>
+          <View style={[s.avatar, { borderColor: colors.border }]}>
+            <Ionicons name="sparkles" size={20} color={colors.primary} />
+            <View
+              style={[
+                s.online,
+                {
+                  backgroundColor: colors.success,
+                  borderColor: colors.background,
+                },
+              ]}
+            />
+          </View>
+          <View>
+            <Text
+              style={[theme.typography.bodySM, { color: colors.textSecondary }]}
+            >
+              Seu Personal IA
+            </Text>
+            <Text
+              style={[
+                theme.typography.bodySM,
+                { color: colors.success, fontFamily: fonts.semibold },
+              ]}
+            >
+              Disponível
+            </Text>
+          </View>
+        </Pressable>
+      }
+    />
   );
 }
 

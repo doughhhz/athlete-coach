@@ -1176,3 +1176,24 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
      - `deriveWeekPlan`: segunda a domingo no fuso do atleta; feito = treino concluído na data local; planejado = dia do programa naquele dia da semana. A semana-modelo é a primeira semana do primeiro bloco (hipótese para programas com várias semanas).
      - `highlightedWeekPlanDay` e `workoutExerciseProgress`.
 - Afetados: `apps/mobile` (tema, layout raiz e abas, componentes, aba Treino), `packages/domain`, `docs/08`. As outras telas herdam os tokens, mas ainda usam a fonte do sistema e os estilos antigos; o redesenho delas virá tela a tela.
+
+### ADR-0121 — Home dashboard redesign (facts only)
+
+- Data: 2026-10-02
+- Status: accepted
+- Complementa a ADR-0120, com a especificação "Home Dashboard" fornecida pelo usuário.
+- Decisões:
+  - Componentes: `BrandHeader` (compartilhado com a aba Treino), saudação, resumo do perfil, treino de hoje, estatísticas, cartão do Personal e acesso rápido.
+  - A saudação usa a hora no fuso do atleta e o nome preferido. A pergunta "Vamos evoluir mais um pouco hoje?" foi mantida, porque não promete resultado.
+  - **Dados de exemplo trocados por fatos:**
+    - "Lucas" → **"Personal por IA"**: a folha `personal-spec-v1` não define nome nem persona humana.
+    - "Online agora" → removido; o status aparece como disponível apenas na aba Treino.
+    - "Sua IA está pronta para ajustar treino e dieta" → "Pergunte sobre seus treinos e peça ajustes no programa", porque a nutrição não está implementada.
+    - **Streak** → **"Últimos 28 dias"** (treinos concluídos), para não definir uma regra de sequência sem decisão.
+    - **Meta "+4 kg"** → peso-alvo menos o último peso registrado, calculado pelo domínio (`weightGoalDifferenceKg`, meia unidade arredondada para longe do zero); "—" quando falta um dos valores.
+    - **"Treinos na semana 4/5"** → feitos / planejados desta semana (`summarizeWeekPlan`).
+    - A quarta estatística mostra a **duração estimada** do treino destacado.
+    - Sem sininho, porque não há notificações. Fotos e avatares viraram ícones.
+  - O resumo do perfil mostra objetivo, meses de treino, dias por semana e o último peso com a data. O cartão do Personal não se repete dentro do resumo.
+  - Nutrição no acesso rápido aparece como "Em construção".
+- Domínio: `summarizeWeekPlan`, `countRecentCompletedWorkouts` (janela de 28 dias, sem contar o futuro) e `weightGoalDifferenceKg`, com testes.

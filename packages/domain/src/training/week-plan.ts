@@ -178,3 +178,28 @@ export function workoutExerciseProgress(
     total: session.exercises.length,
   };
 }
+
+/** Workouts done this week and planned training days this week. */
+export function summarizeWeekPlan(
+  week: readonly WeekPlanDay[],
+): Readonly<{ done: number; planned: number }> {
+  return {
+    done: week.filter((day) => day.status === "done").length,
+    planned: week.filter((day) => day.trainingDay !== null).length,
+  };
+}
+
+/** Completed workouts that started in the last `days` days (default 28). */
+export function countRecentCompletedWorkouts(
+  sessions: readonly Pick<WorkoutSession, "status" | "startedAt">[],
+  now: Date,
+  days = 28,
+): number {
+  const since = now.getTime() - days * 86_400_000;
+  return sessions.filter(
+    (session) =>
+      session.status === "completed" &&
+      Date.parse(session.startedAt) > since &&
+      Date.parse(session.startedAt) <= now.getTime(),
+  ).length;
+}

@@ -197,3 +197,43 @@ test("workout progress counts exercises with no pending set", () => {
     { finished: 1, total: 3 },
   );
 });
+
+test("home summaries: week done/planned, last 28 days, weight goal", async () => {
+  const {
+    summarizeWeekPlan,
+    countRecentCompletedWorkouts,
+    weightGoalDifferenceKg,
+  } = await import("../src/index.ts");
+  const week = deriveWeekPlan({
+    program: program([day("mon", 1), day("wed", 3), day("fri", 5)]),
+    sessions: [
+      { status: "completed", startedAt: "2026-09-28T22:00:00Z" },
+      // Done on an unplanned day still counts as done.
+      { status: "completed", startedAt: "2026-09-29T22:00:00Z" },
+    ],
+    now,
+    timeZone,
+  });
+  assert.deepEqual(summarizeWeekPlan(week), { done: 2, planned: 3 });
+  const sessions = [
+    { status: "completed", startedAt: "2026-09-29T12:00:00Z" },
+    { status: "completed", startedAt: "2026-09-02T18:00:01Z" }, // inside 28 days
+    { status: "completed", startedAt: "2026-09-02T18:00:00Z" }, // exactly 28 days: out
+    { status: "abandoned", startedAt: "2026-09-29T12:00:00Z" },
+    { status: "completed", startedAt: "2026-10-01T12:00:00Z" }, // future: out
+  ];
+  assert.equal(countRecentCompletedWorkouts(sessions, now), 2);
+  assert.equal(countRecentCompletedWorkouts(sessions, now, 7), 1);
+  assert.equal(weightGoalDifferenceKg(78.4, 82.4), 4);
+  assert.equal(weightGoalDifferenceKg(80, 74.95), -5.1);
+  assert.equal(weightGoalDifferenceKg(null, 80), null);
+  assert.equal(weightGoalDifferenceKg(80, null), null);
+});
+
+test("weight goal rounding is symmetric (half away from zero)", async () => {
+  const { weightGoalDifferenceKg } = await import("../src/index.ts");
+  assert.equal(weightGoalDifferenceKg(80, 80.05), 0.1);
+  assert.equal(weightGoalDifferenceKg(80.05, 80), -0.1);
+  assert.equal(weightGoalDifferenceKg(80, 80.04), 0);
+  assert.equal(weightGoalDifferenceKg(80, 80), 0);
+});
