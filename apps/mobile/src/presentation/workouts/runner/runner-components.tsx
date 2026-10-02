@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { Entrance, PressableScale } from "@/presentation/components/motion";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import { formatRest } from "@/presentation/training/prescription-format";
 
@@ -233,6 +234,7 @@ export function PlannedInfoGrid({
             key={item.label}
             style={[
               s.info,
+              s.centered,
               {
                 backgroundColor: colors.surfaceSoft,
                 borderColor: colors.border,
@@ -244,7 +246,11 @@ export function PlannedInfoGrid({
               {item.label}
             </Text>
             <Text
-              style={[typography.titleMD, { color: colors.textPrimary }]}
+              style={[
+                typography.titleMD,
+                s.centerText,
+                { color: colors.textPrimary },
+              ]}
               numberOfLines={1}
               adjustsFontSizeToFit
             >
@@ -307,6 +313,7 @@ export function StepperField({
     <View
       style={[
         s.input,
+        s.centered,
         { backgroundColor: colors.surfaceSoft, borderColor: colors.border },
       ]}
     >
@@ -323,6 +330,7 @@ export function StepperField({
         placeholderTextColor={colors.textMuted}
         style={[
           s.inputText,
+          s.centerText,
           { color: colors.textPrimary, fontFamily: fonts.bold },
         ]}
       />
@@ -350,12 +358,19 @@ export function StepperField({
   );
 }
 
-export function PerformedHeader({ label }: { label: string }) {
+/** Green check only for a completed set; otherwise a neutral edit icon. */
+export function PerformedHeader({
+  label,
+  done,
+}: {
+  label: string;
+  done: boolean;
+}) {
   const { colors, typography } = useAppTheme();
   return (
     <Section
-      icon="checkmark-circle"
-      iconColor={colors.success}
+      icon={done ? "checkmark-circle" : "create-outline"}
+      iconColor={done ? colors.success : colors.primary}
       title="REALIZADO"
       right={
         <Text style={[typography.bodyMD, { color: colors.textSecondary }]}>
@@ -366,14 +381,17 @@ export function PerformedHeader({ label }: { label: string }) {
   );
 }
 
-/** One circle per set: done, skipped, current or pending. Tap to review. */
+/** One circle per set; future pending sets stay locked (sets in order). */
 export function SetHistoryTracker({
   sets,
   currentSetId,
+  selectableIds,
   onSelect,
 }: {
   sets: readonly WorkoutSet[];
   currentSetId: string;
+  /** From the domain: resolved sets and the first pending one. */
+  selectableIds: ReadonlySet<string>;
   onSelect(setId: string): void;
 }) {
   const { colors, fonts, typography } = useAppTheme();
@@ -383,13 +401,16 @@ export function SetHistoryTracker({
         const current = set.id === currentSetId;
         const done = set.status === "completed";
         const skipped = set.status === "skipped";
+        const locked = !selectableIds.has(set.id);
         return (
-          <Pressable
+          <PressableScale
             key={set.id}
             accessibilityRole="button"
-            accessibilityLabel={`Série ${set.sequence}${done ? ", concluída" : skipped ? ", pulada" : ""}`}
+            accessibilityState={{ disabled: locked, selected: current }}
+            accessibilityLabel={`Série ${set.sequence}${done ? ", concluída" : skipped ? ", pulada" : locked ? ", conclua a anterior primeiro" : ""}`}
+            disabled={locked}
             onPress={() => onSelect(set.id)}
-            style={s.historyItem}
+            style={[s.historyItem, { opacity: locked ? 0.4 : 1 }]}
           >
             <View
               style={[
@@ -410,6 +431,12 @@ export function SetHistoryTracker({
             >
               {done ? (
                 <Ionicons name="checkmark" size={20} color={colors.success} />
+              ) : locked ? (
+                <Ionicons
+                  name="lock-closed"
+                  size={16}
+                  color={colors.textMuted}
+                />
               ) : (
                 <Text
                   style={[typography.titleMD, { color: colors.textPrimary }]}
@@ -435,28 +462,89 @@ export function SetHistoryTracker({
                 {set.actualLoadKg} kg
               </Text>
             ) : null}
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>
   );
 }
 
-/** Compact list of the session's other exercises. */
-export function UpcomingExerciseList({
+/** Rest countdown: centered block, the dismiss action below (no wrapping). */
+export function RestCountdown({
+  secondsLeft,
+  onDismiss,
+}: {
+  secondsLeft: number;
+  onDismiss(): void;
+}) {
+  const { colors, typography, fonts } = useAppTheme();
+  return (
+    <Entrance
+      style={[
+        s.restBlock,
+        { borderColor: colors.borderGlow, backgroundColor: colors.surfaceSoft },
+      ]}
+    >
+      <View style={s.row}>
+        <Ionicons name="timer-outline" size={18} color={colors.primary} />
+        <Text
+          style={[
+            typography.caption,
+            { color: colors.primary, letterSpacing: 2 },
+          ]}
+        >
+          DESCANSO
+        </Text>
+      </View>
+      <Text
+        style={[
+          s.restClock,
+          { color: colors.textPrimary, fontFamily: fonts.bold },
+        ]}
+      >
+        {clock(secondsLeft)}
+      </Text>
+      <PressableScale
+        accessibilityRole="button"
+        onPress={onDismiss}
+        style={[s.restButton, { borderColor: colors.border }]}
+      >
+        <Text
+          style={[
+            typography.bodyMD,
+            { color: colors.primary, fontFamily: fonts.semibold },
+          ]}
+        >
+          Encerrar timer
+        </Text>
+      </PressableScale>
+    </Entrance>
+  );
+}
+
+/** All exercises in their fixed order; the current one is highlighted. */
+export function ExerciseOrderList({
   exercises,
+  currentId,
   onSelect,
 }: {
   exercises: readonly WorkoutExercise[];
+  currentId: string | null;
   onSelect(exerciseId: string): void;
 }) {
-  const { colors, typography } = useAppTheme();
+  const { colors, typography, fonts } = useAppTheme();
   if (!exercises.length) return null;
   return (
     <View style={{ gap: 12 }}>
-      {exercises.map((exercise) => {
+      <Text style={[typography.titleMD, { color: colors.textPrimary }]}>
+        Ordem do treino
+      </Text>
+      {exercises.map((exercise, index) => {
         const first = exercise.sets[0];
-        const finished = exercise.sets.every((set) => set.status !== "pending");
+        const current = exercise.id === currentId;
+        const finished =
+          exercise.sets.length > 0 &&
+          exercise.sets.every((set) => set.status !== "pending");
         const summary = first
           ? [
               `${exercise.sets.length} ${exercise.sets.length === 1 ? "série" : "séries"}`,
@@ -475,47 +563,73 @@ export function UpcomingExerciseList({
               .join(" • ")
           : "Sem séries";
         return (
-          <Pressable
-            key={exercise.id}
-            accessibilityRole="button"
-            onPress={() => onSelect(exercise.id)}
-            style={[
-              s.upcoming,
-              {
-                backgroundColor: colors.surfaceCard,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <LinearGradient
-              colors={["rgba(30,220,255,0.18)", "rgba(29,92,255,0.06)"]}
-              style={s.thumb}
+          <Entrance key={exercise.id} index={index}>
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityState={{ selected: current }}
+              onPress={() => onSelect(exercise.id)}
+              style={[
+                s.upcoming,
+                {
+                  backgroundColor: current
+                    ? colors.surfaceSoft
+                    : colors.surfaceCard,
+                  borderColor: current ? colors.borderGlow : colors.border,
+                },
+              ]}
             >
-              <Ionicons
-                name={finished ? "checkmark-done" : "barbell-outline"}
-                size={24}
-                color={finished ? colors.success : colors.primary}
-              />
-            </LinearGradient>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text
+              <View
                 style={[
-                  typography.titleMD,
-                  { color: colors.textPrimary, fontSize: 16 },
+                  s.order,
+                  { borderColor: current ? colors.primary : colors.border },
                 ]}
-                numberOfLines={1}
               >
-                {exercise.exerciseName}
-              </Text>
-              <Text
-                style={[typography.bodySM, { color: colors.textSecondary }]}
-                numberOfLines={2}
-              >
-                {summary}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#AFC0D8" />
-          </Pressable>
+                {finished ? (
+                  <Ionicons name="checkmark" size={18} color={colors.success} />
+                ) : (
+                  <Text
+                    style={[
+                      typography.titleMD,
+                      {
+                        color: current ? colors.primary : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {index + 1}
+                  </Text>
+                )}
+              </View>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text
+                  style={[
+                    typography.titleMD,
+                    { color: colors.textPrimary, fontSize: 16 },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {exercise.exerciseName}
+                </Text>
+                <Text
+                  style={[typography.bodySM, { color: colors.textSecondary }]}
+                  numberOfLines={2}
+                >
+                  {summary}
+                </Text>
+              </View>
+              {current ? (
+                <Text
+                  style={[
+                    typography.caption,
+                    { color: colors.primary, fontFamily: fonts.bold },
+                  ]}
+                >
+                  ATUAL
+                </Text>
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color="#AFC0D8" />
+              )}
+            </PressableScale>
+          </Entrance>
         );
       })}
     </View>
@@ -611,9 +725,34 @@ const s = StyleSheet.create({
   },
   grid4: { flexDirection: "row", gap: 8 },
   info: { borderRadius: 16, borderWidth: 1, flex: 1, gap: 4, padding: 10 },
+  centered: { alignItems: "center" },
+  centerText: { textAlign: "center" },
+  restBlock: {
+    alignItems: "center",
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 6,
+    padding: 16,
+  },
+  restClock: { fontSize: 40, lineHeight: 46 },
+  restButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    marginTop: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+  },
+  order: {
+    alignItems: "center",
+    borderRadius: 18,
+    borderWidth: 1.5,
+    height: 36,
+    justifyContent: "center",
+    width: 36,
+  },
   input: { borderRadius: 16, borderWidth: 1, flex: 1, gap: 4, padding: 12 },
   inputText: { fontSize: 24, minHeight: 34, padding: 0 },
-  steppers: { flexDirection: "row", gap: 8 },
+  steppers: { flexDirection: "row", gap: 8, justifyContent: "center" },
   step: {
     alignItems: "center",
     borderRadius: 10,

@@ -65,7 +65,14 @@ function RootNavigator() {
   }
 
   return (
-    <Stack screenOptions={{ headerBackTitle: "Voltar" }}>
+    <Stack
+      screenOptions={{
+        headerBackTitle: "Voltar",
+        // Fluid page transitions (design ADR-0120).
+        animation: "fade_from_bottom",
+        animationDuration: 280,
+      }}
+    >
       <Stack.Protected guard={routes.auth}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       </Stack.Protected>

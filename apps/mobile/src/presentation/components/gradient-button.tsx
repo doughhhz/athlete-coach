@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
+import { ActivityIndicator, StyleSheet, Text } from "react-native";
 
+import { PressableScale } from "@/presentation/components/motion";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 
 /** Primary action with the neon gradient (design 2026-10-01). */
@@ -23,15 +24,12 @@ export function GradientButton({
 }) {
   const theme = useAppTheme();
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       disabled={disabled || busy}
       onPress={onPress}
       testID={testID}
-      style={({ pressed }) => [
-        styles.shadow,
-        { opacity: disabled ? 0.45 : pressed ? 0.85 : 1 },
-      ]}
+      style={[styles.shadow, { opacity: disabled ? 0.45 : 1 }]}
     >
       <LinearGradient
         colors={[
@@ -53,7 +51,7 @@ export function GradientButton({
           </>
         )}
       </LinearGradient>
-    </Pressable>
+    </PressableScale>
   );
 }
 const styles = StyleSheet.create({

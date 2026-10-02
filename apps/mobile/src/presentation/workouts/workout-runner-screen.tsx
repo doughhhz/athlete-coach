@@ -1,5 +1,6 @@
 import {
   currentWorkoutPosition,
+  selectableWorkoutSetIds,
   workoutDurationSeconds,
   workoutSetProgress,
   type WorkoutExercise,
@@ -22,6 +23,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppSession } from "@/presentation/auth/app-session";
+import { Entrance } from "@/presentation/components/motion";
 import { GradientButton } from "@/presentation/components/gradient-button";
 import { ScreenBackground } from "@/presentation/components/screen-background";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
@@ -33,7 +35,8 @@ import {
   SessionProgress,
   SetHistoryTracker,
   StepperField,
-  UpcomingExerciseList,
+  ExerciseOrderList,
+  RestCountdown,
   WorkoutSessionHeader,
 } from "./runner/runner-components";
 
@@ -233,8 +236,11 @@ export function WorkoutRunnerScreen() {
   const exercise =
     exercises.find((item) => item.id === position?.exerciseId) ?? null;
   const sets = exercise ? bySequence(exercise.sets) : [];
+  // A chosen set must be open under the domain rule (sets in order).
   const set =
-    sets.find((item) => item.id === selectedSetId) ??
+    (exercise && selectableWorkoutSetIds(exercise).has(selectedSetId ?? "")
+      ? sets.find((item) => item.id === selectedSetId)
+      : undefined) ??
     sets.find((item) => item.id === position?.setId) ??
     null;
   const progress = workoutSetProgress(session);
@@ -371,7 +377,9 @@ export function WorkoutRunnerScreen() {
             />
           </View>
         ) : exercise && set ? (
-          <View
+          // Re-enters (expands) whenever the current exercise changes.
+          <Entrance
+            key={exercise.id}
             style={[
               r.card,
               {
@@ -417,6 +425,7 @@ export function WorkoutRunnerScreen() {
             <View style={[r.divider, { backgroundColor: colors.divider }]} />
             <PerformedHeader
               label={`Série ${set.sequence} de ${sets.length}`}
+              done={set.status === "completed"}
             />
             <PerformedEditor
               key={set.id}
@@ -428,37 +437,14 @@ export function WorkoutRunnerScreen() {
             <SetHistoryTracker
               sets={sets}
               currentSetId={set.id}
+              selectableIds={selectableWorkoutSetIds(exercise)}
               onSelect={setSelectedSetId}
             />
             {rest && restLeft > 0 ? (
-              <View
-                style={[
-                  r.rest,
-                  {
-                    borderColor: colors.borderGlow,
-                    backgroundColor: colors.surfaceSoft,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="timer-outline"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text
-                  style={[
-                    typography.titleMD,
-                    { color: colors.textPrimary, flex: 1 },
-                  ]}
-                >
-                  Descanso: {clock(restLeft)}
-                </Text>
-                <Pressable onPress={() => setRest(null)}>
-                  <Text style={[typography.bodyMD, { color: colors.primary }]}>
-                    Encerrar timer
-                  </Text>
-                </Pressable>
-              </View>
+              <RestCountdown
+                secondsLeft={restLeft}
+                onDismiss={() => setRest(null)}
+              />
             ) : set.plannedRestMaxSeconds !== null ? (
               <View style={styles.hint}>
                 <Ionicons
@@ -473,15 +459,17 @@ export function WorkoutRunnerScreen() {
                 </Text>
               </View>
             ) : null}
-          </View>
+          </Entrance>
         ) : (
           <Text style={[typography.bodyLG, { color: colors.textSecondary }]}>
             Este treino não tem séries.
           </Text>
         )}
 
-        <UpcomingExerciseList
-          exercises={exercises.filter((item) => item !== exercise)}
+        {/* Fixed training order; selecting never reorders the list. */}
+        <ExerciseOrderList
+          exercises={exercises}
+          currentId={exercise?.id ?? null}
           onSelect={selectExercise}
         />
 

@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppSession } from "@/presentation/auth/app-session";
 import { BrandHeader } from "@/presentation/components/brand-header";
 import { GradientButton } from "@/presentation/components/gradient-button";
+import { Entrance } from "@/presentation/components/motion";
 import { ScreenBackground } from "@/presentation/components/screen-background";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import {
@@ -236,20 +237,22 @@ export function HomeScreen() {
           icon={greetingIcon}
           onOpenProfile={() => router.push("/profile" as Href)}
         />
-        <ProfileSummaryCard
-          goal={goal ? goalLabels[goal.goalType] : "Nenhum objetivo ativo"}
-          goalDetail={
-            context
-              ? `${context.resistanceTrainingMonths} meses de treino · ${snapshot.availableWeekdays.length} dias/semana`
-              : "Complete seu perfil"
-          }
-          weight={latest ? kg(latest.weightKg) : "—"}
-          weightDetail={
-            latest
-              ? `em ${new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short", timeZone }).format(new Date(latest.measuredAt))}`
-              : "ainda não informado"
-          }
-        />
+        <Entrance index={1}>
+          <ProfileSummaryCard
+            goal={goal ? goalLabels[goal.goalType] : "Nenhum objetivo ativo"}
+            goalDetail={
+              context
+                ? `${context.resistanceTrainingMonths} meses de treino · ${snapshot.availableWeekdays.length} dias/semana`
+                : "Complete seu perfil"
+            }
+            weight={latest ? kg(latest.weightKg) : "—"}
+            weightDetail={
+              latest
+                ? `em ${new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short", timeZone }).format(new Date(latest.measuredAt))}`
+                : "ainda não informado"
+            }
+          />
+        </Entrance>
 
         {error ? (
           <Text style={[typography.bodyMD, { color: colors.danger }]}>
@@ -259,102 +262,114 @@ export function HomeScreen() {
         {!data && !error ? <ActivityIndicator color={colors.primary} /> : null}
 
         {data ? (
-          workout ? (
-            <TodayWorkoutCard
-              caption="TREINO EM ANDAMENTO"
-              title={workout.dayName}
-              subtitle={workout.programName}
-              progress={workoutExerciseProgress(workout)}
-              action={
-                <GradientButton
-                  label="Continuar treino"
-                  onPress={() => router.push(`/workouts/${workout.id}` as Href)}
-                  testID="home-continue-workout"
-                />
-              }
-            />
-          ) : data.active && trainingDay && highlighted ? (
-            <TodayWorkoutCard
-              caption={
-                highlighted.isToday
-                  ? "TREINO DE HOJE"
-                  : `PRÓXIMO TREINO · ${WEEKDAY_LONG[highlighted.weekday]!.toUpperCase()}`
-              }
-              title={trainingDay.name}
-              subtitle={trainingDay.notes}
-              progress={{
-                finished: 0,
-                total: trainingDay.prescriptions.length,
-              }}
-              action={
-                <GradientButton
-                  label="Começar treino"
-                  busy={starting}
-                  onPress={() => void start(trainingDay.id)}
-                  testID="home-start-workout"
-                />
-              }
-            />
-          ) : data.active ? (
-            <TodayWorkoutCard
-              caption="ESTA SEMANA"
-              title="Treinos da semana concluídos"
-              subtitle="Nenhum treino planejado restante. Veja o plano completo na aba Treino."
-              progress={null}
-              action={
-                <OutlineButton
-                  label="Ver plano"
-                  onPress={() => router.push("/treino" as Href)}
-                />
-              }
-            />
-          ) : (
-            <TodayWorkoutCard
-              caption="COMECE AQUI"
-              title="Seu primeiro programa"
-              subtitle="O Personal monta um programa com base no seu perfil. Você revisa antes de ativar."
-              progress={null}
-              action={
-                <GradientButton
-                  label="Montar com o Personal"
-                  onPress={() => router.push("/initial-program" as Href)}
-                  testID="home-initial-program"
-                />
-              }
-            />
-          )
+          <Entrance index={2}>
+            {workout ? (
+              <TodayWorkoutCard
+                caption="TREINO EM ANDAMENTO"
+                title={workout.dayName}
+                subtitle={workout.programName}
+                progress={workoutExerciseProgress(workout)}
+                action={
+                  <GradientButton
+                    label="Continuar treino"
+                    onPress={() =>
+                      router.push(`/workouts/${workout.id}` as Href)
+                    }
+                    testID="home-continue-workout"
+                  />
+                }
+              />
+            ) : data.active && trainingDay && highlighted ? (
+              <TodayWorkoutCard
+                caption={
+                  highlighted.isToday
+                    ? "TREINO DE HOJE"
+                    : `PRÓXIMO TREINO · ${WEEKDAY_LONG[highlighted.weekday]!.toUpperCase()}`
+                }
+                title={trainingDay.name}
+                subtitle={trainingDay.notes}
+                progress={{
+                  finished: 0,
+                  total: trainingDay.prescriptions.length,
+                }}
+                action={
+                  <GradientButton
+                    label="Começar treino"
+                    busy={starting}
+                    onPress={() => void start(trainingDay.id)}
+                    testID="home-start-workout"
+                  />
+                }
+              />
+            ) : data.active ? (
+              <TodayWorkoutCard
+                caption="ESTA SEMANA"
+                title="Treinos da semana concluídos"
+                subtitle="Nenhum treino planejado restante. Veja o plano completo na aba Treino."
+                progress={null}
+                action={
+                  <OutlineButton
+                    label="Ver plano"
+                    onPress={() => router.push("/treino" as Href)}
+                  />
+                }
+              />
+            ) : (
+              <TodayWorkoutCard
+                caption="COMECE AQUI"
+                title="Seu primeiro programa"
+                subtitle="O Personal monta um programa com base no seu perfil. Você revisa antes de ativar."
+                progress={null}
+                action={
+                  <GradientButton
+                    label="Montar com o Personal"
+                    onPress={() => router.push("/initial-program" as Href)}
+                    testID="home-initial-program"
+                  />
+                }
+              />
+            )}
+          </Entrance>
         ) : null}
 
-        {stats.length ? <StatsGrid items={stats} /> : null}
-        <TrainerCard onOpen={() => router.push("/personal" as Href)} />
-        <QuickAccessGrid
-          items={[
-            {
-              title: "Treino",
-              subtitle: "Ver treinos",
-              icon: "barbell-outline",
-              onPress: () => router.push("/treino" as Href),
-            },
-            {
-              title: "Nutrição",
-              subtitle: "Em construção",
-              icon: "restaurant-outline",
-              onPress: () => router.push("/nutricao" as Href),
-            },
-            {
-              title: "Progresso",
-              subtitle: "Ver evolução",
-              icon: "stats-chart-outline",
-              onPress: () => router.push("/progresso" as Href),
-            },
-            {
-              title: "Perfil",
-              subtitle: "Seus dados",
-              icon: "person-outline",
-              onPress: () => router.push("/profile" as Href),
-            },
-          ]}
-        />
+        {stats.length ? (
+          <Entrance index={3}>
+            <StatsGrid items={stats} />
+          </Entrance>
+        ) : null}
+        <Entrance index={4}>
+          <TrainerCard onOpen={() => router.push("/personal" as Href)} />
+        </Entrance>
+        <Entrance index={5}>
+          <QuickAccessGrid
+            items={[
+              {
+                title: "Treino",
+                subtitle: "Ver treinos",
+                icon: "barbell-outline",
+                onPress: () => router.push("/treino" as Href),
+              },
+              {
+                title: "Nutrição",
+                subtitle: "Em construção",
+                icon: "restaurant-outline",
+                onPress: () => router.push("/nutricao" as Href),
+              },
+              {
+                title: "Progresso",
+                subtitle: "Ver evolução",
+                icon: "stats-chart-outline",
+                onPress: () => router.push("/progresso" as Href),
+              },
+              {
+                title: "Perfil",
+                subtitle: "Seus dados",
+                icon: "person-outline",
+                onPress: () => router.push("/profile" as Href),
+              },
+            ]}
+          />
+        </Entrance>
       </ScrollView>
     </View>
   );

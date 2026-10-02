@@ -40,3 +40,30 @@ test("E2E anchors survive the redesign", () => {
   ])
     assert.ok(text.includes(anchor), anchor);
 });
+
+test("user feedback 2026-10-02: order, honest check, rest layout, motion", async () => {
+  const motion = await read("src/presentation/components/motion.tsx");
+  // Sets open in order (domain rule) and the chosen set must be open.
+  assert.match(screen, /selectableIds=\{selectableWorkoutSetIds\(exercise\)\}/);
+  assert.match(
+    screen,
+    /selectableWorkoutSetIds\(exercise\)\.has\(selectedSetId/,
+  );
+  assert.match(components, /disabled=\{locked\}/);
+  // Green check only for a completed set.
+  assert.match(screen, /done=\{set\.status === "completed"\}/);
+  assert.match(
+    components,
+    /icon=\{done \? "checkmark-circle" : "create-outline"\}/,
+  );
+  // Rest countdown is its own centered block with the dismiss below.
+  assert.match(screen, /<RestCountdown/);
+  assert.match(components, /restBlock: \{\s*alignItems: "center"/);
+  // Fixed exercise order: the full list, current highlighted.
+  assert.match(screen, /<ExerciseOrderList\s+exercises=\{exercises\}/);
+  assert.match(components, /ATUAL/);
+  // Fluid motion: entrances, press scale, page and tab transitions.
+  assert.match(motion, /FadeInDown/);
+  assert.match(motion, /withSpring/);
+  assert.match(screen, /<Entrance\s+key=\{exercise\.id\}/);
+});

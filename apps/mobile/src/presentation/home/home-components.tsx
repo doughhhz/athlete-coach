@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
+import { PressableScale } from "@/presentation/components/motion";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -22,14 +23,11 @@ export function OutlineButton({
 }) {
   const { colors, fonts } = useAppTheme();
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       onPress={onPress}
       testID={testID}
-      style={({ pressed }) => [
-        s.outline,
-        { borderColor: colors.borderGlow, opacity: pressed ? 0.75 : 1 },
-      ]}
+      style={[s.outline, { borderColor: colors.borderGlow }]}
     >
       {icon ? <Ionicons name={icon} size={18} color={colors.primary} /> : null}
       <Text
@@ -41,7 +39,7 @@ export function OutlineButton({
         {label}
       </Text>
       <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -400,16 +398,15 @@ export function QuickAccessGrid({ items }: { items: readonly QuickAction[] }) {
       </Text>
       <View style={s.grid}>
         {items.map((item) => (
-          <Pressable
+          <PressableScale
             key={item.title}
             accessibilityRole="button"
             onPress={item.onPress}
-            style={({ pressed }) => [
+            style={[
               s.quick,
               {
                 backgroundColor: colors.surfaceCard,
                 borderColor: colors.border,
-                opacity: pressed ? 0.75 : 1,
               },
             ]}
           >
@@ -430,7 +427,7 @@ export function QuickAccessGrid({ items }: { items: readonly QuickAction[] }) {
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#AFC0D8" />
-          </Pressable>
+          </PressableScale>
         ))}
       </View>
     </View>

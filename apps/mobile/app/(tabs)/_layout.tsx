@@ -19,6 +19,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShadowVisible: false,
+        animation: "fade",
         headerStyle: { backgroundColor: theme.colors.backgroundSecondary },
         headerTitleStyle: {
           color: theme.colors.textPrimary,

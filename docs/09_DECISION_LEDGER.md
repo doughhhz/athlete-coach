@@ -1221,3 +1221,14 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   5. **Fatos, não enfeites:** sem "Ver vídeo" (não há vídeos) e sem a etiqueta de grupo muscular (o treino não guarda esse dado). Imagens viram ícones.
 - Domínio: `currentWorkoutPosition` e `workoutSetProgress`, com testes.
 - Afetados: `apps/mobile` (runner e componentes, cabeçalho nativo oculto na rota) e `packages/domain`. Os anchors do E2E (`workout-set-*`, `workout-finish`, "REALIZADO", "Corrigir série") foram mantidos.
+- Ajustes após teste no celular (2026-10-02):
+  - Séries em ordem: uma série pendente só abre depois que as anteriores estiverem resolvidas (`selectableWorkoutSetIds`, no domínio); séries futuras aparecem com cadeado.
+  - O ícone de REALIZADO é neutro e só vira o check verde quando a série foi concluída.
+  - O descanso virou um bloco centralizado: rótulo, contagem grande e "Encerrar timer" embaixo.
+  - Valores e rótulos centralizados nos cartões de planejado e realizado.
+  - A lista "Ordem do treino" mostra todos os exercícios na ordem fixa, com o atual destacado ("ATUAL"); escolher um não reordena a lista.
+  - Movimento (`components/motion.tsx`, Reanimated):
+    - entrada dos cartões com expansão suave e escalonada, e transição de layout;
+    - botões e cartões afundam levemente ao toque (mola);
+    - páginas com `fade_from_bottom` e abas com `fade`;
+    - o cartão do exercício reanima a cada troca de exercício.

@@ -166,3 +166,20 @@ export function currentWorkoutPosition(
   const last = fallback ? ordered(fallback).at(-1) : undefined;
   return fallback && last ? { exerciseId: fallback.id, setId: last.id } : null;
 }
+
+/**
+ * Sets the athlete may open in an exercise: every completed or skipped set
+ * (to review or correct) and the first pending one. A later pending set
+ * opens only after the earlier ones are resolved (sets in order).
+ */
+export function selectableWorkoutSetIds(
+  exercise: Pick<WorkoutExercise, "sets">,
+): ReadonlySet<string> {
+  const ordered = [...exercise.sets].sort((a, b) => a.sequence - b.sequence);
+  const firstPending = ordered.find((set) => set.status === "pending");
+  return new Set(
+    ordered
+      .filter((set) => set.status !== "pending" || set === firstPending)
+      .map((set) => set.id),
+  );
+}

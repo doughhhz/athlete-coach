@@ -65,3 +65,22 @@ test("without pending sets: next exercise, else the last set to correct", () => 
   });
   assert.equal(currentWorkoutPosition(session([])), null);
 });
+
+test("sets open in order: resolved ones and only the first pending", async () => {
+  const { selectableWorkoutSetIds } = await import("../src/index.ts");
+  const ids = (sets) => [...selectableWorkoutSetIds({ sets })].sort();
+  assert.deepEqual(ids([set("3", 3), set("1", 1, "completed"), set("2", 2)]), [
+    "1",
+    "2",
+  ]);
+  assert.deepEqual(ids([set("1", 1), set("2", 2), set("3", 3)]), ["1"]);
+  // Skipped sets count as resolved; a correction stays possible.
+  assert.deepEqual(
+    ids([set("1", 1, "skipped"), set("2", 2, "completed"), set("3", 3)]),
+    ["1", "2", "3"],
+  );
+  assert.deepEqual(ids([set("1", 1, "completed"), set("2", 2, "completed")]), [
+    "1",
+    "2",
+  ]);
+});

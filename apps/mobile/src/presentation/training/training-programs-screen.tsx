@@ -23,6 +23,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppSession } from "@/presentation/auth/app-session";
+import { Entrance } from "@/presentation/components/motion";
 import { ScreenBackground } from "@/presentation/components/screen-background";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import {
@@ -212,116 +213,118 @@ export function TrainingProgramsScreen() {
               ) : null}
             </View>
 
-            {workout ? (
-              <HeroWorkoutCard
-                caption="EM ANDAMENTO"
-                title={workout.dayName}
-                description={workout.programName}
-                stats={[
-                  {
-                    icon: "checkmark-done-outline",
-                    label: "PROGRESSO",
-                    value: `${workoutExerciseProgress(workout).finished} de ${workoutExerciseProgress(workout).total}`,
-                  },
-                ]}
-                action={
-                  <Link href={`/workouts/${workout.id}` as Href} asChild>
-                    <Pressable
-                      accessibilityRole="button"
-                      style={StyleSheet.flatten([
-                        s.continue,
-                        { borderColor: colors.borderGlow },
-                      ])}
-                    >
-                      <Text
-                        style={[
-                          typography.titleMD,
-                          { color: colors.textPrimary },
-                        ]}
+            <Entrance index={1}>
+              {workout ? (
+                <HeroWorkoutCard
+                  caption="EM ANDAMENTO"
+                  title={workout.dayName}
+                  description={workout.programName}
+                  stats={[
+                    {
+                      icon: "checkmark-done-outline",
+                      label: "PROGRESSO",
+                      value: `${workoutExerciseProgress(workout).finished} de ${workoutExerciseProgress(workout).total}`,
+                    },
+                  ]}
+                  action={
+                    <Link href={`/workouts/${workout.id}` as Href} asChild>
+                      <Pressable
+                        accessibilityRole="button"
+                        style={StyleSheet.flatten([
+                          s.continue,
+                          { borderColor: colors.borderGlow },
+                        ])}
                       >
-                        Continuar treino
-                      </Text>
-                      <Ionicons
-                        name="arrow-forward"
-                        size={20}
-                        color={colors.primary}
-                      />
-                    </Pressable>
-                  </Link>
-                }
-              />
-            ) : data.active && trainingDay && selected ? (
-              <HeroWorkoutCard
-                caption={`${WEEKDAY_LONG[selected.weekday]!.toUpperCase()}${selected.isToday ? " · HOJE" : ""}`}
-                title={trainingDay.name}
-                description={trainingDay.notes}
-                stats={[
-                  {
-                    icon: "time-outline",
-                    label: "DURAÇÃO",
-                    value: `~ ${estimateTrainingDayMinutes(trainingDay)} min`,
-                  },
-                  {
-                    icon: "layers-outline",
-                    label: "SÉRIES",
-                    value: String(
-                      trainingDay.prescriptions.reduce(
-                        (total, item) => total + item.sets.length,
-                        0,
+                        <Text
+                          style={[
+                            typography.titleMD,
+                            { color: colors.textPrimary },
+                          ]}
+                        >
+                          Continuar treino
+                        </Text>
+                        <Ionicons
+                          name="arrow-forward"
+                          size={20}
+                          color={colors.primary}
+                        />
+                      </Pressable>
+                    </Link>
+                  }
+                />
+              ) : data.active && trainingDay && selected ? (
+                <HeroWorkoutCard
+                  caption={`${WEEKDAY_LONG[selected.weekday]!.toUpperCase()}${selected.isToday ? " · HOJE" : ""}`}
+                  title={trainingDay.name}
+                  description={trainingDay.notes}
+                  stats={[
+                    {
+                      icon: "time-outline",
+                      label: "DURAÇÃO",
+                      value: `~ ${estimateTrainingDayMinutes(trainingDay)} min`,
+                    },
+                    {
+                      icon: "layers-outline",
+                      label: "SÉRIES",
+                      value: String(
+                        trainingDay.prescriptions.reduce(
+                          (total, item) => total + item.sets.length,
+                          0,
+                        ),
                       ),
-                    ),
-                  },
-                  {
-                    icon: "barbell-outline",
-                    label: "EXERCÍCIOS",
-                    value: progress
-                      ? `${progress.finished} de ${progress.total}`
-                      : String(trainingDay.prescriptions.length),
-                  },
-                ]}
-                action={
-                  selected.status === "done" ? (
-                    <Text
-                      style={[typography.bodyMD, { color: colors.success }]}
-                    >
-                      Treino feito neste dia.
-                    </Text>
-                  ) : (
+                    },
+                    {
+                      icon: "barbell-outline",
+                      label: "EXERCÍCIOS",
+                      value: progress
+                        ? `${progress.finished} de ${progress.total}`
+                        : String(trainingDay.prescriptions.length),
+                    },
+                  ]}
+                  action={
+                    selected.status === "done" ? (
+                      <Text
+                        style={[typography.bodyMD, { color: colors.success }]}
+                      >
+                        Treino feito neste dia.
+                      </Text>
+                    ) : (
+                      <GradientButton
+                        label="Iniciar treino"
+                        busy={starting}
+                        onPress={() => void start(trainingDay.id)}
+                        testID="training-start-workout"
+                      />
+                    )
+                  }
+                />
+              ) : data.active && selected ? (
+                <HeroWorkoutCard
+                  caption={selected.isToday ? "HOJE" : "DESCANSO"}
+                  title="Dia de descanso"
+                  description="Nenhum treino planejado para este dia no seu programa ativo."
+                  stats={[]}
+                  action={null}
+                />
+              ) : (
+                <HeroWorkoutCard
+                  caption="COMECE AQUI"
+                  title="Seu primeiro programa"
+                  description="Você ainda não possui um programa de treino ativo. O Personal pode montar um com base no seu perfil."
+                  stats={[]}
+                  action={
                     <GradientButton
-                      label="Iniciar treino"
-                      busy={starting}
-                      onPress={() => void start(trainingDay.id)}
-                      testID="training-start-workout"
+                      label="Montar com o Personal"
+                      onPress={() => router.push("/initial-program" as Href)}
+                      testID="training-hero-initial-program"
                     />
-                  )
-                }
-              />
-            ) : data.active && selected ? (
-              <HeroWorkoutCard
-                caption={selected.isToday ? "HOJE" : "DESCANSO"}
-                title="Dia de descanso"
-                description="Nenhum treino planejado para este dia no seu programa ativo."
-                stats={[]}
-                action={null}
-              />
-            ) : (
-              <HeroWorkoutCard
-                caption="COMECE AQUI"
-                title="Seu primeiro programa"
-                description="Você ainda não possui um programa de treino ativo. O Personal pode montar um com base no seu perfil."
-                stats={[]}
-                action={
-                  <GradientButton
-                    label="Montar com o Personal"
-                    onPress={() => router.push("/initial-program" as Href)}
-                    testID="training-hero-initial-program"
-                  />
-                }
-              />
-            )}
+                  }
+                />
+              )}
+            </Entrance>
 
             {data.active ? (
-              <View style={s.section}>
+              <Entrance index={2} style={s.section}>
                 <SectionHeader
                   icon="calendar-outline"
                   title="Plano da semana"
@@ -351,11 +354,11 @@ export function TrainingProgramsScreen() {
                   selectedDate={selected?.date ?? null}
                   onSelect={(day) => setSelectedDate(day.date)}
                 />
-              </View>
+              </Entrance>
             ) : null}
 
             {data.active && trainingDay ? (
-              <View style={s.section}>
+              <Entrance index={3} style={s.section}>
                 <SectionHeader
                   icon="barbell-outline"
                   title="Exercícios do treino"
@@ -376,10 +379,10 @@ export function TrainingProgramsScreen() {
                     router.push(`/programs/${data.active!.id}` as Href)
                   }
                 />
-              </View>
+              </Entrance>
             ) : null}
 
-            <View style={s.section}>
+            <Entrance index={4} style={s.section}>
               <SectionHeader
                 icon="albums-outline"
                 title="Meus programas"
@@ -525,9 +528,9 @@ export function TrainingProgramsScreen() {
                   </Text>
                 </Pressable>
               </Link>
-            </View>
+            </Entrance>
 
-            <View style={s.section}>
+            <Entrance index={5} style={s.section}>
               <SectionHeader icon="time-outline" title="Histórico de treinos" />
               {!data.history.length ? (
                 <Text style={[typography.bodyMD, { color: colors.textMuted }]}>
@@ -569,7 +572,7 @@ export function TrainingProgramsScreen() {
                   </Link>
                 ))
               )}
-            </View>
+            </Entrance>
           </>
         ) : null}
       </ScrollView>
