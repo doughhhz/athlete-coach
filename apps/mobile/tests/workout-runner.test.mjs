@@ -13,10 +13,15 @@ const runner =
     resolve(root, "src/presentation/workouts/runner/runner-components.tsx"),
     "utf8",
   ));
-const training = await readFile(
-  resolve(root, "src/presentation/training/training-programs-screen.tsx"),
-  "utf8",
-);
+const training =
+  (await readFile(
+    resolve(root, "src/presentation/training/training-programs-screen.tsx"),
+    "utf8",
+  )) +
+  (await readFile(
+    resolve(root, "src/presentation/training/programs-screen.tsx"),
+    "utf8",
+  ));
 const details = await readFile(
   resolve(root, "src/presentation/training/program-details-screen.tsx"),
   "utf8",

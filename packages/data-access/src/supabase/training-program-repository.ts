@@ -1,5 +1,6 @@
 import {
   ProgramCreationConflictError,
+  ProgramDeletionBlockedError,
   type CreateProgramWithStructureInput,
   type ProgramStructureInput,
   type TrainingProgramRepository,
@@ -264,6 +265,20 @@ export class SupabaseTrainingProgramRepository implements TrainingProgramReposit
       p_program_id: id,
       p_status: "archived",
     });
+  }
+  async delete(id: string): Promise<void> {
+    const { data, error } = await this.client
+      .from("training_programs")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    // Workouts, Coach decisions and revisions reference the program
+    // (on delete restrict): the database keeps the history.
+    if (error?.code === "23503")
+      throw new ProgramDeletionBlockedError("history");
+    if (error) failure("Não foi possível excluir o programa.", error);
+    // RLS hides the active program (and other athletes' programs).
+    if (!data?.length) throw new ProgramDeletionBlockedError("active");
   }
   private async currentAthlete(): Promise<string> {
     const { data, error } = await this.client.rpc("ensure_current_athlete");

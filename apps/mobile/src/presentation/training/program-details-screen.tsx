@@ -1,8 +1,12 @@
-import type { TrainingProgram } from "@athlete-coach/domain";
+import {
+  canDeleteTrainingProgram,
+  type TrainingProgram,
+} from "@athlete-coach/domain";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -63,6 +67,35 @@ export function ProgramDetailsScreen() {
     } finally {
       setBusy(false);
     }
+  }
+  function confirmDelete() {
+    Alert.alert(
+      "Excluir programa?",
+      "O programa e seus dias serão apagados. Esta ação não pode ser desfeita.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            setBusy(true);
+            setError(null);
+            try {
+              await app.deleteProgram(id);
+              router.replace("/programs" as Href);
+            } catch (e) {
+              setError(
+                e instanceof Error
+                  ? e.message
+                  : "Não foi possível excluir o programa.",
+              );
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
   }
   async function startWorkout(dayId: string) {
     setBusy(true);
@@ -260,6 +293,17 @@ export function ProgramDetailsScreen() {
             style={[s.outline, { borderColor: theme.colors.border }]}
           >
             <Text style={{ color: theme.colors.text }}>Concluir ciclo</Text>
+          </Pressable>
+        ) : null}
+        {canDeleteTrainingProgram(p) ? (
+          <Pressable
+            disabled={busy}
+            onPress={confirmDelete}
+            testID="program-delete"
+          >
+            <Text style={{ color: theme.colors.danger, fontWeight: "700" }}>
+              Excluir programa
+            </Text>
           </Pressable>
         ) : null}
         {p.status !== "archived" ? (

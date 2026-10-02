@@ -90,6 +90,10 @@ function RootNavigator() {
           name="exercises/[slug]"
           options={{ title: "Exercício" }}
         />
+        <Stack.Screen
+          name="programs/index"
+          options={{ title: "Meus programas" }}
+        />
         {/* The workout runner draws its own header (ADR-0122). */}
         <Stack.Screen
           name="workouts/[id]/index"

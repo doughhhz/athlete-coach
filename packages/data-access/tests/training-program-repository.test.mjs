@@ -122,3 +122,37 @@ test("creation conflict is normalized with the existing draft id", async () => {
       error.existingProgramId === "existing",
   );
 });
+
+test("delete maps the database answers to explicit reasons", async () => {
+  const { SupabaseTrainingProgramRepository } = await import("../src/index.ts");
+  const { ProgramDeletionBlockedError } =
+    await import("@athlete-coach/application");
+  const client = (result) => {
+    const builder = {
+      delete: () => builder,
+      eq: () => builder,
+      select: () => Promise.resolve(result),
+    };
+    return { from: () => builder };
+  };
+  await new SupabaseTrainingProgramRepository(
+    client({ data: [{ id: "p" }], error: null }),
+  ).delete("p");
+  await assert.rejects(
+    () =>
+      new SupabaseTrainingProgramRepository(
+        client({ data: null, error: { code: "23503" } }),
+      ).delete("p"),
+    (error) =>
+      error instanceof ProgramDeletionBlockedError &&
+      error.reason === "history",
+  );
+  await assert.rejects(
+    () =>
+      new SupabaseTrainingProgramRepository(
+        client({ data: [], error: null }),
+      ).delete("p"),
+    (error) =>
+      error instanceof ProgramDeletionBlockedError && error.reason === "active",
+  );
+});

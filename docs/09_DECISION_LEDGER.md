@@ -1267,3 +1267,23 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - `logo-full.png` (960×640): "A" + "Athlete Coach"; usado nas telas de entrar e criar conta (`BrandLogo`);
   - `app-icon.png` (1024×1024): o "A" sobre o fundo `#050B14`, com margem para a máscara do iOS; definido como `expo.icon`.
 - O ícone do app só muda num novo build; no Expo Go aparece o ícone do próprio Expo Go.
+
+### ADR-0125 — Program deletion, lean Treino tab and rest-day card
+
+- Data: 2026-10-02
+- Status: accepted
+- Contexto: feedback do usuário no celular. Não dava para excluir programas, a aba Treino mostrava coisas demais e, em dia de descanso, não mostrava nada útil.
+- Decisões:
+  1. **Exclusão de programa:**
+     - O atleta pode excluir os próprios programas que **não estão ativos** (o ativo precisa ser arquivado ou concluído antes).
+     - Programas com treinos, decisões do Personal ou revisões posteriores continuam protegidos pelas chaves estrangeiras existentes (`on delete restrict`); nesse caso a mensagem explica e sugere arquivar. O histórico nunca é apagado.
+     - Regra no domínio (`canDeleteTrainingProgram`), na aplicação (`DeleteTrainingProgram`, `ProgramDeletionBlockedError` com motivo `active`, `history` ou `not_found`) e no banco (migration `20261010120000`: a política de exclusão exige `status <> active`).
+     - A exclusão também apaga o registro de auditoria da geração do programa (`initial_program_generations`, em cascata).
+     - Na tela do programa, "Excluir programa" pede confirmação.
+  2. **Aba Treino enxuta:** só o treino, o plano da semana e os exercícios do dia.
+     - "Meus programas", criar programa, pedir um programa ao Personal, biblioteca e histórico de treinos foram para a tela **Meus programas** (`/programs`), aberta pelo botão "Programas" no cabeçalho da aba. Ele substitui o status do Personal, que continua visível na Home e na aba Personal.
+  3. **Dia selecionado:** por padrão é **hoje**.
+     - Em dia de descanso, o cartão mostra "Hoje é dia de descanso", o próximo treino planejado e o botão "Ver treino de {dia}".
+     - Se o programa não tem dias da semana definidos, o cartão explica isso e leva ao programa.
+- Afetados: `packages/domain`, `packages/application`, `packages/data-access`, `supabase` (migration e teste pgTAP), `apps/mobile` e os fluxos E2E 03, 06, 07, 09 e o subflow de carga prescrita, que agora abrem "Meus programas" pelo subflow `open-programs`. **Ainda não validados num build E2E.**
+- Migration aplicada nos projetos E2E e principal.

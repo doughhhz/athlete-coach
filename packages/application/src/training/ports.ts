@@ -36,4 +36,22 @@ export interface TrainingProgramRepository {
   cloneAsDraft(id: string): Promise<TrainingProgram>;
   complete(id: string): Promise<TrainingProgram>;
   archive(id: string): Promise<TrainingProgram>;
+  /** Hard delete of a non-active program without recorded history. */
+  delete(id: string): Promise<void>;
+}
+export type ProgramDeletionBlockReason = "active" | "history" | "not_found";
+/** Nothing was deleted; the reason is explicit (ADR-0125). */
+export class ProgramDeletionBlockedError extends Error {
+  readonly reason: ProgramDeletionBlockReason;
+  constructor(reason: ProgramDeletionBlockReason) {
+    super(
+      reason === "active"
+        ? "O programa ativo não pode ser excluído. Arquive ou conclua o programa antes."
+        : reason === "history"
+          ? "Este programa tem treinos, decisões do Personal ou revisões registradas e não pode ser excluído, para preservar seu histórico. Você pode arquivá-lo."
+          : "Programa não encontrado.",
+    );
+    this.name = "ProgramDeletionBlockedError";
+    this.reason = reason;
+  }
 }

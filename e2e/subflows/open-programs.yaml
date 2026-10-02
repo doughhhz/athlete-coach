@@ -1,0 +1,11 @@
+# Opens "Meus programas" (programs, create, ask the Personal, library and
+# workout history) from the Treino tab header (ADR-0125).
+appId: app.athletecoach.e2e
+---
+- runFlow: open-treino-loaded.yaml
+- tapOn:
+    id: "training-open-programs"
+- extendedWaitUntil:
+    visible:
+      id: "training-create-program"
+    timeout: 30000

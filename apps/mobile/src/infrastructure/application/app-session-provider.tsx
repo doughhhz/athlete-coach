@@ -242,6 +242,10 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
       if (!application) throw new Error("Backend não configurado.");
       return application.archiveProgram.execute(id);
     },
+    deleteProgram: async (id) => {
+      if (!application) throw new Error("Não foi possível excluir o programa.");
+      return application.deleteProgram.execute(id);
+    },
     startWorkout: async (dayId) => {
       if (!application) throw new Error("Backend não configurado.");
       return application.startWorkout.execute(dayId);

@@ -5,7 +5,7 @@
 appId: app.athletecoach.e2e
 ---
 - evalScript: ${output.programName = 'E2E Carga ' + Date.now()}
-- runFlow: open-treino-loaded.yaml
+- runFlow: open-programs.yaml
 - tapOn:
     id: "training-create-program"
 - extendedWaitUntil:

@@ -181,3 +181,14 @@ export function assertActivatable(program: TrainingProgram): void {
   )
     throw new Error("Program structure is incomplete.");
 }
+
+/**
+ * A program may be deleted unless it is the active one (archive or complete
+ * it first). History is protected by the database: programs with workouts,
+ * Coach decisions or later revisions cannot be deleted (ADR-0125).
+ */
+export function canDeleteTrainingProgram(
+  program: Pick<TrainingProgram, "status">,
+): boolean {
+  return program.status !== "active";
+}

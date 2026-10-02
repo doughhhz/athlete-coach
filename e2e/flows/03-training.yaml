@@ -10,7 +10,7 @@ tags:
 ---
 - runFlow: ../subflows/sign-in-to-tabs.yaml
 - evalScript: ${output.programName = 'E2E Programa ' + Date.now()}
-- runFlow: ../subflows/open-treino-loaded.yaml
+- runFlow: ../subflows/open-programs.yaml
 - tapOn:
     id: "training-create-program"
 - extendedWaitUntil:

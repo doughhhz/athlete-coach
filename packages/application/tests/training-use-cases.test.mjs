@@ -138,3 +138,32 @@ test("clone creates revision lineage", async () => {
   assert.equal(clone.supersedesProgramId, "p");
   assert.equal(clone.revision, 2);
 });
+
+test("delete: active and missing programs are refused before the repository", async () => {
+  const { DeleteTrainingProgram, ProgramDeletionBlockedError } =
+    await import("../src/index.ts");
+  const deleted = [];
+  const repository = (program) => ({
+    get: async () => program,
+    delete: async (id) => deleted.push(id),
+  });
+  await new DeleteTrainingProgram(
+    repository({ id: "p", status: "draft" }),
+  ).execute("p");
+  assert.deepEqual(deleted, ["p"]);
+  await assert.rejects(
+    () =>
+      new DeleteTrainingProgram(
+        repository({ id: "a", status: "active" }),
+      ).execute("a"),
+    (error) =>
+      error instanceof ProgramDeletionBlockedError && error.reason === "active",
+  );
+  await assert.rejects(
+    () => new DeleteTrainingProgram(repository(null)).execute("x"),
+    (error) =>
+      error instanceof ProgramDeletionBlockedError &&
+      error.reason === "not_found",
+  );
+  assert.deepEqual(deleted, ["p"]);
+});

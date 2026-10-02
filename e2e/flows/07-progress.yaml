@@ -31,7 +31,7 @@ tags:
 - assertVisible: "Carga . o valor registrado para este mesmo exerc.cio.*"
 - takeScreenshot: 07-progress-exercise-history
 # Treino history: a past workout opens its factual summary.
-- runFlow: ../subflows/open-treino-loaded.yaml
+- runFlow: ../subflows/open-programs.yaml
 - scrollUntilVisible:
     element: "Hist.rico de treinos"
     direction: DOWN

@@ -15,7 +15,10 @@ const [screen, labels, gateway, layout, tabs, training, details, provider] =
     ),
     read("app/_layout.tsx"),
     read("app/(tabs)/_layout.tsx"),
-    read("src/presentation/training/training-programs-screen.tsx"),
+    read("src/presentation/training/training-programs-screen.tsx").then(
+      async (text) =>
+        text + (await read("src/presentation/training/programs-screen.tsx")),
+    ),
     read("src/presentation/training/program-details-screen.tsx"),
     read("src/infrastructure/application/app-session-provider.tsx"),
   ]);

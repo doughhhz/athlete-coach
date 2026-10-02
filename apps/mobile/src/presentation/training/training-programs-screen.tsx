@@ -35,12 +35,6 @@ import {
   WeekPlanRow,
 } from "./treino/treino-components";
 
-const labels = {
-  draft: "Rascunho",
-  active: "Ativo",
-  completed: "Concluído",
-  archived: "Arquivado (retirado)",
-} as const;
 const WEEKDAY_LONG = [
   "",
   "segunda",
@@ -58,6 +52,27 @@ type Data = Readonly<{
   workout: WorkoutSession | null;
   history: readonly WorkoutSessionSummary[];
 }>;
+
+function OutlineAction({ label, onPress }: { label: string; onPress(): void }) {
+  const { colors, typography, fonts } = useAppTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={[s.continue, { borderColor: colors.borderGlow }]}
+    >
+      <Text
+        style={[
+          typography.bodyLG,
+          { color: colors.textPrimary, fontFamily: fonts.semibold },
+        ]}
+      >
+        {label}
+      </Text>
+      <Ionicons name="arrow-forward" size={18} color={colors.primary} />
+    </Pressable>
+  );
+}
 
 /**
  * Treino tab (design 2026-10-01, dark minimal neon). Facts only: the week,
@@ -120,9 +135,14 @@ export function TrainingProgramsScreen() {
         : [],
     [data, timeZone],
   );
-  const highlighted = highlightedWeekPlanDay(week);
+  // Today is shown by default; another day only when the athlete picks it.
+  const today = week.find((day) => day.isToday) ?? null;
   const selected: WeekPlanDay | null =
-    week.find((day) => day.date === selectedDate) ?? highlighted;
+    week.find((day) => day.date === selectedDate) ?? today;
+  // Next planned day after today (for the rest-day card).
+  const next = highlightedWeekPlanDay(week);
+  const nextPlanned = next && next.date !== today?.date ? next : null;
+  const hasWeekdays = week.some((day) => day.trainingDay !== null);
   const trainingDay = selected?.trainingDay ?? null;
   const workout = data?.workout ?? null;
   const progress =
@@ -163,7 +183,7 @@ export function TrainingProgramsScreen() {
           { paddingTop: insets.top + theme.spacing.screenTop },
         ]}
       >
-        <TreinoHeader onOpenPersonal={() => router.push("/personal" as Href)} />
+        <TreinoHeader onOpenPrograms={() => router.push("/programs" as Href)} />
         <View style={s.intro}>
           <Text
             accessibilityRole="header"
@@ -298,13 +318,47 @@ export function TrainingProgramsScreen() {
                     )
                   }
                 />
+              ) : data.active && !hasWeekdays ? (
+                <HeroWorkoutCard
+                  caption="PROGRAMA ATIVO"
+                  title="Dias da semana não definidos"
+                  description="Os dias do seu programa ainda não têm dia da semana. Defina no editor do programa para ver o treino de cada dia aqui."
+                  stats={[]}
+                  action={
+                    <OutlineAction
+                      label="Ver programa"
+                      onPress={() =>
+                        router.push(`/programs/${data.active!.id}` as Href)
+                      }
+                    />
+                  }
+                />
               ) : data.active && selected ? (
                 <HeroWorkoutCard
-                  caption={selected.isToday ? "HOJE" : "DESCANSO"}
-                  title="Dia de descanso"
-                  description="Nenhum treino planejado para este dia no seu programa ativo."
+                  caption={
+                    selected.isToday
+                      ? "HOJE · DESCANSO"
+                      : `${WEEKDAY_LONG[selected.weekday]!.toUpperCase()} · DESCANSO`
+                  }
+                  title={
+                    selected.isToday
+                      ? "Hoje é dia de descanso"
+                      : "Dia de descanso"
+                  }
+                  description={
+                    nextPlanned?.trainingDay
+                      ? `Nenhum treino planejado para este dia. Próximo treino: ${WEEKDAY_LONG[nextPlanned.weekday]} — ${nextPlanned.trainingDay.name}.`
+                      : "Nenhum treino planejado para este dia no seu programa ativo."
+                  }
                   stats={[]}
-                  action={null}
+                  action={
+                    nextPlanned && selected.isToday ? (
+                      <OutlineAction
+                        label={`Ver treino de ${WEEKDAY_LONG[nextPlanned.weekday]}`}
+                        onPress={() => setSelectedDate(nextPlanned.date)}
+                      />
+                    ) : null
+                  }
                 />
               ) : (
                 <HeroWorkoutCard
@@ -381,198 +435,6 @@ export function TrainingProgramsScreen() {
                 />
               </Entrance>
             ) : null}
-
-            <Entrance index={4} style={s.section}>
-              <SectionHeader
-                icon="albums-outline"
-                title="Meus programas"
-                right={
-                  <Link href={"/programs/new" as Href} asChild>
-                    <Pressable
-                      testID="training-create-program"
-                      style={StyleSheet.flatten([
-                        s.smallButton,
-                        { borderColor: colors.borderGlow },
-                      ])}
-                    >
-                      <Text
-                        style={[
-                          typography.bodySM,
-                          {
-                            color: colors.primary,
-                            fontFamily: theme.fonts.semibold,
-                          },
-                        ]}
-                      >
-                        Criar programa
-                      </Text>
-                    </Pressable>
-                  </Link>
-                }
-              />
-              {/* The Personal builds a program from everything the athlete informed. */}
-              <Link href={"/initial-program" as Href} asChild>
-                <Pressable testID="training-initial-program" style={s.inline}>
-                  <Ionicons
-                    name="sparkles-outline"
-                    size={16}
-                    color={colors.primary}
-                  />
-                  <Text
-                    style={[
-                      typography.bodyMD,
-                      s.link,
-                      { color: colors.primary },
-                    ]}
-                  >
-                    Pedir um programa ao Personal
-                  </Text>
-                </Pressable>
-              </Link>
-              {!data.items.length ? (
-                <Text style={[typography.bodyMD, { color: colors.textMuted }]}>
-                  Nenhum programa criado. Peça um ao Personal ou comece por um
-                  rascunho manual.
-                </Text>
-              ) : null}
-              {!data.active && data.items.length ? (
-                <Text style={[typography.bodyMD, { color: colors.textMuted }]}>
-                  Você ainda não possui um programa de treino ativo.
-                </Text>
-              ) : null}
-              {data.items.map((program) => (
-                <Link
-                  key={program.id}
-                  href={`/programs/${program.id}` as Href}
-                  asChild
-                >
-                  <Pressable
-                    style={StyleSheet.flatten([
-                      s.card,
-                      {
-                        backgroundColor: colors.surfaceCard,
-                        borderColor: colors.border,
-                      },
-                    ])}
-                  >
-                    <View style={s.cardRow}>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          typography.titleMD,
-                          s.flex,
-                          { color: colors.textPrimary },
-                        ]}
-                      >
-                        {program.name}
-                      </Text>
-                      <Text
-                        style={[
-                          typography.caption,
-                          {
-                            color:
-                              program.status === "active"
-                                ? colors.success
-                                : colors.primary,
-                          },
-                        ]}
-                      >
-                        {labels[program.status]}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[typography.bodySM, { color: colors.textMuted }]}
-                    >
-                      Revisão {program.revision} · {program.blockCount} bloco(s)
-                      · {program.weekCount} semana(s) · {program.dayCount}{" "}
-                      dia(s)
-                    </Text>
-                  </Pressable>
-                </Link>
-              ))}
-              <Link href={"/exercises" as Href} asChild>
-                <Pressable
-                  style={StyleSheet.flatten([
-                    s.card,
-                    {
-                      backgroundColor: colors.surfaceCard,
-                      borderColor: colors.border,
-                    },
-                  ])}
-                >
-                  <View style={s.cardRow}>
-                    <Ionicons
-                      name="library-outline"
-                      size={18}
-                      color={colors.primary}
-                    />
-                    <Text
-                      style={[
-                        typography.titleMD,
-                        s.flex,
-                        { color: colors.textPrimary },
-                      ]}
-                    >
-                      Biblioteca de exercícios
-                    </Text>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={18}
-                      color={colors.textMuted}
-                    />
-                  </View>
-                  <Text
-                    style={[typography.bodySM, { color: colors.textMuted }]}
-                  >
-                    Consulte o catálogo canônico de movimentos.
-                  </Text>
-                </Pressable>
-              </Link>
-            </Entrance>
-
-            <Entrance index={5} style={s.section}>
-              <SectionHeader icon="time-outline" title="Histórico de treinos" />
-              {!data.history.length ? (
-                <Text style={[typography.bodyMD, { color: colors.textMuted }]}>
-                  Nenhum treino finalizado.
-                </Text>
-              ) : (
-                data.history.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`/workouts/${item.id}/summary` as Href}
-                    asChild
-                  >
-                    <Pressable
-                      style={StyleSheet.flatten([
-                        s.card,
-                        {
-                          backgroundColor: colors.surfaceCard,
-                          borderColor: colors.border,
-                        },
-                      ])}
-                    >
-                      <Text
-                        style={[
-                          typography.titleMD,
-                          { color: colors.textPrimary },
-                        ]}
-                      >
-                        {item.dayName}
-                      </Text>
-                      <Text
-                        style={[typography.bodySM, { color: colors.textMuted }]}
-                      >
-                        {new Date(item.startedAt).toLocaleString()} ·{" "}
-                        {item.status === "completed"
-                          ? "Concluído"
-                          : "Abandonado"}
-                      </Text>
-                    </Pressable>
-                  </Link>
-                ))
-              )}
-            </Entrance>
           </>
         ) : null}
       </ScrollView>

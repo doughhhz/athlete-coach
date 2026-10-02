@@ -8,7 +8,10 @@ const root = resolve(import.meta.dirname, "..");
 const read = (path) => readFile(resolve(root, path), "utf8");
 const [theme, screen, components] = await Promise.all([
   read("src/presentation/theme/theme.ts"),
-  read("src/presentation/training/training-programs-screen.tsx"),
+  read("src/presentation/training/training-programs-screen.tsx").then(
+    async (text) =>
+      text + (await read("src/presentation/training/programs-screen.tsx")),
+  ),
   read("src/presentation/training/treino/treino-components.tsx"),
 ]);
 
@@ -35,7 +38,7 @@ test("the Treino screen shows facts, never invented claims", () => {
     text,
     /Online agora|resultados sempre|Moderado|"notifications|bell_outline|"bell-outline"/i,
   );
-  assert.match(components, /Disponível/);
+  assert.match(components, /testID="training-open-programs"/);
   assert.match(screen, /estimateTrainingDayMinutes\(trainingDay\)/);
   assert.match(screen, /deriveWeekPlan\(/);
   assert.match(screen, /workoutExerciseProgress\(/);

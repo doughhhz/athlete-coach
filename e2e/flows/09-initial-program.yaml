@@ -9,7 +9,7 @@ tags:
   - initial-program
 ---
 - runFlow: ../subflows/sign-in-to-tabs.yaml
-- runFlow: ../subflows/open-treino-loaded.yaml
+- runFlow: ../subflows/open-programs.yaml
 - scrollUntilVisible:
     element:
       id: "training-initial-program"

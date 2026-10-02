@@ -96,3 +96,10 @@ test("activation requires a complete hierarchy", () => {
     }),
   );
 });
+
+test("only a non-active program may be deleted (ADR-0125)", async () => {
+  const { canDeleteTrainingProgram } = await import("../src/index.ts");
+  assert.equal(canDeleteTrainingProgram({ status: "active" }), false);
+  for (const status of ["draft", "completed", "archived"])
+    assert.equal(canDeleteTrainingProgram({ status }), true, status);
+});

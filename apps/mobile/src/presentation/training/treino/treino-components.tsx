@@ -5,54 +5,43 @@ import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BrandHeader } from "@/presentation/components/brand-header";
+import { PressableScale } from "@/presentation/components/motion";
 import { GradientButton } from "@/presentation/components/gradient-button";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import { summarizeSets } from "../prescription-format";
 
 const WEEKDAY_SHORT = ["", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"];
 
-/** Shared brand header plus the Personal's availability. */
-export function TreinoHeader({ onOpenPersonal }: { onOpenPersonal(): void }) {
-  const theme = useAppTheme();
-  const { colors, fonts } = theme;
+/** Shared brand header plus the way to the athlete's programs. */
+export function TreinoHeader({ onOpenPrograms }: { onOpenPrograms(): void }) {
+  const { colors, typography, fonts } = useAppTheme();
   return (
     <BrandHeader
       subtitle="Treinos"
       right={
-        <Pressable
+        <PressableScale
           accessibilityRole="button"
-          accessibilityLabel="Abrir o Personal"
-          onPress={onOpenPersonal}
-          style={s.row}
+          accessibilityLabel="Meus programas"
+          onPress={onOpenPrograms}
+          testID="training-open-programs"
+          style={[
+            s.programsButton,
+            {
+              borderColor: colors.borderGlow,
+              backgroundColor: colors.surfaceCard,
+            },
+          ]}
         >
-          <View style={[s.avatar, { borderColor: colors.border }]}>
-            <Ionicons name="sparkles" size={20} color={colors.primary} />
-            <View
-              style={[
-                s.online,
-                {
-                  backgroundColor: colors.success,
-                  borderColor: colors.background,
-                },
-              ]}
-            />
-          </View>
-          <View>
-            <Text
-              style={[theme.typography.bodySM, { color: colors.textSecondary }]}
-            >
-              Seu Personal IA
-            </Text>
-            <Text
-              style={[
-                theme.typography.bodySM,
-                { color: colors.success, fontFamily: fonts.semibold },
-              ]}
-            >
-              Disponível
-            </Text>
-          </View>
-        </Pressable>
+          <Ionicons name="albums-outline" size={18} color={colors.primary} />
+          <Text
+            style={[
+              typography.bodySM,
+              { color: colors.textPrimary, fontFamily: fonts.semibold },
+            ]}
+          >
+            Programas
+          </Text>
+        </PressableScale>
       }
     />
   );
@@ -333,6 +322,15 @@ export function ExerciseList({
 export { GradientButton };
 
 const s = StyleSheet.create({
+  programsButton: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   row: { alignItems: "center", flexDirection: "row", gap: 10 },
   header: {
     alignItems: "center",

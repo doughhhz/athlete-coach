@@ -6,7 +6,9 @@ async function source(name) {
   return readFile(new URL(name, root), "utf8");
 }
 test("training tab covers loading error empty active and list states", async () => {
-  const text = await source("training-programs-screen.tsx");
+  const text =
+    (await source("training-programs-screen.tsx")) +
+    (await source("programs-screen.tsx"));
   for (const token of [
     "Programa ativo",
     "Você ainda não possui um programa de treino ativo.",

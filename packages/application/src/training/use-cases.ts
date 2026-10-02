@@ -1,11 +1,17 @@
-import { assertActivatable } from "@athlete-coach/domain";
+import {
+  assertActivatable,
+  canDeleteTrainingProgram,
+} from "@athlete-coach/domain";
 import {
   createProgramWithStructureInputSchema,
   type CreateProgramWithStructureInput,
   programStructureInputSchema,
   type ProgramStructureInput,
 } from "./schemas.ts";
-import type { TrainingProgramRepository } from "./ports.ts";
+import {
+  ProgramDeletionBlockedError,
+  type TrainingProgramRepository,
+} from "./ports.ts";
 class ProgramsUseCase {
   protected readonly repository: TrainingProgramRepository;
   constructor(repository: TrainingProgramRepository) {
@@ -63,6 +69,16 @@ export class CloneTrainingProgramAsDraft extends ProgramsUseCase {
 export class CompleteTrainingProgram extends ProgramsUseCase {
   execute(id: string) {
     return this.repository.complete(id);
+  }
+}
+/** Deletes a non-active program; history stays protected (ADR-0125). */
+export class DeleteTrainingProgram extends ProgramsUseCase {
+  async execute(id: string) {
+    const program = await this.repository.get(id);
+    if (!program) throw new ProgramDeletionBlockedError("not_found");
+    if (!canDeleteTrainingProgram(program))
+      throw new ProgramDeletionBlockedError("active");
+    await this.repository.delete(id);
   }
 }
 export class ArchiveTrainingProgram extends ProgramsUseCase {

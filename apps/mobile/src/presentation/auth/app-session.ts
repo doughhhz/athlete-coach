@@ -86,6 +86,8 @@ export type AppSessionValue = Readonly<{
   cloneProgram(id: string): Promise<TrainingProgram>;
   completeProgram(id: string): Promise<TrainingProgram>;
   archiveProgram(id: string): Promise<TrainingProgram>;
+  /** Non-active programs without recorded history only (ADR-0125). */
+  deleteProgram(id: string): Promise<void>;
   startWorkout(trainingDayId: string): Promise<WorkoutSession>;
   getInProgressWorkout(): Promise<WorkoutSession | null>;
   getWorkout(id: string): Promise<WorkoutSession | null>;
