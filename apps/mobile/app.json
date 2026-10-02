@@ -5,14 +5,15 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "athletecoach",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#050B14",
     "ios": {
       "supportsTablet": false
     },
     "android": {
       "predictiveBackGestureEnabled": false
     },
-    "plugins": ["expo-router"],
+    "plugins": ["expo-router", "expo-font"],
     "experiments": {
       "typedRoutes": true
     },

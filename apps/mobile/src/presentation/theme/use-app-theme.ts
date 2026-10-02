@@ -1,7 +1,6 @@
-import { useColorScheme } from "react-native";
+import { appTheme, type AppTheme } from "@/presentation/theme/theme";
 
-import { themes } from "@/presentation/theme/theme";
-
-export function useAppTheme() {
-  return useColorScheme() === "dark" ? themes.dark : themes.light;
+/** The app is dark only (design decision 2026-10-01). */
+export function useAppTheme(): AppTheme {
+  return appTheme;
 }

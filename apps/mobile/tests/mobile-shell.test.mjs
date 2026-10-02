@@ -5,11 +5,14 @@ import test from "node:test";
 const appConfigUrl = new URL("../app.json", import.meta.url);
 const tabsLayoutUrl = new URL("../app/(tabs)/_layout.tsx", import.meta.url);
 
-test("Expo config keeps automatic color scheme and Expo Router", async () => {
+// Design decision 2026-10-01 (ADR-0120): the app is dark only; it used to
+// follow the system scheme ("automatic").
+test("Expo config is dark only and keeps Expo Router and fonts", async () => {
   const config = JSON.parse(await readFile(appConfigUrl, "utf8"));
 
-  assert.equal(config.expo.userInterfaceStyle, "automatic");
+  assert.equal(config.expo.userInterfaceStyle, "dark");
   assert.ok(config.expo.plugins.includes("expo-router"));
+  assert.ok(config.expo.plugins.includes("expo-font"));
 });
 
 test("tab shell declares the five Phase 1 routes", async () => {

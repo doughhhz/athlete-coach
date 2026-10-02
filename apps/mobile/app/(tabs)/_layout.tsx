@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { type Href, Tabs, useRouter } from "expo-router";
 import { useEffect } from "react";
 
@@ -18,15 +19,18 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShadowVisible: false,
-        headerStyle: { backgroundColor: theme.colors.surface },
-        headerTitleStyle: { color: theme.colors.text, fontWeight: "700" },
+        headerStyle: { backgroundColor: theme.colors.backgroundSecondary },
+        headerTitleStyle: {
+          color: theme.colors.textPrimary,
+          fontFamily: theme.fonts.bold,
+        },
         sceneStyle: { backgroundColor: theme.colors.background },
-        tabBarActiveTintColor: theme.colors.accent,
-        tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: "#A8B6CB",
+        tabBarLabelStyle: { fontSize: 11, fontFamily: theme.fonts.semibold },
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
+          backgroundColor: "rgba(8,16,28,0.95)",
+          borderTopColor: theme.colors.divider,
         },
       }}
     >
@@ -36,6 +40,15 @@ export default function TabsLayout() {
           name={tab.route}
           options={{
             title: tab.label,
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons
+                name={tab.icon as keyof typeof Ionicons.glyphMap}
+                size={size}
+                color={color}
+              />
+            ),
+            // The Treino tab draws its own header (design 2026-10-01).
+            headerShown: tab.route !== "treino",
             tabBarAccessibilityLabel: tab.accessibilityLabel,
             // Stable E2E selector (Maestro): tab-index, tab-treino, ...
             tabBarButtonTestID: `tab-${tab.route}`,

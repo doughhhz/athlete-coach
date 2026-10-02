@@ -1156,3 +1156,23 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
     - `initial-program-prompt-v3` = v2 + regra: dizer o papel do exercício na sessão e qual dado do atleta ele atende; nunca repetir só o nome nem copiar a mesma frase entre exercícios.
     - O sistema passou a conferir (`reviewInitialProgramRationales`): sobram menos de 30 caracteres depois de tirar as palavras do nome → o problema `rationale_insufficient` vai para a única tentativa de reparo. É uma checagem leve: sozinha, nunca bloqueia o programa.
     - A tela do programa agrupa séries iguais ("3 séries × 8–10 reps") e mostra RIR, descanso (em minutos quando inteiros) e carga em etiquetas separadas, em vez de uma linha por série.
+
+### ADR-0120 — Visual identity: dark minimal neon, whole app
+
+- Data: 2026-10-01
+- Status: accepted
+- Substitui o tema claro/escuro automático (app seguia o esquema do sistema, `userInterfaceStyle: "automatic"`), marcado como **superseded**.
+- Contexto: o usuário forneceu uma especificação visual (JSON "Treino Minimalista", estilo `dark_fitness_minimal_neon`) e decidiu: app inteiro, **somente escuro**; sem fotos por enquanto; gradiente (`expo-linear-gradient`) e fonte Inter (`@expo-google-fonts/inter`, `expo-font`), mais `@expo/vector-icons` para os ícones.
+- Decisões:
+  1. Tema único com os tokens da especificação (cores, tipografia, espaçamentos, raios). As chaves antigas (`background`, `surface`, `text`, `textMuted`, `accent`, `danger`, `border`) continuam existindo, então todas as telas herdam o visual.
+  2. Aba Treino redesenhada: cabeçalho da marca, card principal do treino do dia, plano da semana, lista enxuta de exercícios, programas, biblioteca e histórico. Fotos viram ícones e gradientes; o fundo de academia desfocado vira um gradiente escuro.
+  3. **Fatos, não enfeites** (mantém "IA interpreta, o sistema calcula"):
+     - "Online agora" → **"Disponível"**, porque o Personal é uma IA.
+     - "Disciplina hoje, resultados sempre" → a data de hoje, porque a frase prometia resultado.
+     - "Nível: Moderado" → **total de séries**, porque o nível seria um valor inventado.
+     - O **sininho** não foi incluído, porque ainda não existem notificações.
+  4. Domínio (`training/week-plan.ts`, funções puras):
+     - `estimateTrainingDayMinutes`: mesma fórmula do envelope; 60 s de descanso quando ausente e 1 s por metro são hipóteses.
+     - `deriveWeekPlan`: segunda a domingo no fuso do atleta; feito = treino concluído na data local; planejado = dia do programa naquele dia da semana. A semana-modelo é a primeira semana do primeiro bloco (hipótese para programas com várias semanas).
+     - `highlightedWeekPlanDay` e `workoutExerciseProgress`.
+- Afetados: `apps/mobile` (tema, layout raiz e abas, componentes, aba Treino), `packages/domain`, `docs/08`. As outras telas herdam os tokens, mas ainda usam a fonte do sistema e os estilos antigos; o redesenho delas virá tela a tela.

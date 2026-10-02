@@ -1,12 +1,12 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from "react-native";
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  useFonts,
+} from "@expo-google-fonts/inter";
+import { DarkTheme, Stack, ThemeProvider } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { AppSessionProvider } from "@/infrastructure/application/app-session-provider";
@@ -16,7 +16,7 @@ import {
   SecondaryButton,
 } from "@/presentation/components/form-controls";
 import { getRouteAccess } from "@/presentation/auth/route-access";
-import { navigationColors } from "@/presentation/theme/theme";
+import { appTheme, navigationColors } from "@/presentation/theme/theme";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 
 function RootNavigator() {
@@ -89,17 +89,26 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const baseTheme = isDark ? DarkTheme : DefaultTheme;
-  const colors = isDark ? navigationColors.dark : navigationColors.light;
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+  // Without the fonts the app still works with the system font.
+  if (!fontsLoaded && !fontError)
+    return (
+      <View style={{ flex: 1, backgroundColor: appTheme.colors.background }} />
+    );
 
   return (
     <SafeAreaProvider>
       <ThemeProvider
-        value={{ ...baseTheme, colors: { ...baseTheme.colors, ...colors } }}
+        value={{
+          ...DarkTheme,
+          colors: { ...DarkTheme.colors, ...navigationColors },
+        }}
       >
-        <StatusBar style={isDark ? "light" : "dark"} />
+        <StatusBar style="light" />
         <AppSessionProvider>
           <RootNavigator />
         </AppSessionProvider>

@@ -58,3 +58,19 @@ export function groupPrescriptionSets(
     };
   });
 }
+
+/** Compact list subtitle: "3 × 8–10" when all sets share the target. */
+export function summarizeSets(sets: readonly PrescriptionSet[]): string {
+  const first = sets[0];
+  if (!first) return "Sem séries";
+  const same = sets.every(
+    (set) =>
+      set.targetMetric === first.targetMetric &&
+      set.targetMin === first.targetMin &&
+      set.targetMax === first.targetMax,
+  );
+  if (!same) return `${sets.length} séries`;
+  const unit =
+    first.targetMetric === "reps" ? "" : ` ${units[first.targetMetric]}`;
+  return `${sets.length} × ${range(first.targetMin, first.targetMax)}${unit}`;
+}

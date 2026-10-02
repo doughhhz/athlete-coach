@@ -139,3 +139,7 @@ Saída com alterações não salvas (ADR-0099): voltar, gesto ou botão físico 
 ## Implementation Phase 21 — "Seu programa"
 
 A tela é oferecida uma vez após o onboarding e fica sempre acessível em Treino ("Pedir um programa ao Personal"). Perguntas curtas com "Sim/Não"; equipamentos são opcionais ("Não informar"/"Informar"). Durante a geração aparece "O Personal está montando seu programa…". Em caso de falha: "Tentar de novo com o Personal" e, quando cabível, "Usar modelo básico do sistema", com aviso de que não é personalizado. O detalhe do programa passa a mostrar descrição, dia da semana, foco e justificativa do dia, e "Por que este exercício".
+
+## Identidade visual — dark minimal neon (ADR-0120)
+
+O app é somente escuro. Tokens: fundo `#050B14`, superfícies `#0B1626`/`#0C1829`, borda `#17314D`, brilho `#0DA8FF`, primária `#16C8FF`, gradiente `#1EDCFF` → `#1D5CFF`, sucesso `#19E27A` e perigo `#FF4D67`, com tipografia Inter (500/600/700). A aba Treino mostra o card do treino do dia (duração estimada, séries, exercícios), o plano da semana (feito, planejado, descanso) e uma lista enxuta de exercícios. Nenhum valor é inventado: só dados calculados ou registrados.
