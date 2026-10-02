@@ -143,3 +143,5 @@ A tela é oferecida uma vez após o onboarding e fica sempre acessível em Trein
 ## Identidade visual — dark minimal neon (ADR-0120)
 
 O app é somente escuro. Tokens: fundo `#050B14`, superfícies `#0B1626`/`#0C1829`, borda `#17314D`, brilho `#0DA8FF`, primária `#16C8FF`, gradiente `#1EDCFF` → `#1D5CFF`, sucesso `#19E27A` e perigo `#FF4D67`, com tipografia Inter (500/600/700). A aba Treino mostra o card do treino do dia (duração estimada, séries, exercícios), o plano da semana (feito, planejado, descanso) e uma lista enxuta de exercícios. Nenhum valor é inventado: só dados calculados ou registrados.
+
+Logo oficial (ADR-0124): `assets/brand/logo-mark.png` nos cabeçalhos, `logo-full.png` nas telas de acesso e `app-icon.png` como ícone do app.

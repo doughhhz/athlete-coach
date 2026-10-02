@@ -1,10 +1,10 @@
 import type { WorkoutExercise, WorkoutSet } from "@athlete-coach/domain";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Entrance, PressableScale } from "@/presentation/components/motion";
+import { BrandMark } from "@/presentation/components/brand-mark";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import { formatRest } from "@/presentation/training/prescription-format";
 
@@ -36,14 +36,7 @@ export function WorkoutSessionHeader({
         >
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
-        <LinearGradient
-          colors={[colors.primaryGradientStart, colors.primaryGradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.logo}
-        >
-          <Text style={[s.logoText, { fontFamily: fonts.bold }]}>A</Text>
-        </LinearGradient>
+        <BrandMark size={38} />
         <View>
           <Text style={[s.brand, { fontFamily: fonts.bold }]}>
             <Text style={{ color: colors.textPrimary }}>Athlete </Text>

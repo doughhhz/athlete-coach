@@ -1256,3 +1256,14 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
      - nenhum nome fixo: a saudação usa o nome do perfil;
      - nenhuma resposta da IA é simulada nem transmitida aos poucos (_streaming_); o indicador só mostra que a análise está em andamento.
 - Afetados: `apps/mobile` (aba Personal, `coach/chat-components.tsx`, cabeçalho nativo oculto na aba) e os fluxos E2E 05 e 08, que não precisam mais fechar o teclado antes de enviar. Os anchors (`coach-question`, `coach-send`, `coach-analysis`, `coach-error`, `coach-no-proposal`, "Ver proposta de ajuste", "Revisar proposta") foram mantidos. **Os fluxos ainda precisam rodar num novo build E2E.**
+
+### ADR-0124 — Official logo
+
+- Data: 2026-10-02
+- Status: accepted
+- Substitui o "A" desenhado com gradiente em código (ADR-0120) nos cabeçalhos, marcado como **superseded**.
+- Decisão: a logo fornecida pelo usuário ("Logo Athlete Coach em Gradiente Azul.png", PNG transparente de 1536×1024) é a logo oficial. Derivados em `apps/mobile/assets/brand/`:
+  - `logo-mark.png` (512×512): só o "A", fundo transparente; usado nos cabeçalhos (`BrandMark`);
+  - `logo-full.png` (960×640): "A" + "Athlete Coach"; usado nas telas de entrar e criar conta (`BrandLogo`);
+  - `app-icon.png` (1024×1024): o "A" sobre o fundo `#050B14`, com margem para a máscara do iOS; definido como `expo.icon`.
+- O ícone do app só muda num novo build; no Expo Go aparece o ícone do próprio Expo Go.

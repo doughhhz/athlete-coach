@@ -1,10 +1,10 @@
-import { LinearGradient } from "expo-linear-gradient";
 import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
+import { BrandMark } from "@/presentation/components/brand-mark";
 
-/** Gradient "A" mark + "Athlete Coach" (design ADR-0120). */
+/** Official logo mark + "Athlete Coach" (ADR-0120, ADR-0124). */
 export function BrandHeader({
   subtitle,
   right,
@@ -16,14 +16,7 @@ export function BrandHeader({
   return (
     <View style={s.header}>
       <View style={s.row}>
-        <LinearGradient
-          colors={[colors.primaryGradientStart, colors.primaryGradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.logo}
-        >
-          <Text style={[s.logoText, { fontFamily: fonts.bold }]}>A</Text>
-        </LinearGradient>
+        <BrandMark size={44} />
         <View>
           <Text style={[s.brand, { fontFamily: fonts.bold }]}>
             <Text style={{ color: colors.textPrimary }}>Athlete </Text>

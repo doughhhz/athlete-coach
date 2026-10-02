@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAppSession } from "@/presentation/auth/app-session";
+import { BrandLogo } from "@/presentation/components/brand-mark";
 import {
   FormField,
   FormMessage,
@@ -60,6 +61,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
+          <BrandLogo width={220} style={styles.logo} />
           <Text
             accessibilityRole="header"
             style={[styles.title, { color: theme.colors.text }]}
@@ -117,6 +119,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { flexGrow: 1, justifyContent: "center", padding: 24 },
+  logo: { alignSelf: "center", marginBottom: 12 },
   title: { fontSize: 32, fontWeight: "800", marginBottom: 8 },
   subtitle: { fontSize: 16, lineHeight: 23, marginBottom: 28 },
   linkRow: { alignItems: "center", marginTop: 22 },
