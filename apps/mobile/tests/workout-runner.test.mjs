@@ -3,10 +3,16 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 const root = resolve(import.meta.dirname, "..");
-const runner = await readFile(
-  resolve(root, "src/presentation/workouts/workout-runner-screen.tsx"),
-  "utf8",
-);
+// The runner is split into the screen and its components (ADR-0122).
+const runner =
+  (await readFile(
+    resolve(root, "src/presentation/workouts/workout-runner-screen.tsx"),
+    "utf8",
+  )) +
+  (await readFile(
+    resolve(root, "src/presentation/workouts/runner/runner-components.tsx"),
+    "utf8",
+  ));
 const training = await readFile(
   resolve(root, "src/presentation/training/training-programs-screen.tsx"),
   "utf8",

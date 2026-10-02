@@ -126,3 +126,43 @@ export function workoutDurationSeconds(
     Math.floor((Date.parse(end) - Date.parse(session.startedAt)) / 1000),
   );
 }
+
+/** Resolved (completed or skipped) sets out of all sets of the session. */
+export function workoutSetProgress(
+  session: Pick<WorkoutSession, "exercises">,
+): Readonly<{ resolved: number; total: number; percent: number }> {
+  const sets = session.exercises.flatMap((exercise) => exercise.sets);
+  const resolved = sets.filter((set) => set.status !== "pending").length;
+  return {
+    resolved,
+    total: sets.length,
+    percent: sets.length ? Math.round((resolved / sets.length) * 100) : 0,
+  };
+}
+
+/**
+ * Where the athlete is: the first pending set (exercises and sets in
+ * sequence order), optionally starting from a chosen exercise. Without a
+ * pending set, the last set of that exercise (to review or correct).
+ */
+export function currentWorkoutPosition(
+  session: Pick<WorkoutSession, "exercises">,
+  preferredExerciseId: string | null = null,
+): Readonly<{ exerciseId: string; setId: string }> | null {
+  const exercises = [...session.exercises].sort(
+    (a, b) => a.sequence - b.sequence,
+  );
+  const ordered = (exercise: WorkoutExercise) =>
+    [...exercise.sets].sort((a, b) => a.sequence - b.sequence);
+  const preferred = exercises.find((item) => item.id === preferredExerciseId);
+  const candidates = preferred
+    ? [preferred, ...exercises.filter((item) => item !== preferred)]
+    : exercises;
+  for (const exercise of candidates) {
+    const pending = ordered(exercise).find((set) => set.status === "pending");
+    if (pending) return { exerciseId: exercise.id, setId: pending.id };
+  }
+  const fallback = preferred ?? exercises.at(-1);
+  const last = fallback ? ordered(fallback).at(-1) : undefined;
+  return fallback && last ? { exerciseId: fallback.id, setId: last.id } : null;
+}

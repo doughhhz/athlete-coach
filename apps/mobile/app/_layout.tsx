@@ -83,6 +83,11 @@ function RootNavigator() {
           name="exercises/[slug]"
           options={{ title: "Exercício" }}
         />
+        {/* The workout runner draws its own header (ADR-0122). */}
+        <Stack.Screen
+          name="workouts/[id]/index"
+          options={{ headerShown: false }}
+        />
       </Stack.Protected>
     </Stack>
   );

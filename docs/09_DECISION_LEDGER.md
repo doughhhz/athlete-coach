@@ -1197,3 +1197,27 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - O resumo do perfil mostra objetivo, meses de treino, dias por semana e o último peso com a data. O cartão do Personal não se repete dentro do resumo.
   - Nutrição no acesso rápido aparece como "Em construção".
 - Domínio: `summarizeWeekPlan`, `countRecentCompletedWorkouts` (janela de 28 dias, sem contar o futuro) e `weightGoalDifferenceKg`, com testes.
+
+### ADR-0122 — Workout runner: one exercise and one set at a time
+
+- Data: 2026-10-02
+- Status: accepted
+- Substitui o layout anterior do runner (todas as séries de todos os exercícios abertas em uma lista), marcado como **superseded**. As regras de registro não mudaram: `recordWorkoutSet`, `skipWorkoutSet`, `completeWorkout` e `abandonWorkout` continuam iguais.
+- Contexto: especificação visual "Treino em andamento" fornecida pelo usuário (ADR-0120).
+- Decisões:
+  1. **Foco:** a tela mostra o exercício e a série atuais.
+     - A posição vem do domínio: `currentWorkoutPosition` é a primeira série pendente, na ordem, a partir do exercício escolhido. Sem série pendente, mostra a última série do exercício, para revisar ou corrigir.
+     - O progresso vem do domínio: `workoutSetProgress` é o percentual de séries concluídas ou puladas.
+  2. **Planejado e realizado separados** (PLANEJADO / REALIZADO).
+     - Planejado: séries, alvo, RIR e descanso.
+     - Realizado: campos editáveis com − / + (passo de 1 em reps e RIR, de 2,5 kg na carga; hipótese de usabilidade).
+     - Os campos vêm preenchidos com o registro da própria série ou, se ela ainda não foi feita, com o da série anterior concluída do mesmo exercício. Nunca com o planejado, para não registrar o alvo como se fosse o realizado.
+  3. **Ações:**
+     - "Concluir série" é a ação principal; vira "Corrigir série" numa série já feita.
+     - O histórico de séries usa círculos tocáveis.
+     - "Pular série", "Pular exercício" (com confirmação), "Próximo exercício" e "Finalizar treino". Finalizar só aparece sem pendências; antes disso o botão mostra "N séries pendentes".
+     - "Encerrar sem concluir" fica no menu ⋮.
+  4. **Descanso:** contagem regressiva a partir do `restStartedAt` gravado pelo servidor, com "Encerrar timer". O cronômetro do topo mostra o tempo decorrido do treino.
+  5. **Fatos, não enfeites:** sem "Ver vídeo" (não há vídeos) e sem a etiqueta de grupo muscular (o treino não guarda esse dado). Imagens viram ícones.
+- Domínio: `currentWorkoutPosition` e `workoutSetProgress`, com testes.
+- Afetados: `apps/mobile` (runner e componentes, cabeçalho nativo oculto na rota) e `packages/domain`. Os anchors do E2E (`workout-set-*`, `workout-finish`, "REALIZADO", "Corrigir série") foram mantidos.
