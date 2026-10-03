@@ -1287,3 +1287,17 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
      - Se o programa não tem dias da semana definidos, o cartão explica isso e leva ao programa.
 - Afetados: `packages/domain`, `packages/application`, `packages/data-access`, `supabase` (migration e teste pgTAP), `apps/mobile` e os fluxos E2E 03, 06, 07, 09 e o subflow de carga prescrita, que agora abrem "Meus programas" pelo subflow `open-programs`. **Ainda não validados num build E2E.**
 - Migration aplicada nos projetos E2E e principal.
+
+### ADR-0126 — Using the app without a local server: EAS Update + Expo Go
+
+- Data: 2026-10-03
+- Status: accepted
+- Contexto: o usuário quer usar o app sem precisar subir um servidor de desenvolvimento a cada uso. O celular é um iPhone, e não há conta no Apple Developer Program, que é obrigatória para instalar um app próprio fora da loja (TestFlight ou ad hoc).
+- Decisão (sem custo, reversível):
+  - `expo-updates` instalado (versão do SDK 57).
+  - `app.json` ganha `updates.url` (`https://u.expo.dev/<projectId>`) e `runtimeVersion: { policy: "sdkVersion" }` (`exposdk:57.0.0`), que é o que o Expo Go aceita.
+  - O app é publicado no canal `production` com `npm run publish:expo-go` (em `apps/mobile`), que usa o ambiente `production` do EAS.
+  - Esse ambiente guarda só as duas variáveis públicas do app (`EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` do projeto principal), porque com `--environment` o `.env.local` não é usado. Nenhum segredo.
+  - O celular abre pelo Expo Go o link estável do canal, que sempre traz a última publicação.
+  - Os builds E2E (`APP_VARIANT=e2e`) desligam as atualizações (`updates.enabled: false`), para rodar sempre o código do próprio build.
+- Limites: o app continua aparecendo dentro do Expo Go, não como um ícone próprio. Para ter um app próprio no iPhone, é preciso a conta Apple paga e um build de desenvolvimento ou de produção (TestFlight) — decisão futura do usuário.

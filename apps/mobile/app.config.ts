@@ -16,5 +16,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...base,
     name: "Athlete Coach E2E",
     ios: { ...base.ios, bundleIdentifier: E2E_IOS_BUNDLE_IDENTIFIER },
+    // E2E builds always run the code they were built with (no OTA updates).
+    updates: { ...base.updates, enabled: false },
   };
 };

@@ -24,6 +24,12 @@
       }
     },
     "owner": "doughhzz",
-    "icon": "./assets/brand/app-icon.png"
+    "icon": "./assets/brand/app-icon.png",
+    "updates": {
+      "url": "https://u.expo.dev/44643bb6-b82c-462d-804a-df8e1227bf95"
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    }
   }
 }
