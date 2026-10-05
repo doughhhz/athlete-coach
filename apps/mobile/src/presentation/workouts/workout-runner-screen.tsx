@@ -3,6 +3,7 @@ import {
   selectableWorkoutSetIds,
   workoutDurationSeconds,
   workoutSetProgress,
+  type SetAssessment,
   type WorkoutExercise,
   type WorkoutSession,
   type WorkoutSet,
@@ -10,7 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -39,6 +40,7 @@ import {
   RestCountdown,
   WorkoutSessionHeader,
 } from "./runner/runner-components";
+import { SetAssessmentCard } from "./runner/set-assessment-card";
 
 const bySequence = <T extends { sequence: number }>(items: readonly T[]) =>
   [...items].sort((a, b) => a.sequence - b.sequence);
@@ -72,7 +74,11 @@ function PerformedEditor({
   exercise: WorkoutExercise;
   set: WorkoutSet;
   /** The saved set id starts its rest timer; null = no timer. */
-  onSaved(next: WorkoutSession, restSetId: string | null): void;
+  onSaved(
+    next: WorkoutSession,
+    restSetId: string | null,
+    recordedSetId?: string,
+  ): void;
 }) {
   const app = useAppSession(),
     { colors, typography } = useAppTheme();
@@ -99,7 +105,7 @@ function PerformedEditor({
         restStartedAt:
           set.plannedRestMaxSeconds === null ? null : new Date().toISOString(),
       });
-      onSaved(next, set.status === "completed" ? null : set.id);
+      onSaved(next, set.status === "completed" ? null : set.id, set.id);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Falha ao salvar. Tente novamente.",
@@ -197,8 +203,10 @@ export function WorkoutRunnerScreen() {
       null,
     ),
     [now, setNow] = useState(0),
+    [assessment, setAssessment] = useState<SetAssessment | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null);
+  const latestAssessment = useRef<string | null>(null);
   useEffect(() => {
     app
       .getWorkout(id)
@@ -259,9 +267,26 @@ export function WorkoutRunnerScreen() {
     ? Math.max(0, rest.seconds - Math.floor((now - rest.startedAt) / 1000))
     : 0;
 
-  function apply(next: WorkoutSession, restSetId: string | null) {
+  function apply(
+    next: WorkoutSession,
+    restSetId: string | null,
+    recordedSetId?: string,
+  ) {
     setSession(next);
     setSelectedSetId(null);
+    // The Personal reads the recorded set (deterministic, ADR-0130). It is an
+    // extra: the set is already saved, so a failure only hides the card.
+    if (recordedSetId) {
+      latestAssessment.current = recordedSetId;
+      app
+        .assessWorkoutSet(next, recordedSetId)
+        .then((value) => {
+          if (latestAssessment.current === recordedSetId) setAssessment(value);
+        })
+        .catch(() => {
+          if (latestAssessment.current === recordedSetId) setAssessment(null);
+        });
+    }
     // Rest starts at the time the server recorded for the saved set.
     const saved = next.exercises
       .flatMap((item) => item.sets)
@@ -434,6 +459,12 @@ export function WorkoutRunnerScreen() {
               set={set}
               onSaved={apply}
             />
+            {assessment &&
+            exercise.sets.some(
+              (item) => item.id === assessment.workoutSetId,
+            ) ? (
+              <SetAssessmentCard assessment={assessment} />
+            ) : null}
             <SetHistoryTracker
               sets={sets}
               currentSetId={set.id}

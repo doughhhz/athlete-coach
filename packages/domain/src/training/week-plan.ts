@@ -88,18 +88,23 @@ function weekdayOf(date: LocalDate): number {
  * the first block (hypothesis for multi-week programs; the initial program
  * has exactly one). First day wins when two share a weekday.
  */
-function plannedByWeekday(
+function templateWeekDays(
   program: TrainingProgram | null,
-): ReadonlyMap<number, TrainingDay> {
-  const days =
+): readonly TrainingDay[] {
+  return (
     [...(program?.blocks ?? [])]
       .sort((a, b) => a.sequence - b.sequence)[0]
       ?.weeks.slice()
       .sort((a, b) => a.sequence - b.sequence)[0]
       ?.days.slice()
-      .sort((a, b) => a.sequence - b.sequence) ?? [];
+      .sort((a, b) => a.sequence - b.sequence) ?? []
+  );
+}
+function plannedByWeekday(
+  program: TrainingProgram | null,
+): ReadonlyMap<number, TrainingDay> {
   const map = new Map<number, TrainingDay>();
-  for (const day of days)
+  for (const day of templateWeekDays(program))
     if (day.preferredWeekday !== null && !map.has(day.preferredWeekday))
       map.set(day.preferredWeekday, day);
   return map;
@@ -163,6 +168,13 @@ export function highlightedWeekPlanDay(
     week.find((day) => day.trainingDay !== null) ??
     null
   );
+}
+
+/** Training days per week planned by the program (template week); null without a program. */
+export function plannedTrainingDaysPerWeek(
+  program: TrainingProgram | null,
+): number | null {
+  return program ? templateWeekDays(program).length : null;
 }
 
 /** Exercises with every set completed or skipped, out of all exercises. */

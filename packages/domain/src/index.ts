@@ -16,3 +16,4 @@ export * from "./training/lineage.ts";
 export * from "./progression/progression.ts";
 export * from "./initial-program/initial-program.ts";
 export * from "./training/week-plan.ts";
+export * from "./set-assessment/set-assessment.ts";

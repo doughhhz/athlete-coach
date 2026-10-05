@@ -26,6 +26,7 @@ import type {
   ExercisePerformancePoint,
   ExercisePersonalBest,
   SessionDerivedMetrics,
+  SetAssessment,
   AthleteTrainingDossier,
   CoachAnalysisMode,
   CoachAutonomyMode,
@@ -109,6 +110,11 @@ export type AppSessionValue = Readonly<{
     metrics: SessionDerivedMetrics;
     personalRecordEvents: readonly ExercisePerformancePoint[];
   }> | null>;
+  /** Deterministic per-set assessment (ADR-0130); no AI call. */
+  assessWorkoutSet(
+    session: WorkoutSession,
+    workoutSetId: string,
+  ): Promise<SetAssessment | null>;
   buildTrainingDossier(): Promise<AthleteTrainingDossier>;
   analyzeWithCoach(
     input: Readonly<{

@@ -1360,3 +1360,41 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   4. O Nemotron continua integrado e pode ser reavaliado com os scripts `eval-*` quando houver acesso pago ou menos congestionado.
 - Afetados: `packages/ai/src/openai-compatible.ts`, `packages/ai/tests/openai-compatible.test.mjs`, configuração de segredos do projeto E2E.
 - ADR-0128, decisão 1 (campo `nvext.guided_json`), e sua configuração inicial do E2E: superseded por esta ADR.
+
+### ADR-0130 — Deterministic per-set assessment (the active Personal during the workout)
+
+- Data: 2026-10-05
+- Status: accepted
+- Contexto:
+  - O usuário testou uma série muito abaixo do plano (2 reps com 2,5 kg e RIR 0; plano 10–15 reps e RIR 2–3), e o app não comentou nada.
+  - Pedido: o Personal deve comentar cada série, inclusive quando sai como esperado, a partir dos treinos anteriores, das séries do mesmo treino e do contexto da semana e do mês.
+  - O usuário aprovou as faixas de carga (as mesmas da ADR-0118) e pediu que a análise fosse feita por código, sem Gemini. O exemplo de texto proposto também foi aprovado.
+- Decisões:
+  1. `assessWorkoutSet` (`packages/domain/src/set-assessment`, versão `set-assessment-v1`) é uma função pura. Para a série concluída, calcula:
+     - o veredito: `below_plan`, `within_plan`, `above_plan` ou `stopped_early` (abaixo do alvo, mas com mais reserva que o plano);
+     - a comparação com a série anterior concluída do mesmo exercício no treino de hoje; uma queda de 20% ou mais é marcada como queda forte;
+     - a comparação com a mesma série (mesma sequência) da sessão anterior do exercício: variação das reps quando a carga é a mesma, ou variação do 1RM estimado (Epley, até 12 reps) quando a carga mudou;
+     - a média da mesma série nas últimas 3 sessões (mostrada a partir de 2 sessões);
+     - a tendência do melhor 1RM estimado por sessão em 28 dias, incluindo hoje: mínimo de 3 sessões, limite de ±2,5%;
+     - recordes de carga, de 1RM estimado e de repetições com a mesma carga ou maior, de sempre ou dos últimos 28 dias;
+     - a carga da semana: treinos nos últimos 7 dias, incluindo o atual, comparados com os dias planejados por semana (semana-modelo do programa ativo); e os dias desde a última vez que o exercício foi feito (14 ou mais contam como volta de pausa).
+  2. Orientação da próxima série, ou do próximo treino quando era a última série:
+     - reduzir 5% a 10% quando as reps ficam abaixo do alvo e o RIR fica abaixo do plano;
+     - aumentar 2,5% a 5% (mínimo de 1 kg) quando as reps chegam ao máximo do alvo e o RIR fica acima do plano;
+     - manter nos demais casos;
+     - cargas em passos de 0,5 kg, com as mesmas funções da ADR-0118.
+     - Ajustes de contexto:
+       - a redução vira "manter" quando o resultado não é pior que 90% da mesma série na última sessão, com carga igual ou menor ("é o seu normal");
+       - a confiança é baixa sem histórico ou sem RIR registrado;
+       - a confiança é alta numa redução que também ficou abaixo da última sessão e veio com semana acima do plano ou queda forte no treino, e num aumento na 3ª sessão seguida acima do plano.
+     - Sem RIR registrado, as faixas não são aplicadas.
+     - Sem carga (peso corporal), não há faixa de kg.
+  3. Uma queda de 50% ou mais gera um aviso para interromper o exercício se houver dor. É um aviso fixo, não uma interpretação de saúde.
+  4. O caso de uso `AssessWorkoutSet` lê o histórico (`listHistoricalSessions`) e o programa ativo, e recebe a sessão que acabou de ser salva. O texto em português é montado pelo formatador da apresentação (`set-assessment-format.ts`): cada frase depende de um dado existente. O card aparece sob o editor da série, durante o descanso; uma falha ao calcular só esconde o card, porque a série já está salva.
+  5. Nenhuma chamada de IA. O resultado não é persistido: é recalculado a partir dos dados brutos.
+- Hipóteses:
+  - "mesma série" = mesma sequência dentro do exercício;
+  - semana = janela móvel de 7 dias;
+  - o limite de 90% para "é o seu normal" e os limites de queda (20% e 50%) são parâmetros iniciais, a revisar com o uso real.
+- Fora de escopo: um resumo com IA no fim do treino, que ainda depende de decisão.
+- Afetados: `packages/domain/src/set-assessment/*`, `packages/domain/src/training/week-plan.ts` (`plannedTrainingDaysPerWeek`), `packages/application/src/performance/use-cases.ts`, a sessão do app, `apps/mobile/src/presentation/workouts/*` e o token de cor `warning`.

@@ -22,6 +22,8 @@ const palette = {
   textMuted: "#8FA1BA",
   success: "#19E27A",
   danger: "#FF4D67",
+  /** Attention without alarm (set below plan). */
+  warning: "#FFB547",
   divider: "#132235",
   shadow: "rgba(0,0,0,0.35)",
 } as const;

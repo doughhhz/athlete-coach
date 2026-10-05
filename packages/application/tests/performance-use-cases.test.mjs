@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  AssessWorkoutSet,
   GetExercisePerformanceHistory,
   GetExercisePersonalBests,
   GetPerformanceOverview,
@@ -101,3 +102,58 @@ test("workout summary includes deterministic metrics", async () =>
       .metrics.bestEstimatedOneRepMaxKg,
     76,
   ));
+
+test("AssessWorkoutSet: history and planned week feed the deterministic assessment", async () => {
+  const current = {
+    ...session,
+    id: "current",
+    status: "in_progress",
+    startedAt: "2026-01-03T10:00:00.000Z",
+    completedAt: null,
+    exercises: [
+      {
+        ...session.exercises[0],
+        id: "we-current",
+        sets: [
+          { ...set, id: "current-set", actualValue: 10, actualLoadKg: 60 },
+        ],
+      },
+    ],
+  };
+  const day = (id) => ({
+    id,
+    sequence: 1,
+    preferredWeekday: null,
+    prescriptions: [],
+  });
+  const result = await new AssessWorkoutSet(repository([session, current]), {
+    getActive: async () => ({
+      blocks: [
+        { sequence: 1, weeks: [{ sequence: 1, days: [day("a"), day("b")] }] },
+      ],
+    }),
+  }).execute({
+    session: current,
+    workoutSetId: "current-set",
+    now: new Date("2026-01-03T10:30:00.000Z"),
+  });
+  assert.equal(result.verdict, "within_plan");
+  assert.equal(result.previousSessionCount, 1);
+  assert.equal(result.lastSession.value, 8);
+  assert.equal(result.lastSession.valueChange, 0.25);
+  assert.equal(result.week.plannedPerWeek, 2);
+  assert.equal(result.week.workoutsLast7Days, 2);
+  assert.deepEqual(result.records, [
+    { kind: "estimated_one_rep_max", scope: "all_time" },
+    { kind: "reps_at_load", scope: "all_time" },
+  ]);
+  assert.equal(
+    await new AssessWorkoutSet(repository([]), {
+      getActive: async () => null,
+    }).execute({
+      session: current,
+      workoutSetId: "unknown",
+    }),
+    null,
+  );
+});

@@ -205,3 +205,9 @@ Próximas fases candidatas:
 
 - nutrição (metas calculadas pelo sistema e interpretadas pelo Personal; revisão da coleta de sexo com ADR);
 - alinhar os prompts do Coach à folha completa.
+
+## Implementation Phase 22 — Per-set assessment (active Personal, no AI) — complete
+
+Depois de cada série registrada, a tela de execução mostra a leitura do Personal, calculada só por código: comparação com o plano, com as séries anteriores do treino, com a mesma série nas sessões anteriores, média recente, tendência de força em 28 dias, recordes e carga da semana, mais a orientação da próxima série dentro das faixas aprovadas (ADR-0130). Sem migration, sem chamada de IA, sem mudança no Coach, nos prompts ou nas Edge Functions.
+
+Fora de escopo e ainda em aberto: um resumo com IA no fim do treino.
