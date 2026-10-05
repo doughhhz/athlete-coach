@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   AssessWorkoutSet,
+  loadProfileFromCatalog,
+  SuggestWorkoutLoads,
   GetExercisePerformanceHistory,
   GetExercisePersonalBests,
   GetPerformanceOverview,
@@ -155,5 +157,73 @@ test("AssessWorkoutSet: history and planned week feed the deterministic assessme
       workoutSetId: "unknown",
     }),
     null,
+  );
+});
+
+test("SuggestWorkoutLoads: catalog equipment defines steps and warm-up", async () => {
+  const current = {
+    ...session,
+    id: "current",
+    status: "in_progress",
+    startedAt: "2026-01-03T10:00:00.000Z",
+    completedAt: null,
+    exercises: [
+      {
+        ...session.exercises[0],
+        id: "we-current",
+        sets: [
+          {
+            ...set,
+            id: "s",
+            status: "pending",
+            actualValue: null,
+            actualLoadKg: null,
+          },
+        ],
+      },
+    ],
+  };
+  const catalog = {
+    list: async () => [
+      {
+        id: "exercise",
+        mechanics: "compound",
+        primaryMuscleGroups: ["Peitoral"],
+        equipment: ["Banco", "Barra"],
+      },
+      {
+        id: "unused",
+        mechanics: "isolation",
+        primaryMuscleGroups: [],
+        equipment: [],
+      },
+    ],
+  };
+  const [result] = await new SuggestWorkoutLoads(
+    repository([session]),
+    { getActive: async () => null },
+    catalog,
+  ).execute({ session: current, now: new Date("2026-01-03T10:30:00.000Z") });
+  // 8 x 60 kg (no RIR) -> e1RM 76; plan 8-10 @ RIR 2 assumed -> 9 reps -> 55.8.
+  assert.equal(result.kind, "from_history");
+  assert.equal(result.stepKg, 2.5);
+  assert.equal(result.workingLoadKg, 55);
+  assert.ok(result.reasons.includes("rir_assumed"));
+  assert.equal(result.warmUp.plan, "full");
+  assert.deepEqual(
+    result.warmUp.sets.map((item) => item.loadKg),
+    [20, 32.5, 42.5],
+  );
+  assert.deepEqual(
+    loadProfileFromCatalog({
+      mechanics: "isolation",
+      primaryMuscleGroups: ["Bíceps"],
+      equipment: ["Outro"],
+    }),
+    {
+      mechanics: "isolation",
+      primaryMuscleGroups: ["Bíceps"],
+      equipment: "other",
+    },
   );
 });

@@ -290,6 +290,10 @@ export function AppSessionProvider({ children }: PropsWithChildren) {
       if (!application) throw new Error("Backend não configurado.");
       return application.assessWorkoutSet.execute({ session, workoutSetId });
     },
+    suggestWorkoutLoads: async (session) => {
+      if (!application) throw new Error("Backend não configurado.");
+      return application.suggestWorkoutLoads.execute({ session });
+    },
     buildTrainingDossier: async () => {
       if (!application) throw new Error("Backend não configurado.");
       return application.buildTrainingDossier.execute();

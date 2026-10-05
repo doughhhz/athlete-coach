@@ -211,3 +211,7 @@ Próximas fases candidatas:
 Depois de cada série registrada, a tela de execução mostra a leitura do Personal, calculada só por código: comparação com o plano, com as séries anteriores do treino, com a mesma série nas sessões anteriores, média recente, tendência de força em 28 dias, recordes e carga da semana, mais a orientação da próxima série dentro das faixas aprovadas (ADR-0130). Sem migration, sem chamada de IA, sem mudança no Coach, nos prompts ou nas Edge Functions.
 
 Fora de escopo e ainda em aberto: um resumo com IA no fim do treino.
+
+## Implementation Phase 23 — Load and warm-up suggestion — complete
+
+Antes da 1ª série de cada exercício, o Personal sugere a carga de trabalho a partir do histórico do próprio exercício, já preenchida e editável, e uma lista de aquecimento que depende do tipo de exercício e dos grupos já trabalhados no treino. Tudo por código, sem IA, sem migration (ADR-0131).

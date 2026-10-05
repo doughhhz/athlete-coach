@@ -1398,3 +1398,43 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - o limite de 90% para "é o seu normal" e os limites de queda (20% e 50%) são parâmetros iniciais, a revisar com o uso real.
 - Fora de escopo: um resumo com IA no fim do treino, que ainda depende de decisão.
 - Afetados: `packages/domain/src/set-assessment/*`, `packages/domain/src/training/week-plan.ts` (`plannedTrainingDaysPerWeek`), `packages/application/src/performance/use-cases.ts`, a sessão do app, `apps/mobile/src/presentation/workouts/*` e o token de cor `warning`.
+
+### ADR-0131 — Deterministic working-load and warm-up suggestion
+
+- Data: 2026-10-05
+- Status: accepted
+- Contexto:
+  - O usuário pediu que, conforme o histórico cresce, o Personal sugira a carga da primeira série de cada exercício e as séries de aquecimento, com cargas e reps, a partir dos últimos treinos.
+  - O usuário aprovou três ajustes propostos:
+    - arredondar pelos incrementos que o atleta realmente usa;
+    - aquecimento conforme o tipo de exercício e o grupo muscular já aquecido;
+    - nenhuma estimativa entre exercícios diferentes; sem histórico, uma série de reconhecimento.
+  - Também aprovou duas escolhas: o aquecimento é só uma lista para marcar, e a carga sugerida já vem preenchida, editável.
+- Decisões:
+  1. `suggestWorkoutLoads` (`packages/domain/src/load-suggestion`, versão `load-suggestion-v1`) é uma função pura, sem IA. Para cada exercício contado em reps:
+     - **Carga prescrita** (`absolute`): a do programa prevalece (`prescribed`).
+     - **Com histórico do mesmo exercício** (`from_history`):
+       - usa o melhor 1RM estimado da sessão mais recente: Epley com repetições em reserva, `carga × (1 + (reps + RIR) / 30)`, aceito até reps + RIR ≤ 20;
+       - inverte para a 1ª série de hoje: reps = meio da faixa, arredondado para baixo; RIR = mínimo do plano, ou 2 quando o plano não define (hipótese);
+       - ajustes: −10% após 14 dias ou mais sem o exercício; subida limitada a +10% sobre a carga da 1ª série da última sessão; com a semana acima do plano, não sobe;
+       - arredonda ao incremento mais próximo, com empate para baixo.
+     - **Incremento:** o menor intervalo entre cargas distintas já registradas no exercício (entre 0,5 e 5 kg). Sem histórico, vale o padrão do equipamento (hipótese): barra 2,5; halter 1; máquina e cabo 2,5; kettlebell 4; outros 2,5.
+     - **Sem histórico:** `exploratory`, sem carga inventada. A orientação é começar com uma carga que daria umas 20 reps; depois a análise por série (ADR-0130) ajusta.
+     - **Peso corporal sem carga registrada:** `bodyweight`, sem card.
+  2. **Aquecimento** (hipótese de esquema, a revisar com o uso), calculado a partir da carga de trabalho:
+     - **Rampa completa**, para o primeiro exercício composto dos seus grupos musculares primários no treino: 40% × 10, 60% × 5, 80% × 3. Abaixo de 40 kg: 50% × 8, 75% × 4.
+     - **Uma série**: 60% × 6 para um composto cujo grupo já foi trabalhado antes no treino; 50% × 10 para um isolado de grupo ainda não trabalhado, com carga de 10 kg ou mais.
+     - **Nenhum** nos demais casos.
+     - Cargas arredondadas para baixo ao incremento. Nunca abaixo da barra vazia (20 kg) em exercícios com barra. Séries iguais ou mais pesadas que a carga de trabalho são descartadas.
+  3. O caso de uso `SuggestWorkoutLoads` combina histórico, programa ativo (dias planejados por semana) e catálogo:
+     - o catálogo dá o tipo de exercício (`mechanics`), os grupos musculares primários e o equipamento, pelo nome em português, em ordem de prioridade;
+     - o banco e outros acessórios não definem o incremento.
+  4. **Tela:** antes da 1ª série de cada exercício, um card "Sugestão do Personal" mostra a carga, o motivo e a lista de aquecimento.
+     - As marcações da lista ficam só na tela; o aquecimento não é registrado nem conta como volume.
+     - A carga sugerida preenche o campo KG da 1ª série e pode ser trocada.
+     - Uma falha ao calcular só esconde o card.
+- Fora de escopo:
+  - estimativa entre exercícios diferentes (possível no futuro como faixa conservadora, com aviso de baixa confiança);
+  - preencher as séries seguintes com a orientação da análise por série;
+  - registrar o aquecimento.
+- Afetados: `packages/domain/src/load-suggestion/*`, `packages/application/src/performance/load-suggestion.ts`, a sessão do app e `apps/mobile/src/presentation/workouts/*`.

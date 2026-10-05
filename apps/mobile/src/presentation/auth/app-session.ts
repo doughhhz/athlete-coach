@@ -27,6 +27,7 @@ import type {
   ExercisePersonalBest,
   SessionDerivedMetrics,
   SetAssessment,
+  ExerciseLoadSuggestion,
   AthleteTrainingDossier,
   CoachAnalysisMode,
   CoachAutonomyMode,
@@ -115,6 +116,10 @@ export type AppSessionValue = Readonly<{
     session: WorkoutSession,
     workoutSetId: string,
   ): Promise<SetAssessment | null>;
+  /** Working-load and warm-up suggestions (ADR-0131); no AI call. */
+  suggestWorkoutLoads(
+    session: WorkoutSession,
+  ): Promise<readonly ExerciseLoadSuggestion[]>;
   buildTrainingDossier(): Promise<AthleteTrainingDossier>;
   analyzeWithCoach(
     input: Readonly<{

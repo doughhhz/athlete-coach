@@ -17,3 +17,4 @@ export * from "./progression/progression.ts";
 export * from "./initial-program/initial-program.ts";
 export * from "./training/week-plan.ts";
 export * from "./set-assessment/set-assessment.ts";
+export * from "./load-suggestion/load-suggestion.ts";

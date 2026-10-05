@@ -38,6 +38,7 @@ import {
   GetExercisePersonalBests,
   GetWorkoutDerivedSummary,
   AssessWorkoutSet,
+  SuggestWorkoutLoads,
   BuildAthleteTrainingDossier,
   GetLongitudinalTrainingSignals,
   BuildInterventionOutcomes,
@@ -171,6 +172,11 @@ export function createMobileApplication(client: AthleteCoachSupabaseClient) {
     getExercisePersonalBests: new GetExercisePersonalBests(performance),
     getWorkoutDerivedSummary: new GetWorkoutDerivedSummary(performance),
     assessWorkoutSet: new AssessWorkoutSet(performance, programs),
+    suggestWorkoutLoads: new SuggestWorkoutLoads(
+      performance,
+      programs,
+      exerciseRepository,
+    ),
     buildTrainingDossier,
     getLongitudinalTrainingSignals: new GetLongitudinalTrainingSignals(
       buildTrainingDossier,

@@ -3,6 +3,8 @@ import {
   selectableWorkoutSetIds,
   workoutDurationSeconds,
   workoutSetProgress,
+  type ExerciseLoadSuggestion,
+  isExerciseUnstarted,
   type SetAssessment,
   type WorkoutExercise,
   type WorkoutSession,
@@ -40,13 +42,21 @@ import {
   RestCountdown,
   WorkoutSessionHeader,
 } from "./runner/runner-components";
+import { LoadSuggestionCard } from "./runner/load-suggestion-card";
 import { SetAssessmentCard } from "./runner/set-assessment-card";
 
 const bySequence = <T extends { sequence: number }>(items: readonly T[]) =>
   [...items].sort((a, b) => a.sequence - b.sequence);
 
-/** Values typed for a set: its own record, else the previous done set. */
-function initialValues(exercise: WorkoutExercise, set: WorkoutSet) {
+/**
+ * Values typed for a set: its own record, else the previous done set, else
+ * (first set) the Personal's suggested load (ADR-0131).
+ */
+function initialValues(
+  exercise: WorkoutExercise,
+  set: WorkoutSet,
+  suggestedLoadKg: number | null,
+) {
   const source =
     set.status === "completed"
       ? set
@@ -58,7 +68,9 @@ function initialValues(exercise: WorkoutExercise, set: WorkoutSet) {
           .at(-1);
   return {
     value: source?.actualValue?.toString() ?? "",
-    load: source?.actualLoadKg?.toString() ?? "",
+    load:
+      source?.actualLoadKg?.toString() ??
+      (source ? "" : (suggestedLoadKg?.toString() ?? "")),
     rir: source?.actualRir?.toString() ?? "",
   };
 }
@@ -68,11 +80,13 @@ function PerformedEditor({
   session,
   exercise,
   set,
+  suggestedLoadKg,
   onSaved,
 }: {
   session: WorkoutSession;
   exercise: WorkoutExercise;
   set: WorkoutSet;
+  suggestedLoadKg: number | null;
   /** The saved set id starts its rest timer; null = no timer. */
   onSaved(
     next: WorkoutSession,
@@ -82,7 +96,7 @@ function PerformedEditor({
 }) {
   const app = useAppSession(),
     { colors, typography } = useAppTheme();
-  const initial = initialValues(exercise, set);
+  const initial = initialValues(exercise, set, suggestedLoadKg);
   const [value, setValue] = useState(initial.value),
     [load, setLoad] = useState(initial.load),
     [rir, setRir] = useState(initial.rir),
@@ -204,13 +218,24 @@ export function WorkoutRunnerScreen() {
     ),
     [now, setNow] = useState(0),
     [assessment, setAssessment] = useState<SetAssessment | null>(null),
+    [suggestions, setSuggestions] = useState<
+      readonly ExerciseLoadSuggestion[] | null
+    >(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<string | null>(null);
   const latestAssessment = useRef<string | null>(null);
   useEffect(() => {
     app
       .getWorkout(id)
-      .then(setSession)
+      .then((loaded) => {
+        setSession(loaded);
+        // Suggestions are an extra: without them the runner works as before.
+        if (loaded?.status === "in_progress")
+          app
+            .suggestWorkoutLoads(loaded)
+            .then(setSuggestions)
+            .catch(() => setSuggestions([]));
+      })
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Erro ao carregar."),
       );
@@ -263,6 +288,11 @@ export function WorkoutRunnerScreen() {
       (item) =>
         item !== exercise && item.sets.some((x) => x.status === "pending"),
     );
+  const suggestion =
+    suggestions?.find((item) => item.workoutExerciseId === exercise?.id) ??
+    null;
+  const showSuggestion =
+    suggestion !== null && exercise !== null && isExerciseUnstarted(exercise);
   const restLeft = rest
     ? Math.max(0, rest.seconds - Math.floor((now - rest.startedAt) / 1000))
     : 0;
@@ -446,6 +476,12 @@ export function WorkoutRunnerScreen() {
               </Text>
             ) : null}
             <View style={[r.divider, { backgroundColor: colors.divider }]} />
+            {showSuggestion ? (
+              <LoadSuggestionCard
+                key={suggestion.workoutExerciseId}
+                suggestion={suggestion}
+              />
+            ) : null}
             <PlannedInfoGrid set={set} setCount={sets.length} />
             <View style={[r.divider, { backgroundColor: colors.divider }]} />
             <PerformedHeader
@@ -453,10 +489,12 @@ export function WorkoutRunnerScreen() {
               done={set.status === "completed"}
             />
             <PerformedEditor
-              key={set.id}
+              // Remounts once suggestions arrive so the first set is prefilled.
+              key={`${set.id}-${suggestions ? "s" : "n"}`}
               session={session}
               exercise={exercise}
               set={set}
+              suggestedLoadKg={showSuggestion ? suggestion.workingLoadKg : null}
               onSaved={apply}
             />
             {assessment &&
