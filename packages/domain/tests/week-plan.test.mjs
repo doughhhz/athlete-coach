@@ -237,3 +237,21 @@ test("weight goal rounding is symmetric (half away from zero)", async () => {
   assert.equal(weightGoalDifferenceKg(80, 80.04), 0);
   assert.equal(weightGoalDifferenceKg(80, 80), 0);
 });
+
+test("a workout left open on an earlier day is not today's workout", async () => {
+  const { startedToday } = await import("../src/index.ts");
+  // now = Wednesday 15:00 in São Paulo.
+  assert.equal(
+    startedToday({ startedAt: "2026-09-30T10:00:00Z" }, now, timeZone),
+    true,
+  );
+  // Tuesday 23:30 local (Wednesday 02:30 UTC) is still yesterday.
+  assert.equal(
+    startedToday({ startedAt: "2026-09-30T02:30:00Z" }, now, timeZone),
+    false,
+  );
+  assert.equal(
+    startedToday({ startedAt: "2026-09-25T12:00:00Z" }, now, timeZone),
+    false,
+  );
+});

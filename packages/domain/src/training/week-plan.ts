@@ -203,3 +203,18 @@ export function countRecentCompletedWorkouts(
       Date.parse(session.startedAt) <= now.getTime(),
   ).length;
 }
+
+/**
+ * Whether a workout started on the athlete's current local date. A workout
+ * left open on an earlier day does not replace today's plan (ADR-0127).
+ */
+export function startedToday(
+  session: Pick<WorkoutSession, "startedAt">,
+  now: Date,
+  timeZone: string,
+): boolean {
+  return (
+    iso(localDate(new Date(session.startedAt), timeZone)) ===
+    iso(localDate(now, timeZone))
+  );
+}

@@ -1301,3 +1301,14 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - O celular abre pelo Expo Go o link estável do canal, que sempre traz a última publicação.
   - Os builds E2E (`APP_VARIANT=e2e`) desligam as atualizações (`updates.enabled: false`), para rodar sempre o código do próprio build.
 - Limites: o app continua aparecendo dentro do Expo Go, não como um ícone próprio. Para ter um app próprio no iPhone, é preciso a conta Apple paga e um build de desenvolvimento ou de produção (TestFlight) — decisão futura do usuário.
+
+### ADR-0127 — A workout left open on an earlier day does not replace today's plan
+
+- Data: 2026-10-04
+- Status: accepted
+- Substitui a regra anterior das telas Treino e Hoje ("um treino em andamento sempre ocupa o cartão principal"), marcada como **superseded**.
+- Contexto: no domingo (dia de descanso), o cartão principal ainda mostrava "Continuar treino" de um treino aberto na sexta.
+- Decisões:
+  - Só um treino iniciado na **data local de hoje** (fuso do atleta, `startedToday`, no domínio) ocupa o cartão principal. Caso contrário, o cartão segue o plano de hoje: treino do dia ou descanso.
+  - Um treino aberto em outro dia aparece como aviso discreto ("Treino não finalizado"), que abre o treino para retomar ou encerrar. Nada é encerrado automaticamente.
+  - Como o banco devolve o treino aberto ao iniciar outro (`start_workout_session`), "Iniciar treino" com um treino anterior aberto pergunta antes: abrir o anterior, ou encerrá-lo e iniciar o de hoje. Encerrar usa o abandono existente: o que foi registrado fica salvo, com o treino marcado como encerrado sem conclusão.

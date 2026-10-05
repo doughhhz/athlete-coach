@@ -6,6 +6,7 @@ import {
   summarizeWeekPlan,
   weightGoalDifferenceKg,
   workoutExerciseProgress,
+  startedToday,
   type TrainingProgram,
   type WorkoutSession,
   type WorkoutSessionSummary,
@@ -14,6 +15,7 @@ import { useFocusEffect, useRouter, type Href } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -26,6 +28,7 @@ import { BrandHeader } from "@/presentation/components/brand-header";
 import { GradientButton } from "@/presentation/components/gradient-button";
 import { Entrance } from "@/presentation/components/motion";
 import { ScreenBackground } from "@/presentation/components/screen-background";
+import { OpenWorkoutNotice } from "@/presentation/training/open-workout-notice";
 import { useAppTheme } from "@/presentation/theme/use-app-theme";
 import {
   GreetingSection,
@@ -140,7 +143,13 @@ export function HomeScreen() {
   const highlighted = highlightedWeekPlanDay(week);
   const trainingDay = highlighted?.trainingDay ?? null;
   const weekSummary = summarizeWeekPlan(week);
-  const workout = data?.workout ?? null;
+  // Only a workout started today replaces today's plan (ADR-0127).
+  const openWorkout = data?.workout ?? null;
+  const workout =
+    openWorkout && startedToday(openWorkout, new Date(), timeZone)
+      ? openWorkout
+      : null;
+  const staleWorkout = openWorkout && !workout ? openWorkout : null;
   const goal = snapshot.activeGoal;
   const latest = snapshot.latestWeight;
   const difference = weightGoalDifferenceKg(
@@ -149,7 +158,39 @@ export function HomeScreen() {
   );
   const context = snapshot.trainingContext;
 
-  async function start(dayId: string) {
+  // The database returns the open workout when one exists: an earlier
+  // open workout must be ended first (its records stay saved, ADR-0127).
+  function start(dayId: string) {
+    if (!staleWorkout) return void begin(dayId);
+    Alert.alert(
+      "Treino anterior em aberto",
+      `O treino "${staleWorkout.dayName}" ainda não foi finalizado. Encerre-o para iniciar o de hoje; o que você registrou nele fica salvo.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Abrir treino anterior",
+          onPress: () => router.push(`/workouts/${staleWorkout.id}` as Href),
+        },
+        {
+          text: "Encerrar e iniciar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await app.abandonWorkout(staleWorkout.id);
+              await begin(dayId);
+            } catch (caught) {
+              setError(
+                caught instanceof Error
+                  ? caught.message
+                  : "Não foi possível encerrar o treino anterior.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  }
+  async function begin(dayId: string) {
     setStarting(true);
     setError(null);
     try {
@@ -296,7 +337,7 @@ export function HomeScreen() {
                   <GradientButton
                     label="Começar treino"
                     busy={starting}
-                    onPress={() => void start(trainingDay.id)}
+                    onPress={() => start(trainingDay.id)}
                     testID="home-start-workout"
                   />
                 }
@@ -330,6 +371,9 @@ export function HomeScreen() {
               />
             )}
           </Entrance>
+        ) : null}
+        {staleWorkout ? (
+          <OpenWorkoutNotice workout={staleWorkout} timeZone={timeZone} />
         ) : null}
 
         {stats.length ? (

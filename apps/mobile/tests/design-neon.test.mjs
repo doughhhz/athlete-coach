@@ -57,3 +57,13 @@ test("E2E anchors survive the redesign", () => {
   ])
     assert.ok(screen.includes(anchor), anchor);
 });
+
+test("only today's open workout replaces today's plan (ADR-0127)", async () => {
+  const home = await read("src/presentation/home/home-screen.tsx");
+  for (const source of [screen, home]) {
+    assert.match(source, /startedToday\(openWorkout, new Date\(\), timeZone\)/);
+    assert.match(source, /<OpenWorkoutNotice workout=\{staleWorkout\}/);
+    assert.match(source, /Encerrar e iniciar/);
+    assert.match(source, /app\.abandonWorkout\(staleWorkout\.id\)/);
+  }
+});
