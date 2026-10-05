@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { CoachProviderError, CreateTrainingProgramWithStructure, EnsureCurrentAthlete, GenerateInitialProgram, generateInitialProgramRequestSchema, InitialProgramBlockedError, InitialProgramInvalidError, LoadCurrentAthleteProfile, schemaIssuePaths } from "../../../packages/application/src/index.ts";
 import { InitialProgramUnavailableError } from "../../../packages/domain/src/index.ts";
-import { DeterministicCoachSafetyPolicy, GeminiHttpInitialProgramProvider } from "../../../packages/ai/src/index.ts";
+import { DeterministicCoachSafetyPolicy, GeminiHttpInitialProgramProvider, createRoutingFetch } from "../../../packages/ai/src/index.ts";
 import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseInitialProgramGenerationLog, SupabaseProgramCatalogReader, SupabaseProgramIntakeRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository } from "../../../packages/data-access/src/index.ts";
 
 // Implementation Phase 21 (ADR-0119): the Personal (or the basic template)
@@ -36,13 +36,16 @@ Deno.serve(async (request) => {
     await new EnsureCurrentAthlete(athletes).execute();
     const profile = new LoadCurrentAthleteProfile(athletes, new SupabaseAthleteProfileRepository(client), new SupabaseAthleteGoalRepository(client), new SupabaseTrainingContextRepository(client), new SupabaseBodyWeightRepository(client));
     const apiKey = Deno.env.get("GEMINI_API_KEY");
-    const providerConfig = { apiKey: apiKey ?? "", model: Deno.env.get("GEMINI_MODEL") ?? "gemini-3.5-flash-lite", fallbackModels: (Deno.env.get("GEMINI_FALLBACK_MODELS") ?? "gemini-3.6-flash,gemini-3.8-flash").split(","), temperature: Number(Deno.env.get("PROGRAM_TEMPERATURE") ?? "0.3"), timeoutMs: Number(Deno.env.get("PROGRAM_TIMEOUT_MS") ?? "55000"), maxOutputTokens: Number(Deno.env.get("PROGRAM_MAX_OUTPUT_TOKENS") ?? "16384") };
+    // ADR-0128: Nemotron (nvidia/...) via NVIDIA, Gemini via Google; one chain.
+    const nvidiaKey = Deno.env.get("NVIDIA_API_KEY"), aiConfigured = !!apiKey || !!nvidiaKey;
+    const aiFetch = createRoutingFetch({ nvidiaApiKey: nvidiaKey });
+    const providerConfig = { apiKey: apiKey ?? "", model: Deno.env.get("AI_MODEL") ?? Deno.env.get("GEMINI_MODEL") ?? "gemini-3.5-flash-lite", fallbackModels: (Deno.env.get("AI_FALLBACK_MODELS") ?? Deno.env.get("GEMINI_FALLBACK_MODELS") ?? "gemini-3.6-flash,gemini-3.8-flash").split(","), temperature: Number(Deno.env.get("PROGRAM_TEMPERATURE") ?? "0.3"), timeoutMs: Number(Deno.env.get("PROGRAM_TIMEOUT_MS") ?? "55000"), maxOutputTokens: Number(Deno.env.get("PROGRAM_MAX_OUTPUT_TOKENS") ?? "16384") };
     // Program creation uses the caller JWT (atomic RPC, RLS); only the audit uses the service role.
     const generate = new GenerateInitialProgram({
       profile,
       intakes: new SupabaseProgramIntakeRepository(client),
       catalog: new SupabaseProgramCatalogReader(client),
-      provider: apiKey ? new GeminiHttpInitialProgramProvider(providerConfig) : { generate: unavailableProvider },
+      provider: aiConfigured ? new GeminiHttpInitialProgramProvider(providerConfig, aiFetch) : { generate: unavailableProvider },
       safety: new DeterministicCoachSafetyPolicy(),
       create: new CreateTrainingProgramWithStructure(new SupabaseTrainingProgramRepository(client)),
       log: new SupabaseInitialProgramGenerationLog(createClient(url, service, { auth: { persistSession: false } }), auth.user.id),

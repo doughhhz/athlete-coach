@@ -7,8 +7,10 @@
 // Usage (PowerShell, key typed at runtime, only in this session):
 //   $env:NODE_OPTIONS="--use-system-ca"
 //   $env:GEMINI_API_KEY = Read-Host "GEMINI_API_KEY"
+//   $env:NVIDIA_API_KEY = Read-Host "NVIDIA_API_KEY"   (opcional, para modelos nvidia/...)
 //   node scripts/eval-initial-program.mjs [--rounds 1] [--models a,b] [--personas 1,2]
 //   Remove-Item Env:GEMINI_API_KEY
+//   Remove-Item Env:NVIDIA_API_KEY
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
@@ -21,6 +23,7 @@ import {
 import {
   DeterministicCoachSafetyPolicy,
   GeminiHttpInitialProgramProvider,
+  createRoutingFetch,
 } from "../packages/ai/src/index.ts";
 import { estimateSessionMinutes } from "../packages/domain/src/index.ts";
 
@@ -28,11 +31,17 @@ const argument = (name, fallback) => {
   const index = process.argv.indexOf(`--${name}`);
   return index >= 0 ? process.argv[index + 1] : fallback;
 };
-const apiKey = process.env.GEMINI_API_KEY?.trim();
-if (!apiKey) {
-  console.error("Defina GEMINI_API_KEY nesta sessao (veja o topo do arquivo).");
+// Gemini and/or NVIDIA (ADR-0128): "nvidia/..." models go to NVIDIA.
+const apiKey = process.env.GEMINI_API_KEY?.trim() ?? "";
+const nvidiaApiKey = process.env.NVIDIA_API_KEY?.trim();
+if (!apiKey && !nvidiaApiKey) {
+  console.error(
+    "Defina GEMINI_API_KEY e/ou NVIDIA_API_KEY nesta sessao (veja o topo do arquivo).",
+  );
   process.exit(1);
 }
+const aiFetch = (base = fetch) =>
+  createRoutingFetch({ nvidiaApiKey, baseFetch: base });
 const models = argument("models", "gemini-3.5-flash-lite").split(",");
 const rounds = Number(argument("rounds", "1"));
 
@@ -228,14 +237,17 @@ for (let round = 1; round <= rounds; round += 1)
           saveCurrent: async () => persona.intake,
         },
         catalog: { listForProgram: async () => catalog },
-        provider: new GeminiHttpInitialProgramProvider({
-          apiKey,
-          model,
-          fallbackModels: [],
-          temperature: 0.3,
-          timeoutMs: 60_000,
-          maxOutputTokens: 16_384,
-        }),
+        provider: new GeminiHttpInitialProgramProvider(
+          {
+            apiKey,
+            model,
+            fallbackModels: [],
+            temperature: 0.3,
+            timeoutMs: 60_000,
+            maxOutputTokens: 16_384,
+          },
+          aiFetch(),
+        ),
         safety: new DeterministicCoachSafetyPolicy(),
         create: new CreateTrainingProgramWithStructure({
           createWithStructure: async (input) => {

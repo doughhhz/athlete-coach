@@ -1312,3 +1312,30 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
   - Só um treino iniciado na **data local de hoje** (fuso do atleta, `startedToday`, no domínio) ocupa o cartão principal. Caso contrário, o cartão segue o plano de hoje: treino do dia ou descanso.
   - Um treino aberto em outro dia aparece como aviso discreto ("Treino não finalizado"), que abre o treino para retomar ou encerrar. Nada é encerrado automaticamente.
   - Como o banco devolve o treino aberto ao iniciar outro (`start_workout_session`), "Iniciar treino" com um treino anterior aberto pergunta antes: abrir o anterior, ou encerrá-lo e iniciar o de hoje. Encerrar usa o abandono existente: o que foi registrado fica salvo, com o treino marcado como encerrado sem conclusão.
+
+### ADR-0128 — NVIDIA Nemotron 3 Ultra as a second AI provider
+
+- Data: 2026-10-05
+- Status: accepted (integração); a troca do modelo padrão no projeto principal depende da avaliação
+- Contexto:
+  - O usuário propôs usar o Nemotron 3 Ultra (`nvidia/nemotron-3-ultra-550b-a55b`): modelo aberto da NVIDIA, MoE de 550B parâmetros (55B ativos), 1M de contexto, API compatível com OpenAI.
+  - A pesquisa encontrou estes riscos no acesso gratuito:
+    - os termos o restringem a pesquisa, desenvolvimento e experimentação (produção exige licença);
+    - a NVIDIA pode usar o conteúdo enviado, sem identificação, para melhorar seus produtos;
+    - o limite de uso é dinâmico (cerca de 40 req/min relatadas);
+    - houve relatos frequentes de "Resource Exhausted" entre julho e setembro de 2026.
+  - O usuário aceitou os termos para a fase de desenvolvimento.
+- Decisões:
+  1. **Transporte de roteamento** (`packages/ai/src/openai-compatible.ts`):
+     - os provedores continuam montando requisições no formato do Gemini;
+     - um modelo `nvidia/...` é enviado a `integrate.api.nvidia.com/v1/chat/completions` com `nvext.guided_json` (o JSON Schema da escada de schemas), `chat_template_kwargs.enable_thinking=false` e a resposta convertida para o formato do Gemini;
+     - os demais modelos vão ao Google sem mudança.
+     - Prompts, contratos, validação, grounding, Safety Gate e governança **não mudaram**.
+  2. **Uma única cadeia de modelos entre provedores** (ADR-0115): `AI_MODEL` e `AI_FALLBACK_MODELS` (os nomes `GEMINI_MODEL` e `GEMINI_FALLBACK_MODELS` continuam aceitos).
+     - Status 404, 429 e 5xx passam ao próximo modelo; 400 passa ao próximo degrau de schema.
+     - Sem `NVIDIA_API_KEY`, um modelo `nvidia/...` conta como indisponível e a cadeia segue para o Gemini.
+  3. Os metadados registram o provider real (`providerForModel`: `nvidia` ou `gemini`).
+  4. A chave fica apenas como segredo do Supabase (`NVIDIA_API_KEY`), cadastrada pelo usuário; nunca no app nem no repositório.
+- Configuração inicial:
+  - projeto E2E: `AI_MODEL=nvidia/nemotron-3-ultra-550b-a55b`, `AI_FALLBACK_MODELS=gemini-3.5-flash-lite,gemini-3.6-flash`;
+  - projeto principal: continua no Gemini até a avaliação, feita com os fluxos E2E e com os scripts `eval-*`, que agora aceitam `NVIDIA_API_KEY` e modelos `nvidia/...`.

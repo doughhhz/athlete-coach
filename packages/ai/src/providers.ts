@@ -17,6 +17,7 @@ import {
   COACH_PROMPT_VERSION,
   COACH_SYSTEM_PROMPT_V6,
 } from "./prompt.ts";
+import { providerForModel } from "./openai-compatible.ts";
 
 export type GeminiCoachConfiguration = Readonly<{
   apiKey: string;
@@ -401,7 +402,7 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
           dossierSchemaVersion: request.dossier.schemaVersion,
           promptVersion: COACH_PROMPT_VERSION,
           policyVersion: COACH_POLICY_VERSION,
-          provider: "gemini",
+          provider: providerForModel(model),
           model,
           inputTokens: usage?.promptTokenCount ?? null,
           outputTokens: usage?.candidatesTokenCount ?? null,
@@ -421,7 +422,7 @@ export class GeminiHttpCoachModelProvider implements CoachModelProvider {
         );
       return {
         analysis: validation.data,
-        provider: "gemini",
+        provider: providerForModel(model),
         model,
         inputTokens: usage?.promptTokenCount ?? null,
         outputTokens: usage?.candidatesTokenCount ?? null,

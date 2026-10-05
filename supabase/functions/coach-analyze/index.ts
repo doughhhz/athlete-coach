@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { AnalyzeAthleteWithCoach, AnalyzeAthleteWithCoachAndGovernance, CoachAnalysisRequestConflictError, PrepareConservativeAutoDraft, GenerateCoachProposal, analysisProgramFrom, coachAnalyzeRequestSchema, memoizeDossier, BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, BuildCoachDraftReviews, ListCoachDraftReviewHistory, CoachProviderError, EnsureCurrentAthlete, LoadCurrentAthleteProfile } from "../../../packages/application/src/index.ts";
-import { GeminiHttpCoachModelProvider, GeminiHttpCoachProposalProvider, DeterministicCoachSafetyPolicy } from "../../../packages/ai/src/index.ts";
+import { GeminiHttpCoachModelProvider, GeminiHttpCoachProposalProvider, DeterministicCoachSafetyPolicy, createRoutingFetch } from "../../../packages/ai/src/index.ts";
 import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachAnalysisRepository, SupabaseCoachDecisionRepository, SupabaseCoachPreferenceRepository, SupabaseExerciseCatalogRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
 
 const cors = { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type, x-client-info" };
@@ -30,6 +30,9 @@ Deno.serve(async (request) => {
     if (!parsed.success) return reply(400, { error: { code: "invalid_request", requestId } });
     const body = parsed.data;
     const apiKey = Deno.env.get("GEMINI_API_KEY"), service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    // ADR-0128: Nemotron (nvidia/...) via NVIDIA, Gemini via Google; one chain.
+    const nvidiaKey = Deno.env.get("NVIDIA_API_KEY"), aiConfigured = !!apiKey || !!nvidiaKey;
+    const aiFetch = createRoutingFetch({ nvidiaApiKey: nvidiaKey });
     if (!service) return reply(503, { error: { code: "coach_unavailable", requestId } });
     const athletes = new SupabaseAthleteRepository(client);
     await new EnsureCurrentAthlete(athletes).execute();
@@ -42,14 +45,14 @@ Deno.serve(async (request) => {
     const draftReviews = new ListCoachDraftReviewHistory(new BuildCoachDraftReviews(new SupabaseCoachDecisionRepository(client, auth.user.id), programs));
     // One dossier per request: provenance and the proactive proposal use the same evidence as the analysis.
     const dossier = memoizeDossier(new BuildAthleteTrainingDossier(profile, programs, new SupabaseWorkoutSessionRepository(client), performance, undefined, interventionContext, new GetExerciseReplacementCandidates(catalog), draftReviews));
-    const providerConfig = { apiKey: apiKey ?? "", model: Deno.env.get("GEMINI_MODEL") ?? "gemini-3.5-flash-lite", fallbackModels: (Deno.env.get("GEMINI_FALLBACK_MODELS") ?? "gemini-3.6-flash,gemini-3.8-flash").split(","), temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "60000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "8192") };
-    const analyze = new AnalyzeAthleteWithCoach(dossier, apiKey ? new GeminiHttpCoachModelProvider(providerConfig) : { analyze: unavailableProvider }, new DeterministicCoachSafetyPolicy(), () => requestId);
+    const providerConfig = { apiKey: apiKey ?? "", model: Deno.env.get("AI_MODEL") ?? Deno.env.get("GEMINI_MODEL") ?? "gemini-3.5-flash-lite", fallbackModels: (Deno.env.get("AI_FALLBACK_MODELS") ?? Deno.env.get("GEMINI_FALLBACK_MODELS") ?? "gemini-3.6-flash,gemini-3.8-flash").split(","), temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "60000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "8192") };
+    const analyze = new AnalyzeAthleteWithCoach(dossier, aiConfigured ? new GeminiHttpCoachModelProvider(providerConfig, aiFetch) : { analyze: unavailableProvider }, new DeterministicCoachSafetyPolicy(), () => requestId);
     // The service client is used only for backend-owned writes: the authoritative
     // analysis record and the governed ledger entry (never materialize/activate).
     const serviceClient = createClient(url, service, { auth: { persistSession: false } });
     const analyses = new SupabaseCoachAnalysisRepository(serviceClient, auth.user.id);
     const ledger = new SupabaseCoachDecisionRepository(serviceClient, auth.user.id);
-    const propose = new GenerateCoachProposal(dossier, programs, apiKey ? new GeminiHttpCoachProposalProvider(providerConfig) : { generate: unavailableProvider }, ledger, () => crypto.randomUUID());
+    const propose = new GenerateCoachProposal(dossier, programs, aiConfigured ? new GeminiHttpCoachProposalProvider(providerConfig, aiFetch) : { generate: unavailableProvider }, ledger, () => crypto.randomUUID());
     const userId = auth.user.id;
     const preferences = new SupabaseCoachPreferenceRepository(client);
     // Conservative Auto-Draft (Implementation Phase 16): server policy + persistent opt-in only;

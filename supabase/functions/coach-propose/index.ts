@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.117.1";
 import { BuildAthleteTrainingDossier, BuildInterventionContext, BuildInterventionOutcomes, GetExerciseReplacementCandidates, BuildCoachDraftReviews, ListCoachDraftReviewHistory, GenerateCoachProposal, schemaIssuePaths, GenerateCoachProposalForAnalysisRequest, CoachAnalysisNotFoundError, CoachProposalBlockedError, CoachProviderError, LoadCurrentAthleteProfile, StaleCoachAnalysisError, coachProposalRequestSchema } from "../../../packages/application/src/index.ts";
-import { GeminiHttpCoachProposalProvider } from "../../../packages/ai/src/index.ts";
+import { GeminiHttpCoachProposalProvider, createRoutingFetch } from "../../../packages/ai/src/index.ts";
 import { SupabaseAthleteGoalRepository, SupabaseAthleteProfileRepository, SupabaseAthleteRepository, SupabaseBodyWeightRepository, SupabaseCoachAnalysisRepository, SupabaseCoachDecisionRepository, SupabaseCoachPreferenceRepository, SupabaseExerciseCatalogRepository, SupabasePerformanceReadRepository, SupabaseTrainingContextRepository, SupabaseTrainingProgramRepository, SupabaseWorkoutSessionRepository } from "../../../packages/data-access/src/index.ts";
 const headers = { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type, x-client-info" };
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers });
@@ -22,6 +22,9 @@ Deno.serve(async (request) => {
     const { data: auth, error } = await userClient.auth.getUser();
     if (error || !auth.user) return reply(401, { error: { code: "unauthenticated", requestId } });
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), apiKey = Deno.env.get("GEMINI_API_KEY");
+    // ADR-0128: Nemotron (nvidia/...) via NVIDIA, Gemini via Google; one chain.
+    const nvidiaKey = Deno.env.get("NVIDIA_API_KEY"), aiConfigured = !!apiKey || !!nvidiaKey;
+    const aiFetch = createRoutingFetch({ nvidiaApiKey: nvidiaKey });
     if (!service) return reply(503, { error: { code: "coach_unavailable", requestId } });
     const rawBody = await request.text();
     if (new TextEncoder().encode(rawBody).byteLength > 4_096) return reply(413, { error: { code: "request_too_large", requestId } });
@@ -43,7 +46,7 @@ Deno.serve(async (request) => {
     const analyses = new SupabaseCoachAnalysisRepository(serviceClient, auth.user.id);
     const decisions = new SupabaseCoachDecisionRepository(serviceClient, auth.user.id);
     // Safety, existing-decision reuse and staleness are resolved before the provider is needed.
-    const provider = apiKey ? new GeminiHttpCoachProposalProvider({ apiKey, model: Deno.env.get("GEMINI_MODEL") ?? "gemini-3.5-flash-lite", fallbackModels: (Deno.env.get("GEMINI_FALLBACK_MODELS") ?? "gemini-3.6-flash,gemini-3.8-flash").split(","), temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "60000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "8192") }) : { generate: () => { throw new CoachProviderError("unavailable", "Provider not configured"); } };
+    const provider = aiConfigured ? new GeminiHttpCoachProposalProvider({ apiKey: apiKey ?? "", model: Deno.env.get("AI_MODEL") ?? Deno.env.get("GEMINI_MODEL") ?? "gemini-3.5-flash-lite", fallbackModels: (Deno.env.get("AI_FALLBACK_MODELS") ?? Deno.env.get("GEMINI_FALLBACK_MODELS") ?? "gemini-3.6-flash,gemini-3.8-flash").split(","), temperature: Number(Deno.env.get("COACH_TEMPERATURE") ?? "0.2"), timeoutMs: Number(Deno.env.get("COACH_TIMEOUT_MS") ?? "60000"), maxOutputTokens: Number(Deno.env.get("COACH_MAX_OUTPUT_TOKENS") ?? "8192") }, aiFetch) : { generate: () => { throw new CoachProviderError("unavailable", "Provider not configured"); } };
     const autonomyMode = await new SupabaseCoachPreferenceRepository(userClient).getAutonomyMode();
     const decision = await new GenerateCoachProposalForAnalysisRequest(analyses, new GenerateCoachProposal(dossier, programs, provider, decisions, () => requestId)).execute(body, { autonomyModeAtCreation: autonomyMode });
     outcome("log", decision

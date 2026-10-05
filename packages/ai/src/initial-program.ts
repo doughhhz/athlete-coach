@@ -15,6 +15,7 @@ import {
   withModelFallback,
   type GeminiCoachConfiguration,
 } from "./providers.ts";
+import { providerForModel } from "./openai-compatible.ts";
 
 /**
  * Derived from docs/11_PERSONAL_SPEC.md (personal-spec-v1, ADR-0119). A
@@ -144,7 +145,7 @@ export class GeminiHttpInitialProgramProvider implements InitialProgramProvider 
   ): Promise<InitialProgramProviderResult> {
     return withModelFallback(modelChain(this.config), async (model) => ({
       output: await this.generateWith(model, request, requestId),
-      provider: "gemini",
+      provider: providerForModel(model),
       model,
       promptVersion: INITIAL_PROGRAM_PROMPT_VERSION,
     }));

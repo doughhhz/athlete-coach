@@ -6,8 +6,10 @@
 //
 // Usage (PowerShell, key typed at runtime, only in this session):
 //   $env:GEMINI_API_KEY = Read-Host "GEMINI_API_KEY"
+//   $env:NVIDIA_API_KEY = Read-Host "NVIDIA_API_KEY"   (opcional, para modelos nvidia/...)
 //   node scripts/eval-coach-models.mjs [--rounds 3] [--models a,b,c]
 //   Remove-Item Env:GEMINI_API_KEY
+//   Remove-Item Env:NVIDIA_API_KEY
 import {
   AnalyzeAthleteWithCoach,
   CoachProviderError,
@@ -15,6 +17,7 @@ import {
 import {
   DeterministicCoachSafetyPolicy,
   GeminiHttpCoachModelProvider,
+  createRoutingFetch,
 } from "../packages/ai/src/index.ts";
 import { buildAthleteTrainingDossier } from "../packages/domain/src/index.ts";
 
@@ -22,11 +25,17 @@ const argument = (name, fallback) => {
   const index = process.argv.indexOf(`--${name}`);
   return index >= 0 ? process.argv[index + 1] : fallback;
 };
-const apiKey = process.env.GEMINI_API_KEY?.trim();
-if (!apiKey) {
-  console.error("Defina GEMINI_API_KEY nesta sessão (veja o topo do arquivo).");
+// Gemini and/or NVIDIA (ADR-0128): "nvidia/..." models go to NVIDIA.
+const apiKey = process.env.GEMINI_API_KEY?.trim() ?? "";
+const nvidiaApiKey = process.env.NVIDIA_API_KEY?.trim();
+if (!apiKey && !nvidiaApiKey) {
+  console.error(
+    "Defina GEMINI_API_KEY e/ou NVIDIA_API_KEY nesta sessao (veja o topo do arquivo).",
+  );
   process.exit(1);
 }
+const aiFetch = (base = fetch) =>
+  createRoutingFetch({ nvidiaApiKey, baseFetch: base });
 const models = argument(
   "models",
   "gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.1-pro-preview,gemini-pro-latest,gemini-2.5-pro",
@@ -167,7 +176,7 @@ for (const model of models) {
           timeoutMs: 60_000,
           maxOutputTokens: 8192,
         },
-        fetcher,
+        aiFetch(fetcher),
       );
       const analyze = new AnalyzeAthleteWithCoach(
         { execute: async () => dossier },
