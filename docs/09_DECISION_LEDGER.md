@@ -1316,7 +1316,7 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 ### ADR-0128 — NVIDIA Nemotron 3 Ultra as a second AI provider
 
 - Data: 2026-10-05
-- Status: accepted (integração); a troca do modelo padrão no projeto principal depende da avaliação
+- Status: accepted (integração); decisão 1 (campo `nvext.guided_json`) e configuração inicial do E2E superseded pela ADR-0129
 - Contexto:
   - O usuário propôs usar o Nemotron 3 Ultra (`nvidia/nemotron-3-ultra-550b-a55b`): modelo aberto da NVIDIA, MoE de 550B parâmetros (55B ativos), 1M de contexto, API compatível com OpenAI.
   - A pesquisa encontrou estes riscos no acesso gratuito:
@@ -1339,3 +1339,24 @@ Dossiê on-demand limita detalhes a 12 sessões e expõe truncamento. Evidência
 - Configuração inicial:
   - projeto E2E: `AI_MODEL=nvidia/nemotron-3-ultra-550b-a55b`, `AI_FALLBACK_MODELS=gemini-3.5-flash-lite,gemini-3.6-flash`;
   - projeto principal: continua no Gemini até a avaliação, feita com os fluxos E2E e com os scripts `eval-*`, que agora aceitam `NVIDIA_API_KEY` e modelos `nvidia/...`.
+
+### ADR-0129 — Nemotron evaluation: structured output via response_format; Gemini remains primary
+
+- Data: 2026-10-05
+- Status: accepted
+- Altera: ADR-0128, decisão 1 (campo de saída estruturada) e configuração inicial do projeto E2E.
+- Regra anterior (ADR-0128): o transporte enviava o JSON Schema em `nvext.guided_json`; o projeto E2E usava `AI_MODEL=nvidia/nemotron-3-ultra-550b-a55b`.
+- Evidências (avaliação no projeto E2E com a `NVIDIA_API_KEY` cadastrada; função temporária protegida por token, já removida; perfis sintéticos de `scripts/eval-fixtures.mjs`):
+  - a API hospedada rejeita `nvext.guided_json` com 400 ("unknown field"); toda chamada estruturada falhava antes de chegar ao modelo;
+  - `response_format: { type: "json_schema" }` é aceito;
+  - cerca de metade das chamadas recebeu 503 "Service temporarily overloaded", em qualquer formato de requisição;
+  - velocidade medida de cerca de 27 tokens/s, mesmo sem schema;
+  - análise do Coach: 2 de 3 válidas, em 67 s e 92 s (Gemini 3.5 Flash Lite: válida em 7 s);
+  - programa inicial: 0 de 4 (timeout de 110 s em todos); Gemini 3.5 Flash Lite: 4 de 4 válidos, em 5 a 16 s, sem reparo.
+- Decisões:
+  1. O transporte usa `response_format` (`json_schema`, nome `coach_output`) no lugar de `nvext.guided_json`.
+  2. Respostas 429/503 da NVIDIA são repetidas até 2 vezes (1 s e 2 s) antes de a cadeia seguir para o próximo modelo.
+  3. O Gemini continua como modelo principal nos dois projetos; os segredos `AI_MODEL` e `AI_FALLBACK_MODELS` do E2E foram removidos (valem os padrões do código).
+  4. O Nemotron continua integrado e pode ser reavaliado com os scripts `eval-*` quando houver acesso pago ou menos congestionado.
+- Afetados: `packages/ai/src/openai-compatible.ts`, `packages/ai/tests/openai-compatible.test.mjs`, configuração de segredos do projeto E2E.
+- ADR-0128, decisão 1 (campo `nvext.guided_json`), e sua configuração inicial do E2E: superseded por esta ADR.

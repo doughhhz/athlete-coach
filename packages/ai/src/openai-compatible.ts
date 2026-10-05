@@ -45,8 +45,16 @@ export function toNvidiaChatRequest(model: string, body: GeminiRequest) {
     stream: false,
     // Direct answers: the reasoning trace is off (latency, token budget).
     chat_template_kwargs: { enable_thinking: false },
-    // NIM structured generation: the output must follow the JSON Schema.
-    ...(schema ? { nvext: { guided_json: schema } } : {}),
+    // Structured output (OpenAI format): the hosted API rejects
+    // nvext.guided_json with 400 (measured 2026-10-05).
+    ...(schema
+      ? {
+          response_format: {
+            type: "json_schema",
+            json_schema: { name: "coach_output", schema },
+          },
+        }
+      : {}),
   };
 }
 
@@ -95,6 +103,8 @@ export function createRoutingFetch(
     nvidiaApiKey: string | undefined;
     baseFetch?: typeof fetch;
     nvidiaUrl?: string;
+    /** Waits before retrying a transient 429/503 (hosted API overload). */
+    overloadRetryDelaysMs?: readonly number[];
   }>,
 ): typeof fetch {
   const base = options.baseFetch ?? fetch;
@@ -110,9 +120,8 @@ export function createRoutingFetch(
         status: 404,
       });
     const body = JSON.parse(String(init?.body ?? "{}")) as GeminiRequest;
-    const response = await base(
-      options.nvidiaUrl ?? NVIDIA_CHAT_COMPLETIONS_URL,
-      {
+    const call = () =>
+      base(options.nvidiaUrl ?? NVIDIA_CHAT_COMPLETIONS_URL, {
         method: "POST",
         ...(init?.signal ? { signal: init.signal } : {}),
         headers: {
@@ -121,8 +130,17 @@ export function createRoutingFetch(
           authorization: `Bearer ${options.nvidiaApiKey}`,
         },
         body: JSON.stringify(toNvidiaChatRequest(model, body)),
-      },
-    );
+      });
+    // The free hosted API answers "Service temporarily overloaded" often:
+    // a short retry before the chain moves on to the next model.
+    let response = await call();
+    for (const delay of options.overloadRetryDelaysMs ?? [1_000, 2_000]) {
+      if (response.status !== 429 && response.status !== 503) break;
+      if (init?.signal?.aborted) break;
+      await response.body?.cancel();
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      response = await call();
+    }
     if (!response.ok)
       return new Response(await response.text(), { status: response.status });
     return new Response(

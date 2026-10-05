@@ -26,6 +26,7 @@ import {
   createRoutingFetch,
 } from "../packages/ai/src/index.ts";
 import { estimateSessionMinutes } from "../packages/domain/src/index.ts";
+import { initialProgramPersonas } from "./eval-fixtures.mjs";
 
 const argument = (name, fallback) => {
   const index = process.argv.indexOf(`--${name}`);
@@ -87,123 +88,7 @@ const catalog = [...seed.matchAll(exercisePattern)].map(
 if (catalog.length < 30)
   throw new Error(`Catalogo inesperado: ${catalog.length}`);
 
-const base = {
-  athlete: {
-    id: "athlete",
-    userId: "user",
-    onboardingCompletedAt: "2026-09-01T00:00:00Z",
-  },
-  profile: {
-    athleteId: "athlete",
-    birthDate: "1990-06-15",
-    heightCm: 178,
-    preferredName: "Atleta",
-    timezone: "America/Sao_Paulo",
-  },
-  latestWeight: {
-    athleteId: "athlete",
-    id: "w",
-    measuredAt: "2026-09-01T00:00:00Z",
-    source: "manual",
-    weightKg: 82,
-  },
-};
-const goal = (goalType, notes = null) => ({
-  athleteId: "athlete",
-  goalType,
-  id: "goal",
-  notes,
-  startedAt: "2026-09-01T00:00:00Z",
-  targetWeightKg: null,
-});
-const context = (change) => ({
-  athleteId: "athlete",
-  averageSleepMinutes: 420,
-  constraintsNotes: null,
-  preferredSessionDurationMinutes: 60,
-  preferencesNotes: null,
-  recentTrainingConsistency: "consistent",
-  resistanceTrainingMonths: 12,
-  routineSummary: "Trabalho em escritorio, treino depois das 18h",
-  trainingEnvironment: "commercial_gym",
-  ...change,
-});
-const intake = (change = {}) => ({
-  athleteId: "athlete",
-  currentPainOrInjury: false,
-  painOrInjuryNotes: null,
-  medicalExerciseRestriction: false,
-  preferredExercisesNotes: null,
-  avoidedExercisesNotes: null,
-  otherSportsNotes: null,
-  availableEquipment: null,
-  updatedAt: "2026-10-01T00:00:00Z",
-  ...change,
-});
-const personas = [
-  {
-    name: "1 iniciante hipertrofia academia 3d/60min",
-    snapshot: {
-      ...base,
-      activeGoal: goal("hypertrophy"),
-      trainingContext: context({ resistanceTrainingMonths: 2 }),
-      availableWeekdays: [1, 3, 5],
-    },
-    intake: intake({ preferredExercisesNotes: "Gosto de supino e remada" }),
-  },
-  {
-    name: "2 recomecando emagrecimento casa 4d/45min joelho",
-    snapshot: {
-      ...base,
-      activeGoal: goal("fat_loss"),
-      trainingContext: context({
-        resistanceTrainingMonths: 30,
-        recentTrainingConsistency: "restarting",
-        preferredSessionDurationMinutes: 45,
-        trainingEnvironment: "home_gym",
-      }),
-      availableWeekdays: [1, 2, 4, 5],
-    },
-    intake: intake({
-      currentPainOrInjury: true,
-      painOrInjuryNotes:
-        "Joelho direito sensivel em agachamento profundo, sem dor no dia a dia",
-      otherSportsNotes: "Corrida leve aos domingos",
-    }),
-  },
-  {
-    name: "3 avancado forca academia 5d/90min futebol",
-    snapshot: {
-      ...base,
-      activeGoal: goal("strength", "Quero melhorar agachamento e supino"),
-      trainingContext: context({
-        resistanceTrainingMonths: 60,
-        preferredSessionDurationMinutes: 90,
-      }),
-      availableWeekdays: [1, 2, 3, 4, 5, 6],
-    },
-    intake: intake({
-      avoidedExercisesNotes: "Leg press",
-      otherSportsNotes: "Futebol aos sabados",
-    }),
-  },
-  {
-    name: "4 62 anos condicionamento 2d/30min",
-    snapshot: {
-      ...base,
-      profile: { ...base.profile, birthDate: "1964-03-10" },
-      activeGoal: goal("general_fitness"),
-      trainingContext: context({
-        resistanceTrainingMonths: 0,
-        recentTrainingConsistency: "irregular",
-        preferredSessionDurationMinutes: 30,
-        averageSleepMinutes: 360,
-      }),
-      availableWeekdays: [2, 4],
-    },
-    intake: intake(),
-  },
-];
+const personas = initialProgramPersonas();
 const selected = argument(
   "personas",
   personas.map((_, index) => index + 1).join(","),

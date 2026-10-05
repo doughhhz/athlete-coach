@@ -42,7 +42,13 @@ test("Gemini request becomes an OpenAI-compatible NVIDIA request", () => {
     max_tokens: 900,
     stream: false,
     chat_template_kwargs: { enable_thinking: false },
-    nvext: { guided_json: geminiBody.generationConfig.responseJsonSchema },
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "coach_output",
+        schema: geminiBody.generationConfig.responseJsonSchema,
+      },
+    },
   });
 });
 
@@ -114,6 +120,7 @@ test("routing: statuses pass through; a missing key behaves as unavailable", asy
     createRoutingFetch({
       nvidiaApiKey: "k",
       baseFetch: async () => new Response("busy", { status: code }),
+      overloadRetryDelaysMs: [],
     });
   assert.equal(
     (await status(429)(geminiUrl(NEMOTRON), { method: "POST", body: "{}" }))
@@ -158,12 +165,41 @@ test("end to end: Nemotron overloaded, the chain falls back to Gemini", async ()
       maxOutputTokens: 100,
       retryDelaysMs: [],
     },
-    createRoutingFetch({ nvidiaApiKey: "k", baseFetch: base }),
+    createRoutingFetch({
+      nvidiaApiKey: "k",
+      baseFetch: base,
+      overloadRetryDelaysMs: [0],
+    }),
   );
   // Gemini answered (malformed here): proves the fallback reached it.
   await assert.rejects(
     () => provider.analyze({ dossier: { schemaVersion: "x" } }, "r"),
     (error) => error.code === "invalid_response",
   );
-  assert.deepEqual(seen, ["nvidia", "gemini"]);
+  assert.deepEqual(seen, ["nvidia", "nvidia", "gemini"]);
+});
+
+test("routing: a transient NVIDIA overload is retried before falling back", async () => {
+  const statuses = [503, 429, 200];
+  const routed = createRoutingFetch({
+    nvidiaApiKey: "k",
+    overloadRetryDelaysMs: [0, 0],
+    baseFetch: async () => {
+      const code = statuses.shift();
+      return code === 200
+        ? new Response(
+            JSON.stringify({
+              choices: [{ message: { content: "{}" }, finish_reason: "stop" }],
+            }),
+            { status: 200 },
+          )
+        : new Response("overloaded", { status: code });
+    },
+  });
+  const response = await routed(geminiUrl(NEMOTRON), {
+    method: "POST",
+    body: "{}",
+  });
+  assert.equal(response.status, 200);
+  assert.equal(statuses.length, 0);
 });
